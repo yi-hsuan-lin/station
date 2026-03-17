@@ -158,12 +158,15 @@
                 zoomDelta: 0.1,   // 每次縮放變化的幅度
                 wheelPxPerZoomLevel: 120 // 調整滾輪靈敏度 (數值越大越慢/越精確)
                 }).setView([23.7, 121.0], 8);
+
+            map.on('zoomend', () => drawMap(currentFilter));
+
             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© CartoDB' }).addTo(map);
             if (geojsonData.type) {
             L.geoJSON(geojsonData, {
                 style: { color: '#404040', weight: 0.5, fillOpacity: 0.05, fillColor: '#f8fafc' }
             }).addTo(map);
-        }
+            }
             markerLayer = L.layerGroup().addTo(map);
             lineLayer = L.layerGroup().addTo(map);
             buildSidebar();
@@ -385,28 +388,49 @@
 
         // --- 關鍵修正：確保區域中心在聚焦模式下不消失 ---
         function drawMap(filter = null) {
-            markerLayer.clearLayers(); lineLayer.clearLayers();
-            const showCenter = document.getElementById('layerCenter').checked;
-            const showHub = document.getElementById('layerHub').checked;
-            const showAuto = document.getElementById('layerAuto').checked;
-            const showAutoHubLink = document.getElementById('linkAutoHub').checked;
-            const showHubRegLink = document.getElementById('linkHubReg').checked;
-            const showLabels = document.getElementById('showLabels').checked; // 新增這行
+            if (!map || typeof map.getZoom !== 'function') return;
+            markerLayer.clearLayers(); 
+            lineLayer.clearLayers();
+            // 2. 獲取當前縮放層級 (修復 zoom 未定義問題)
+            const zoom = map.getZoom(); // 每次繪製時重新抓取當前縮放層級
+
+            // 🚀 關鍵判斷：目前的清單是否屬於「署屬站」？
+            // 如果 filter 是空的 (全台視圖)，預設為 true 以維持正常顯示
+            let isCWA = true;
+            if (filter && filter.length > 0) {
+                // 檢查清單中是否有任何一個站屬於「署屬站」
+                isCWA = filter.some(st => st.main_cat === "署屬站");
+            }
+            // A. 取得 UI 控制狀態
+            // 如果不是署屬站，我們強制將區域中心與中繼站的「顯示權限」設為 false
+            const showCenter = isCWA ? document.getElementById('layerCenter').checked : false;
+            const showHub    = isCWA ? document.getElementById('layerHub').checked : false;
+            // 如果不是署屬站，則自動站「強制顯示」
+            const showAuto   = isCWA ? document.getElementById('layerAuto').checked : true;
+            
+            // 連線同樣受到署屬站身份限制
+            const showLinkAH = isCWA ? document.getElementById('linkAutoHub').checked : false;
+            const showLinkHR = isCWA ? document.getElementById('linkHubReg').checked : false;
+            
+            const showLabels = document.getElementById('showLabels').checked;
             
             // 核心改動：如果正在聚焦特定子集 (filter)，我們強制把所有區域中心補進去
+            // 如果沒傳 filter，就顯示全部；有傳 filter，就只顯示 filter 的內容
             let listToProcess = filter ? [...filter] : Object.values(allStations);
-            if (filter && showCenter) {
+            if (isCWA && filter && showCenter) {
                 Object.values(allStations).forEach(st => {
                     if (st.is_reg_center && !listToProcess.includes(st)) listToProcess.push(st);
                 });
             }
 
             listToProcess.forEach(st => {
-                let radius, color, fillColor, weight, opacity, visible = false;
+                let  color, fillColor, weight, opacity, visible = false;
+                let dynamicRadius; // 改用不同的變數名稱避免衝突
                 
                 // 1. 修改「區域中心站」 (Regional Center)
                 if (st.is_reg_center) {
-                    radius = 7;            // 圓圈大小
+                    //radius = 7;            // 圓圈大小
+                    dynamicRadius = 7 + (zoom - 8) * 2;
                     //color = '#ffffff';     // 外框顏色 (現在是白色)
                     color = '#f6e05e';     // 外框顏色 (現在是黃色)
                     fillColor = '#38a169'; // 圓心顏色 (綠色)
@@ -416,41 +440,86 @@
                     
                 // 2. 修改「中繼站」 (Repeater / Hub)
                 } else if (st.is_hub) {
-                    radius = 4.5; color = '#fff'; fillColor = '#e53e3e'; weight = 1.5; opacity = 0.9;
+                    dynamicRadius = 4.5 + (zoom - 8) * 1.5; 
+                    color = '#fff'; fillColor = '#e53e3e'; weight = 1.5; opacity = 0.9;
                     if(showHub) visible = true;
                     
                 // 3. 修改「自動站」 (Automatic Station)
                 } else {
-                    radius = 1.8; color = '#fff'; fillColor = '#4299e1'; weight = 0.5; opacity = 0.6;
+                    // 自動站：縮放 < 10 時隱藏以保證流暢度
+                    dynamicRadius = 3.8 + (zoom - 10) * 0.8;
+                    color = '#fff'; fillColor = '#4299e1'; weight = 0.5; opacity = 0.6;
                     if(showAuto) visible = true;
                 }
 
                 if (visible) {
-                    const m = L.circleMarker([st.lat, st.lon], { radius, color, fillColor, fillOpacity: opacity, weight }).addTo(markerLayer);
+                    // 🚀 核心優化：讓半徑跟隨縮放倍率調整
+                    // 基本邏輯：基礎值 + (目前縮放 - 初始縮放) * 增量
+
+                    const m = L.circleMarker([st.lat, st.lon], {
+                        radius: Math.max(1, dynamicRadius), // 確保半徑不為負數
+                        color: color,
+                        fillColor: st.is_reg_center ? '#38a169' : (st.is_hub ? '#e53e3e' : '#4299e1'),
+                        color: st.is_reg_center ? '#f6e05e' : '#fff', 
+                        weight: 1.5 + (zoom - 8) * 0.2, // 甚至連邊框都可以稍微加粗
+                        fillOpacity: 0.8
+                    }).addTo(markerLayer);
                     m.bindPopup(`
                         <div style="min-width:280px;"><b style="font-size:15px; color:#2d3748;">${st.n}</b><hr style="border:0; border-top:1px solid #edf2f7; margin:8px 0;">
                         <table class="info-table"><tr><th>區域站</th><td>${st.reg}</td></tr><tr><th>站碼</th><td>${st.cwbid}</td></tr><tr><th>座標</th><td>${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}</td></tr><tr><th>地址</th><td>${st.addr}</td></tr></table></div>
                     `);
                 }
 
-                if (showAutoHubLink && st.repid && allStations[st.repid]) {
+                
+                // 繪製連線 (嚴格限制在 isCWA 為 true 時)
+                if (isCWA && showLinkAH && st.repid && allStations[st.repid]) {
                     L.polyline([[st.lat, st.lon], [allStations[st.repid].lat, allStations[st.repid].lon]], { color: '#e53e3e', weight: 1, opacity: 0.35, dashArray: '4,4' }).addTo(lineLayer);
                 }
-                if (showHubRegLink && st.is_hub && (!st.repid || !allStations[st.repid])) {
+                if (isCWA && showLinkHR && st.is_hub && (!st.repid || !allStations[st.repid])) {
                     const center = regionalCenters[st.folder];
                     if (center) L.polyline([[st.lat, st.lon], [center.lat, center.lon]], { color: '#38a169', weight: 1.8, opacity: 0.5, dashArray: '8,8' }).addTo(lineLayer);
                 }
             });
         }
 
-        function focusMainCat(mKey) { const nodes = []; Object.values(treeData[mKey]).forEach(s => Object.values(s).forEach(f => f.forEach(n => nodes.push(...getAll(n))))); drawMap(nodes); if(nodes.length > 0) map.fitBounds(L.latLngBounds(nodes.map(s=>[s.lat, s.lon])), {padding:[50,50]}); }
-        function focusGroupList(nodes) { const all = nodes.flatMap(n => getAll(n)); drawMap(all); if(all.length > 0) map.fitBounds(L.latLngBounds(all.map(s=>[s.lat, s.lon])), {padding:[40,40]}); }
+        function focusMainCat(mKey) { 
+            const nodes = []; 
+            // 取得該大類下所有的站點
+            Object.values(treeData[mKey]).forEach(sub => {
+            Object.values(sub).forEach(folder => {
+                folder.forEach(n => nodes.push(...getAll(n)));
+            });
+        }); 
+            // 🚀 關鍵修正：更新全域過濾器狀態
+            currentFilter = nodes;
+            // 🚀 新增：立刻重新繪製地圖點位
+            drawMap(currentFilter);
+
+            if (nodes.length > 0) {
+                const bounds = L.latLngBounds(nodes.map(s => [s.lat, s.lon]));
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }   
+        }
+        function focusGroupList(nodes) { 
+            const all = nodes.flatMap(n => getAll(n));
+            // 🚀 關鍵修正：更新全域過濾器狀態
+            currentFilter = all; 
+            drawMap(currentFilter); 
+            if (all.length > 0) {
+                const bounds = L.latLngBounds(all.map(s => [s.lat, s.lon]));
+                map.fitBounds(bounds, { padding: [40, 40] });
+            } 
+        }
         function focusGroup(n) { const g = getAll(n); drawMap(g); map.fitBounds(L.latLngBounds(g.map(s=>[s.lat, s.lon])), {padding:[40,40]}); }
         function getAll(node, list = []) { list.push(node); if(node.children) node.children.forEach(c => getAll(c, list)); return list; }
         function focusPoint(st) { map.setView([st.lat, st.lon], 14); markerLayer.eachLayer(m => { if(m.getLatLng && m.getLatLng().lat === st.lat) m.openPopup(); }); }
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); setTimeout(() => map.invalidateSize(), 350); }
         function collapseAll() { document.querySelectorAll('#treeView details').forEach(d => d.open = false); document.querySelectorAll('.st-item').forEach(el => el.classList.remove('active-highlight')); }
-        function resetMap() { drawMap(); map.setView([23.7, 121.0], 8); }
+        function resetMap() { 
+            currentFilter = null; // 🚀 清空過濾器，代表顯示全部
+            drawMap(); 
+            map.setView([23.7, 121.0], 8); 
+        }
 
 
         window.onload = loadDataAndInit;
