@@ -190,47 +190,39 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
-            // 🚀【終極大招：動態毫秒級快取破壞者】
-            // 每次重新整理，此處都會產生一串完全不同的超級大數字（例如：1717320005123）
             const currentTimeStamp = new Date().getTime(); 
 
-            // 1. 強迫地圖物件載入帶有「動態毫秒編號」的全新網址
+            // 1. 先抓到你的原始地圖物件
             const mapObj = document.getElementById('mapObject');
-            const uniqueSvgUrl = "Taiwan_CityTown_hoverCityTown.svg?v=" + currentTimeStamp;
-            mapObj.setAttribute('data', uniqueSvgUrl);
 
-            // 2. 異步讀取 JSON 數據（同樣綁定相同的動態編號）
+            // 2. 異步讀取 JSON 數據
             fetch('countyNum.json?v=' + currentTimeStamp)
                 .then(res => res.json())
                 .then(data => {
                     weatherData = data;
 
-                    // 🔄 歸零計數器，準備重新計算
+                    // 🔄 歸零計數器
                     chartData.wind = [0, 0, 0, 0, 0];
                     chartData.rain = [0, 0, 0, 0, 0];
 
                     let tableHtml = "";
 
-                    // 遍歷 JSON 裡的所有鄉鎮，動態計算級距數量與表格資料
                     for (const key in data) {
                         const wc = data[key].wind;
                         const rc = data[key].rain;
 
-                        // 分類風速級距
                         if (wc === 0) chartData.wind[0]++;
                         else if (wc === 1) chartData.wind[1]++;
                         else if (wc === 2) chartData.wind[2]++;
                         else if (wc === 3) chartData.wind[3]++;
                         else chartData.wind[4]++;
 
-                        // 分類雨量級距
                         if (rc === 0) chartData.rain[0]++;
                         else if (rc === 1) chartData.rain[1]++;
                         else if (rc === 2) chartData.rain[2]++;
                         else if (rc === 3) chartData.rain[3]++;
                         else chartData.rain[4]++;
 
-                        // 動態拼裝表格行
                         let city = key.substring(0, 3);
                         let town = key.substring(3);
                         let wBadge = wc === 0 ? '<span class="badge bg-danger">0 站</span>' : `${wc} 站`;
@@ -244,24 +236,27 @@
                         </tr>`;
                     }
 
-                    // 填入表格資料
                     document.getElementById('tableBody').innerHTML = tableHtml;
 
-                    // 初始化表格套件
+                    // 初始化表格
                     dataTableInstance = new DataTable("#statTable", {
                         searchable: true, perPage: 10, perPageSelect: [10, 20, 50, 368],
                         labels: { placeholder: "🔍 搜尋...", perPage: "顯示 {select} 筆", noRows: "查無相符資料", info: "顯示第 {start} 至 {end} 筆，共 {rows} 筆" }
                     });
 
-                    // 🎨 渲染右側長條圖
+                    // 🎨 渲染長條圖
                     renderChart('wind');
                     
-                    // 著色監聽
-                    if (mapObj.contentDocument && mapObj.contentDocument.readyState === 'complete') {
+                    // 🔄【著色監聽保障一】 如果地圖檔案是慢慢下載的，等它好立刻著色
+                    mapObj.addEventListener('load', renderMapColors);
+
+                    // 🚀【著色監聽保障二：300毫秒防呆核彈】
+                    // 不管地圖下載完了沒，在資料載入後的 0.3 秒，強迫網頁在背景自動幫你點擊、刷新一次地圖！
+                    // 這樣一來，全天下所有因為「載入時間差」而變灰色的手機，都會在 0.3 秒後自動亮起正確的顏色！
+                    setTimeout(() => {
                         renderMapColors();
-                    } else {
-                        mapObj.addEventListener('load', renderMapColors);
-                    }
+                    }, 300);
+
                 })
                 .catch(err => console.error("讀取 countyNum.json 失敗:", err));
         });
