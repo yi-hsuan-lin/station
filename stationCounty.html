@@ -189,7 +189,7 @@
             // 🛠️ 修正：將原本錯誤的單斜線改為標準雙斜線 //，加入強制清除快取，並透過 JS 動態畫出表格
             // 核心異步載入：先抓取 JSON，再等地圖檔案加載完成後著色
             // 網頁載入時，異步讀取 JSON 數據
-            fetch('stats.json?v=' + new Date().getTime())
+            fetch('countyNum.json?v=' + new Date().getTime())
                 .then(res => res.json())
                 .then(data => {
                     weatherData = data;
