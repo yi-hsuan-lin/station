@@ -190,13 +190,17 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
-            // 🚀【強力刷新地圖快取機制】
+            // 🚀【終極大招：動態毫秒級快取破壞者】
+            // 每次重新整理，此處都會產生一串完全不同的超級大數字（例如：1717320005123）
+            const currentTimeStamp = new Date().getTime(); 
+
+            // 1. 強迫地圖物件載入帶有「動態毫秒編號」的全新網址
             const mapObj = document.getElementById('mapObject');
-            const uniqueSvgUrl = "Taiwan_CityTown_hoverCityTown.svg?v=" + new Date().getTime();
+            const uniqueSvgUrl = "Taiwan_CityTown_hoverCityTown.svg?v=" + currentTimeStamp;
             mapObj.setAttribute('data', uniqueSvgUrl);
 
-            // 2. 異步讀取 JSON 數據（同樣加上時間戳記）
-            fetch('countyNum.json?v=' + new Date().getTime())
+            // 2. 異步讀取 JSON 數據（同樣綁定相同的動態編號）
+            fetch('countyNum.json?v=' + currentTimeStamp)
                 .then(res => res.json())
                 .then(data => {
                     weatherData = data;
@@ -243,8 +247,7 @@
                     // 填入表格資料
                     document.getElementById('tableBody').innerHTML = tableHtml;
 
-                    // ✨【關鍵修正】：必須等上方資料完全填入 DOM 之後，才能初始化 DataTable
-                    // 這樣「顯示幾筆」、分頁、搜尋等互動功能才會完全正常運作！
+                    // 初始化表格套件
                     dataTableInstance = new DataTable("#statTable", {
                         searchable: true, perPage: 10, perPageSelect: [10, 20, 50, 368],
                         labels: { placeholder: "🔍 搜尋...", perPage: "顯示 {select} 筆", noRows: "查無相符資料", info: "顯示第 {start} 至 {end} 筆，共 {rows} 筆" }
