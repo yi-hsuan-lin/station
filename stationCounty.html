@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>全台鄉鎮自動站數量統計數據儀表板</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/vanilla-datatables@latest/dist/vanilla-dataTables.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/vanilla-datatables@latest/dist/vanilla-dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #f3f4f6; font-family: "Microsoft JhengHei", sans-serif; }
+        .card { border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-radius: 12px; margin-bottom: 24px; }
+        /* 利用 object 標籤加載外部地圖，確保原封不動顯示 */
+        #mapObject { width: 100%; height: 500px; }
+        .legend-box { display: inline-block; width: 18px; height: 18px; margin-right: 6px; vertical-align: middle; border-radius: 4px; }
+        #tooltip { position: absolute; background: rgba(0,0,0,0.85); color: #fff; padding: 8px 12px; border-radius: 6px; display: none; pointer-events: none; font-size: 14px; box-shadow: 0 4px 8px rgba(0,0,0,0.3); z-index: 9999; }
+    </style>
+</head>
+<body>
+    <div id="tooltip"></div>
+    <div class="container-fluid px-5 py-4">
+        <div class="row mb-4 align-items-center">
+            <div class="col-md-8">
+                <h2 class="fw-bold text-dark m-0">🗺️ 全台鄉鎮自動站地理資訊分析儀表板</h2>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-primary px-4 fw-bold active" onclick="switchMode('wind', this)">🌬️ 風速分佈</button>
+                    <button type="button" class="btn btn-primary px-4 fw-bold" onclick="switchMode('rain', this)">🌧️ 雨量分佈</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-5">
+                <div class="card p-4 text-center">
+                    <h5 class="fw-bold text-secondary mb-3 text-start" id="mapTitle">🌬️ 風速觀測站地理覆蓋警戒雷達</h5>
+                    
+                    <object id="mapObject" data="Taiwan_CityTown_hoverCityTown.svg" type="image/svg+xml"></object>
+                    
+                    <div class="mt-3 text-center border-top pt-3">
+                        <span class="me-3"><span class="legend-box" style="background:red;"></span>0 站</span>
+                        <span class="me-3"><span class="legend-box" style="background:orange;"></span>1 站</span>
+                        <span class="me-3"><span class="legend-box" style="background:gold;"></span>2 站</span>
+                        <span class="me-3"><span class="legend-box" style="background:aquamarine;"></span>3 站</span>
+                        <span><span class="legend-box" style="background:lightcyan;"></span>4 站以上</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-7">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card p-4" style="height: 260px;">
+                            <h5 class="fw-bold text-secondary mb-2" id="chartTitle">風速站數級距統計</h5>
+                            <canvas id="dashboardChart" style="max-height: 180px;"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="card p-4">
+                            <h5 class="fw-bold text-secondary mb-3">📋 各鄉鎮全數據核對清單</h5>
+                            <table class="table table-striped table-hover align-middle" id="statTable">
+                                <thead>
+                                    <tr>
+                                        <th>縣市</th>
+                                        <th>鄉鎮市區</th>
+                                        <th>風速站數 ⇅</th>
+                                        <th>雨量站數 ⇅</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = 'wind';
+        let chartInstance = null;
+        let weatherData = null; // 用來存放從 stats.json 讀進來的數據
+
+        // 宣告一個全域變數，用來存放計算後的圖表 5 柱數據
+        let chartData = {
+            wind: [0, 0, 0, 0, 0], // 依序代表 0站, 1站, 2站, 3站, 4站以上
+            rain: [0, 0, 0, 0, 0]
+        };
+
+        // 🎨 完全保留你原本的「紅、橘、黃、水綠、冰藍」五段配色
+        function getFillColor(count) {
+            if (count === 0) return "#FF0000"; // 🔴 紅色
+            if (count === 1) return "#FFA500"; // 🟠 橙色
+            if (count === 2) return "#FFD700"; // 🟡 黃色
+            if (count === 3) return "#7FFFD4"; // 🟢 水綠色
+            return "#E0FFFF";                  // 🔵 冰藍色 (4站以上)
+        }
+
+        // 核心功能：讀取 JSON 數據並幫地圖著色
+        function renderMapColors() {
+            const mapObj = document.getElementById('mapObject');
+            const svgDoc = mapObj.contentDocument; // 抓取外部 SVG 的內部 DOM
+            if (!svgDoc || !weatherData) return;
+
+            // 遍歷 SVG 內所有帶有 id 屬性的元素（包含 path 或 ns0:path）
+            const paths = svgDoc.querySelectorAll('[id]');
+            paths.forEach(path => {
+                let townId = path.getAttribute('id');
+                // 統一台與臺的字元
+                if (townId) townId = townId.replace(/台/g, '臺');
+
+                if (weatherData[townId]) {
+                    const count = weatherData[townId][currentMode];
+                    const color = getFillColor(count);
+                    
+                    // 1. 強制改變填色
+                    path.style.fill = color;
+                    
+                    // 2. 移除原生文字干擾
+                    const titles = path.querySelectorAll('title');
+                    titles.forEach(t => t.remove());
+
+                    // 3. 設定滑鼠互動特效
+                    path.style.pointerEvents = 'visible';
+                    path.style.cursor = 'pointer';
+                    path.style.transition = 'fill 0.2s, stroke 0.2s, stroke-width 0.2s';
+
+                    path.addEventListener('mousemove', (e) => {
+                        const tooltip = document.getElementById('tooltip');
+                        const label = currentMode === 'wind' ? '🌬️ 風速站數' : '🌧️ 雨量站數';
+                        tooltip.innerHTML = `<b>${townId}</b><br>${label}：${count} 站`;
+                        tooltip.style.display = 'block';
+                        
+                        // 修正因為 iframe 產生的滑鼠坐標偏移
+                        const rect = mapObj.getBoundingClientRect();
+                        tooltip.style.left = (rect.left + window.scrollX + e.clientX + 15) + 'px';
+                        tooltip.style.top = (rect.top + window.scrollY + e.clientY + 15) + 'px';
+                        
+                        path.style.stroke = '#000000';
+                        path.style.strokeWidth = '2px';
+                    });
+
+                    path.addEventListener('mouseleave', () => {
+                        document.getElementById('tooltip').style.display = 'none';
+                        path.style.stroke = '#c6c6c6'; // 恢復原圖灰線邊框
+                        path.style.strokeWidth = '1px';
+                    });
+                }
+            });
+        }
+
+        function renderChart(mode) {
+            const ctx = document.getElementById('dashboardChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+            
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['0 站', '1 站', '2 站', '3 站', '4 站以上'], // 5個標籤
+                    datasets: [{
+                        data: chartData[mode], // 這裡會自動帶入上面計算好的 5 柱數據
+                        backgroundColor: ['#FF0000', '#FFA500', '#FFD700', '#7FFFD4', '#E0FFFF'], // 完全保留原配色
+                        borderRadius: 6
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+        }
+
+        // 📢 完全保留你原本的切換標題名稱
+        function switchMode(mode, btn) {
+            currentMode = mode;
+            document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            if(mode === 'wind') {
+                document.getElementById('mapTitle').innerText = '🌬️ 風速觀測站地理覆蓋警戒雷達';
+                document.getElementById('chartTitle').innerText = '風速站數級距統計';
+            } else {
+                document.getElementById('mapTitle').innerText = '🌧️ 雨量觀測站地理覆蓋警戒雷達';
+                document.getElementById('chartTitle').innerText = '雨量站數級距統計';
+            }
+            renderChart(mode);
+            renderMapColors(); // 切換時地圖同步變色
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            // 🛠️ 修正：將原本錯誤的單斜線改為標準雙斜線 //，加入強制清除快取，並透過 JS 動態畫出表格
+            // 核心異步載入：先抓取 JSON，再等地圖檔案加載完成後著色
+            // 網頁載入時，異步讀取 JSON 數據
+            fetch('stats.json?v=' + new Date().getTime())
+                .then(res => res.json())
+                .then(data => {
+                    weatherData = data;
+
+                    // 🔄 歸零計數器，準備重新計算
+                    chartData.wind = [0, 0, 0, 0, 0];
+                    chartData.rain = [0, 0, 0, 0, 0];
+
+                    let tableHtml = "";
+
+                    // 遍歷 JSON 裡的所有鄉鎮，動態計算級距數量與表格資料
+                    for (const key in data) {
+                        const wc = data[key].wind;
+                        const rc = data[key].rain;
+
+                        // 分類風速級距
+                        if (wc === 0) chartData.wind[0]++;
+                        else if (wc === 1) chartData.wind[1]++;
+                        else if (wc === 2) chartData.wind[2]++;
+                        else if (wc === 3) chartData.wind[3]++;
+                        else chartData.wind[4]++;
+
+                        // 分類雨量級距
+                        if (rc === 0) chartData.rain[0]++;
+                        else if (rc === 1) chartData.rain[1]++;
+                        else if (rc === 2) chartData.rain[2]++;
+                        else if (rc === 3) chartData.rain[3]++;
+                        else chartData.rain[4]++;
+
+                        // 動態拼裝表格行 (配合過濾後的最新資料)
+                        let city = key.substring(0, 3);
+                        let town = key.substring(3);
+                        let wBadge = wc === 0 ? '<span class="badge bg-danger">0 站</span>' : `${wc} 站`;
+                        let rBadge = rc === 0 ? '<span class="badge bg-danger">0 站</span>' : `${rc} 站`;
+
+                        tableHtml += `<tr>
+                            <td>${city}</td>
+                            <td>${town}</td>
+                            <td data-order="${wc}">${wBadge}</td>
+                            <td data-order="${rc}">${rBadge}</td>
+                        </tr>`;
+                    }
+
+                    // 填入表格資料
+                    document.getElementById('tableBody').innerHTML = tableHtml;
+
+                    // 初始化表格套件
+                    new DataTable("#statTable", {
+                        searchable: true, perPage: 10, perPageSelect: [10, 20, 50, 368],
+                        labels: { placeholder: "🔍 搜尋...", perPage: "顯示 {select} 筆", noRows: "查無相符資料", info: "顯示第 {start} 至 {end} 筆，共 {rows} 筆" }
+                    });
+
+                    // 🎨 渲染圖表與地圖
+                    renderChart('wind');
+                    
+                    const mapObj = document.getElementById('mapObject');
+                    if (mapObj.contentDocument && mapObj.contentDocument.readyState === 'complete') {
+                        renderMapColors();
+                    } else {
+                        mapObj.addEventListener('load', renderMapColors);
+                    }
+                })
+                .catch(err => console.error("讀取 stats.json 失敗:", err));
+        });
+    </script>
+</body>
+</html>
