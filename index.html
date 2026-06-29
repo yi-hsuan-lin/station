@@ -152,6 +152,7 @@
                     <hr style="border:0; border-top:1.5px solid #edf2f7; margin:10px 0;">
                     <label><input type="checkbox" id="linkAutoHub" checked onchange="drawMap()"> <span style="color:var(--hub-color); opacity:0.6;">---</span> 自動站-中繼站</label>
                     <label><input type="checkbox" id="linkHubReg" checked onchange="drawMap()"> <span style="color:var(--reg-color); opacity:0.8;">---</span> 中繼站-區域站</label>
+                    <label><input type="checkbox" id="linkAutoReg" checked onchange="drawMap()"> <span style="color:var(--active-blue); opacity:0.8;">- - -</span> 自動站-區域站</label>
                 </div>
             </details>
         </div>
@@ -205,6 +206,21 @@
                 style: { color: '#404040', weight: 0.5, fillOpacity: 0.05, fillColor: '#f8fafc' }
             }).addTo(map);
             }
+
+            // 🚀 關鍵新增：阻斷圖層控制盒的事件穿透，防止誤觸雙擊放大與滾輪縮放
+            const mapControls = document.querySelector('.map-controls');
+            if (mapControls) {
+                L.DomEvent.disableClickPropagation(mapControls);
+                L.DomEvent.disableScrollPropagation(mapControls);
+            }
+
+            // 🚀 關鍵新增：點擊地圖空白處時，自動解除點選聚焦，恢復正常顏色
+            map.on('click', function () {
+                if (highlightedStation) {
+                    highlightedStation = null;
+                    drawMap(currentFilter); // 重新繪製地圖，讓所有站點亮起來
+                }
+            });
             lineCenterLayer  = L.layerGroup().addTo(map);  // 最底：中繼站-區域站連線
             lineAutoHubLayer = L.layerGroup().addTo(map);  // 自動站-中繼站連線
             autoLayer        = L.layerGroup().addTo(map);  // 自動站
@@ -308,24 +324,42 @@
             const bounds = map.getBounds();
             const size = map.getSize();
             const w = size.x, h = size.y;
-
-            // 1. 自動讀取目前地圖的名標籤狀態，不需依賴舊勾選框
             const zoom = map.getZoom();
+            const isFocused = !!highlightedStation;
+
+            // 1. 讀取標籤狀態
             const effCenter = labelState.Center === null ? (zoom >= 7)  : labelState.Center;
             const effHub    = labelState.Hub    === null ? (zoom >= 10) : labelState.Hub;
             const effAuto   = labelState.Auto   === null ? false        : labelState.Auto;
+            const _allowAuto = zoom > 10 || isFocused;
 
-            // 讀取 UI 的連線與圖層開關狀態
-            const showHub = document.getElementById('layerHub').checked;
-            const showCenter = document.getElementById('layerCenter').checked;
-            const showAuto = document.getElementById('layerAuto').checked;
-            const showLinkAH = document.getElementById('linkAutoHub').checked; 
-            const showLinkHR = document.getElementById('linkHubReg').checked;  
+            // 2. 🚀 完全同步 drawMap 的圖層鎖定邏輯與狀態
+            let allowLayerControl = true;
+            if (currentFilter && currentFilter.length > 0) {
+                allowLayerControl = currentFilter.some(st => st.sub_cat === "區域站");
+            }
+
+            const showCenter = allowLayerControl ? document.getElementById('layerCenter').checked : false;
+            const showHub    = allowLayerControl ? document.getElementById('layerHub').checked : false;
+            const showAuto   = allowLayerControl ? document.getElementById('layerAuto').checked : true;
+            
+            const showLinkAH = allowLayerControl ? document.getElementById('linkAutoHub').checked : false;
+            const showLinkHR = allowLayerControl ? document.getElementById('linkHubReg').checked : false;
+            const showLinkAR = allowLayerControl ? document.getElementById('linkAutoReg').checked : false;
+
+            // 3. 🚀 完全同步 drawMap 的篩選清單
+            let listToProcess = currentFilter ? [...currentFilter] : Object.values(allStations);
+            if (allowLayerControl && currentFilter && showCenter) {
+                Object.values(allStations).forEach(st => {
+                    if (st.is_reg_center && !listToProcess.includes(st)) listToProcess.push(st);
+                });
+            }
 
             let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`;
             svg += `<rect width="100%" height="100%" fill="white" />`;
 
             const getPos = (lat, lon) => map.latLngToContainerPoint([lat, lon]);
+            const _w = 1.5 + (zoom - 8) * 0.2; // 邊框粗細
 
             // 繪製 GeoJSON 海岸線
             if (geojsonData.features) {
@@ -341,48 +375,78 @@
                 });
             }
 
-            // 繪製連線
-            Object.values(allStations).forEach(st => {
-                if (bounds.contains([st.lat, st.lon])) {
-                    const p1 = getPos(st.lat, st.lon);
-                    if (showLinkAH && st.repid && allStations[st.repid]) {
-                        const p2 = getPos(allStations[st.repid].lat, allStations[st.repid].lon);
-                        svg += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#e53e3e" stroke-width="1" stroke-dasharray="4,4" opacity="0.4" />`;
+            // 4. 🚀 繪製連線 (完全同步 drawMap 的樣式與聚焦判斷)
+            listToProcess.forEach(st => {
+                if (!bounds.contains([st.lat, st.lon])) return;
+                const inG = isInGroup(st);
+                const p1 = getPos(st.lat, st.lon);
+
+                // A. 中繼站-區域中心 (綠色長虛線)
+                if (allowLayerControl && showLinkHR && st.is_hub && (!st.repid || !allStations[st.repid])) {
+                    const center = regionalCenters[st.folder];
+                    if (center) {
+                        const p2 = getPos(center.lat, center.lon);
+                        const cColor = inG ? '#38a169' : '#d4d4d4';
+                        const cOpac  = inG ? 0.5 : 0.08;
+                        svg += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${cColor}" stroke-width="1.8" stroke-dasharray="8,8" opacity="${cOpac}" />`;
                     }
-                    if (showLinkHR && st.is_hub && (!st.repid || !allStations[st.repid])) {
-                        const center = regionalCenters[st.folder];
-                        if (center) {
-                            const p2 = getPos(center.lat, center.lon);
-                            svg += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#38a169" stroke-width="1.5" stroke-dasharray="8,8" opacity="0.6" />`;
-                        }
+                }
+
+                // B. 直連自動站-區域中心 (藍色短虛線)
+                if (allowLayerControl && showLinkAR && (!st.is_hub && !st.is_reg_center) && (!st.repid || !allStations[st.repid])) {
+                    const center = regionalCenters[st.folder];
+                    if (center) {
+                        const p2 = getPos(center.lat, center.lon);
+                        const isCurrentCenterLine = highlightedStation && highlightedStation.is_reg_center && (st.folder === highlightedStation.folder);
+                        const cColor = inG ? '#3182ce' : '#d4d4d4';
+                        const cWeight = isCurrentCenterLine ? 1.2 : 1.2;
+                        const cDash = isCurrentCenterLine ? '0' : '2,4';
+                        const cOpac = inG ? (isCurrentCenterLine ? 0.85 : 0.4) : 0.08;
+                        svg += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${cColor}" stroke-width="${cWeight}" stroke-dasharray="${cDash}" opacity="${cOpac}" />`;
                     }
+                }
+
+                // C. 自動站-中繼站 (紅色點線)
+                if (allowLayerControl && showLinkAH && st.repid && allStations[st.repid]) {
+                    const p2 = getPos(allStations[st.repid].lat, allStations[st.repid].lon);
+                    const isCurrentHubLine = highlightedStation && highlightedStation.is_hub && (st.repid === highlightedStation.rid);
+                    const cColor = inG ? '#e53e3e' : '#d4d4d4';
+                    const cWeight = isCurrentHubLine ? 1.2 : 1.2;
+                    const cOpac = isCurrentHubLine ? 0.85 : (inG ? 0.35 : 0.08);
+                    svg += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${cColor}" stroke-width="${cWeight}" stroke-dasharray="4,4" opacity="${cOpac}" />`;
                 }
             });
 
-            // 繪製測站與站名文字
-            Object.values(allStations).forEach(st => {
-                if (bounds.contains([st.lat, st.lon])) {
-                    let isVis = (st.is_reg_center && showCenter) || (st.is_hub && showHub) || (!st.is_reg_center && !st.is_hub && showAuto);
-                    if (isVis) {
-                        const p = getPos(st.lat, st.lon);
-                        let color = st.is_reg_center ? "#38a169" : (st.is_hub ? "#e53e3e" : "#4299e1");
-                        svg += `<circle cx="${p.x}" cy="${p.y}" r="${st.is_reg_center?6:st.is_hub?4:2}" fill="${color}" stroke="white" stroke-width="1" />`;
-                        
-                        // 2. 完美的同步邏輯：根據畫面當前的顯示規則決定是否輸出文字
-                        const inG = isInGroup(st);
-                        let printName = false;
-                        
-                        if (st.is_reg_center && inG && effCenter) printName = true;
-                        if (st.is_hub && inG && effHub) printName = true;
-                        if (!st.is_reg_center && !st.is_hub) {
-                            if ((highlightedStation && inG) || (inG && effAuto && zoom > 10)) {
-                                printName = true;
-                            }
-                        }
+            // 5. 🚀 繪製測站與站名文字 (同步 drawMap 樣式，包含淡化效果)
+            listToProcess.forEach(st => {
+                if (!bounds.contains([st.lat, st.lon])) return;
+                const inG = isInGroup(st);
+                
+                let isVis = false;
+                if (st.is_reg_center && showCenter) isVis = true;
+                if (st.is_hub && showHub) isVis = true;
+                if (!st.is_reg_center && !st.is_hub && showAuto) isVis = true;
 
-                        if (printName) {
-                            svg += `<text x="${p.x+8}" y="${p.y+4}" font-family="Arial" font-size="10" font-weight="bold" fill="#1a202c">${st.n}</text>`;
-                        }
+                if (isVis) {
+                    const p = getPos(st.lat, st.lon);
+                    let color, r;
+                    if (st.is_reg_center) { color = inG ? "#38a169" : "#d4d4d4"; r = Math.max(1, 7 + (zoom - 8) * 2); }
+                    else if (st.is_hub) { color = inG ? "#e53e3e" : "#d4d4d4"; r = Math.max(1, 4.5 + (zoom - 8) * 1.5); }
+                    else { color = inG ? "#4299e1" : "#d4d4d4"; r = Math.max(1, 3.8 + (zoom - 10) * 0.8); }
+
+                    let fillOpac = inG ? 0.8 : 0.08;
+                    let strokeColor = st.is_reg_center && inG ? "#f6e05e" : (inG ? "#ffffff" : "#d4d4d4");
+
+                    svg += `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${color}" stroke="${strokeColor}" stroke-width="${_w}" fill-opacity="${fillOpac}" />`;
+                    
+                    // 🚀 拔除原本的強制顯示，同步 drawMap 乾淨的邏輯
+                    let printName = false;
+                    if (st.is_reg_center && inG && effCenter) printName = true;
+                    if (st.is_hub && inG && effHub) printName = true;
+                    if (!st.is_reg_center && !st.is_hub && inG && effAuto && _allowAuto) printName = true;
+
+                    if (printName) {
+                        svg += `<text x="${p.x+8}" y="${p.y+4}" font-family="Arial" font-size="10" font-weight="bold" fill="#1a202c">${st.n}</text>`;
                     }
                 }
             });
@@ -447,15 +511,16 @@
             autoLayer.clearLayers();
             lineAutoHubLayer.clearLayers();
             lineCenterLayer.clearLayers();
-            // 2. 獲取當前縮放層級 (修復 zoom 未定義問題)
-            const zoom = map.getZoom(); // 每次繪製時重新抓取當前縮放層級
-            const bounds = map.getBounds(); // 目前地圖可視範圍
-            // 計算有效標籤狀態（null=跟隨自動邏輯, true=強制顯示, false=強制隱藏）
+
+            const zoom = map.getZoom(); 
+            const isFocused = !!highlightedStation; 
+            const bounds = map.getBounds(); 
+
             const effCenter = labelState.Center === null ? (zoom >= 7)  : labelState.Center;
             const effHub    = labelState.Hub    === null ? (zoom >= 10) : labelState.Hub;
-            const effAuto   = labelState.Auto   === null ? false        : labelState.Auto;
-            // 同步三個「名」按鈕的啟用狀態與外觀
-            const _allowAuto = zoom > 10;
+            const effAuto   = labelState.Auto   === null ? isFocused    : labelState.Auto;
+
+            const _allowAuto = zoom > 10 || isFocused;
             const _btnC = document.getElementById('nameBtnCenter');
             const _btnH = document.getElementById('nameBtnHub');
             const _btnA = document.getElementById('nameBtnAuto');
@@ -464,31 +529,61 @@
             if (_btnA) {
                 _btnA.disabled = !_allowAuto;
                 _btnA.title = _allowAuto ? '顯示/隱藏站名' : '請放大至縣市層級（zoom > 10）才可啟用';
-                _btnA.classList.toggle('active', _allowAuto && effAuto);
+                _btnA.classList.toggle('active', effAuto); 
             }
 
-            // 🚀 關鍵判斷：目前的清單是否屬於「署屬站」？
-            // 如果 filter 是空的 (全台視圖)，預設為 true 以維持正常顯示
-            let isCWA = true;
-            if (filter && filter.length > 0) {
-                // 檢查清單中是否有任何一個站屬於「署屬站」
-                isCWA = filter.some(st => st.main_cat === "署屬站");
+            // 🚀 修正 1：先決定要處理的清單！確保點擊 checkbox 時能讀取到 currentFilter
+            let listToProcess = filter ? [...filter] : (currentFilter ? [...currentFilter] : Object.values(allStations));
+
+            // 🚀 修正 2：根據確定的清單來判斷是否解鎖圖層控制
+            let allowLayerControl = true;
+            if (listToProcess && listToProcess.length > 0) {
+                allowLayerControl = listToProcess.some(st => st.sub_cat === "區域站");
             }
+
             // A. 取得 UI 控制狀態
-            // 如果不是署屬站，我們強制將區域中心與中繼站的「顯示權限」設為 false
-            const showCenter = isCWA ? document.getElementById('layerCenter').checked : false;
-            const showHub    = isCWA ? document.getElementById('layerHub').checked : false;
-            // 如果不是署屬站，則自動站「強制顯示」
-            const showAuto   = isCWA ? document.getElementById('layerAuto').checked : true;
+            const showCenter = allowLayerControl ? document.getElementById('layerCenter').checked : false;
+            const showHub    = allowLayerControl ? document.getElementById('layerHub').checked : false;
+            const showAuto   = allowLayerControl ? document.getElementById('layerAuto').checked : true;
             
-            // 連線同樣受到署屬站身份限制
-            const showLinkAH = isCWA ? document.getElementById('linkAutoHub').checked : false;
-            const showLinkHR = isCWA ? document.getElementById('linkHubReg').checked : false;
+            const showLinkAH = allowLayerControl ? document.getElementById('linkAutoHub').checked : false;
+            const showLinkHR = allowLayerControl ? document.getElementById('linkHubReg').checked : false;
+            const showLinkAR = allowLayerControl ? document.getElementById('linkAutoReg').checked : false; 
             
-            // 核心改動：如果正在聚焦特定子集 (filter)，我們強制把所有區域中心補進去
-            // 如果沒傳 filter，就顯示全部；有傳 filter，就只顯示 filter 的內容
-            let listToProcess = filter ? [...filter] : Object.values(allStations);
-            if (isCWA && filter && showCenter) {
+            // UI 狀態同步
+            const elementsToToggle = [
+                { id: 'layerCenter', parent: true },
+                { id: 'layerHub', parent: true },
+                { id: 'linkAutoHub', parent: true },
+                { id: 'linkHubReg', parent: true },
+                { id: 'linkAutoReg', parent: true },
+                { id: 'nameBtnCenter', parent: false },
+                { id: 'nameBtnHub', parent: false }
+            ];
+
+            elementsToToggle.forEach(item => {
+                const el = document.getElementById(item.id);
+                if (el) {
+                    el.disabled = !allowLayerControl;
+                    if (item.parent && el.parentElement) {
+                        el.parentElement.style.opacity = allowLayerControl ? "1" : "0.5";
+                        el.parentElement.style.cursor = allowLayerControl ? "pointer" : "not-allowed";
+                    }
+                }
+            });
+
+            const autoInput = document.getElementById('layerAuto');
+            if (autoInput) {
+                autoInput.disabled = !allowLayerControl;
+                if (!allowLayerControl) autoInput.checked = true; 
+                if (autoInput.parentElement) {
+                    autoInput.parentElement.style.opacity = allowLayerControl ? "1" : "0.5";
+                    autoInput.parentElement.style.cursor = allowLayerControl ? "pointer" : "not-allowed";
+                }
+            }
+
+            // 🚀 修正 3：補回區域中心的判斷，改用 (filter || currentFilter) 確保點擊勾選框時中心站不會消失
+            if (allowLayerControl && (filter || currentFilter) && showCenter) {
                 Object.values(allStations).forEach(st => {
                     if (st.is_reg_center && !listToProcess.includes(st)) listToProcess.push(st);
                 });
@@ -496,25 +591,27 @@
 
             // ★ 分 5 Pass 繪製，確保 SVG 疊圖順序正確 ★
 
-            // 消耗本次 drawMap 要自動開啟 popup 的目標站
             const _openPopupFor = pendingPopupStation;
             pendingPopupStation = null;
 
-            // 預先計算各區域中心/中繼站的轄下統計（供 popup 顯示）
-            // 區域中心以 folder(字串) 為 key，避免 regionalCenters 與 allStations 物件參考不同造成 Map miss
-            const _centerCnt = {}; // folder → { hubs, autos }
-            const _hubCnt = new Map(); // hub 物件 → { autos }
+            const _centerCnt = {}; 
+            const _hubCnt = new Map(); 
             Object.values(allStations).forEach(s => {
                 if (s.is_hub && s.folder) {
                     if (!_centerCnt[s.folder]) _centerCnt[s.folder] = { hubs: 0, autos: 0 };
                     _centerCnt[s.folder].hubs++;
-                } else if (!s.is_reg_center && !s.is_hub && s.repid && allStations[s.repid]) {
-                    const hub = allStations[s.repid];
-                    if (!_hubCnt.has(hub)) _hubCnt.set(hub, { autos: 0 });
-                    _hubCnt.get(hub).autos++;
-                    if (hub.folder) {
-                        if (!_centerCnt[hub.folder]) _centerCnt[hub.folder] = { hubs: 0, autos: 0 };
-                        _centerCnt[hub.folder].autos++;
+                } else if (!s.is_reg_center && !s.is_hub) {
+                    if (s.repid && allStations[s.repid]) {
+                        const hub = allStations[s.repid];
+                        if (!_hubCnt.has(hub)) _hubCnt.set(hub, { autos: 0 });
+                        _hubCnt.get(hub).autos++;
+                        if (hub.folder) {
+                            if (!_centerCnt[hub.folder]) _centerCnt[hub.folder] = { hubs: 0, autos: 0 };
+                            _centerCnt[hub.folder].autos++;
+                        }
+                    } else if (s.folder) {
+                        if (!_centerCnt[s.folder]) _centerCnt[s.folder] = { hubs: 0, autos: 0 };
+                        _centerCnt[s.folder].autos++;
                     }
                 }
             });
@@ -529,28 +626,19 @@
                 return `<div style="min-width:280px;"><b style="font-size:15px; color:#2d3748;">${st.n}</b>
                     <hr style="border:0; border-top:1px solid #edf2f7; margin:8px 0;">
                     <table class="info-table">
-                        <tr>
-                            <th>區域站</th><td>${st.reg}</td>
-                        </tr>
-                        <tr>
-                            <th>站碼</th><td>${st.cwbid}</td>
-                        </tr>
-                        <tr>
-                            <th>無線電站碼</th><td>${st.sid}</td>
-                        </tr>
-                        <tr>
-                            <th>座標</th><td>${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}</td>
-                        </tr>
-                        <tr>
-                            <th>地址</th><td>${st.addr}</td>
-                        </tr>${statsHTML}
+                        <tr><th>區域站</th><td>${st.reg}</td></tr>
+                        <tr><th>站碼</th><td>${st.cwbid}</td></tr>
+                        <tr><th>無線電站碼</th><td>${st.sid}</td></tr>
+                        <tr><th>座標</th><td>${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}</td></tr>
+                        <tr><th>地址</th><td>${st.addr}</td></tr>${statsHTML}
                     </table>
                     </div>`;
             };
-            const _w = 1.5 + (zoom - 8) * 0.2; // 邊框粗細（跟隨縮放）
-            // Pass 1/5：中繼站-區域站 連線（最底層）
+            const _w = 1.5 + (zoom - 8) * 0.2; 
+            
+            // Pass 1/5：區域中心相關連線
             listToProcess.forEach(st => {
-                if (isCWA && showLinkHR && st.is_hub && (!st.repid || !allStations[st.repid])) {
+                if (allowLayerControl && showLinkHR && st.is_hub && (!st.repid || !allStations[st.repid])) {
                     const center = regionalCenters[st.folder];
                     const inG = isInGroup(st);
                     if (center) L.polyline([[st.lat, st.lon], [center.lat, center.lon]], {
@@ -558,14 +646,35 @@
                         opacity: inG ? 0.5 : 0.08, dashArray: '8,8'
                     }).addTo(lineCenterLayer);
                 }
+
+                if (allowLayerControl && showLinkAR && (!st.is_hub && !st.is_reg_center) && (!st.repid || !allStations[st.repid])) {
+                    const center = regionalCenters[st.folder];
+                    const inG = isInGroup(st);
+                    if (center) {
+                        const isCurrentCenterLine = highlightedStation && highlightedStation.is_reg_center && (st.folder === highlightedStation.folder);
+                        L.polyline([[st.lat, st.lon], [center.lat, center.lon]], {
+                            color: inG ? '#3182ce' : '#d4d4d4', 
+                            // 🚀 修正 4：幫你稍微把聚焦時加粗 (2.5)，不然前後都是 1.2 會看不出變化
+                            weight: isCurrentCenterLine ? 1.2 : 1.2, 
+                            opacity: inG ? (isCurrentCenterLine ? 0.85 : 0.4) : 0.08, 
+                            // 🚀 修正 5：把 '2.4' 的小數點改回逗號 '2,4'，維持點狀虛線！
+                            dashArray: '2,4'
+                        }).addTo(lineCenterLayer);
+                    }
+                }
             });
+            
             // Pass 2/5：自動站-中繼站 連線
             listToProcess.forEach(st => {
-                if (isCWA && showLinkAH && st.repid && allStations[st.repid]) {
+                if (allowLayerControl && showLinkAH && st.repid && allStations[st.repid]) {
                     const inG = isInGroup(st);
+                    const isCurrentHubLine = highlightedStation && highlightedStation.is_hub && (st.repid === highlightedStation.rid);
                     L.polyline([[st.lat, st.lon], [allStations[st.repid].lat, allStations[st.repid].lon]], {
-                        color: inG ? '#e53e3e' : '#d4d4d4', weight: 1,
-                        opacity: inG ? 0.35 : 0.08, dashArray: '4,4'
+                        color: inG ? '#e53e3e' : '#d4d4d4', 
+                        // 🚀 修正 6：同樣幫你把聚焦加粗，維持視覺引導
+                        weight: isCurrentHubLine ? 1.2 : 1.2,
+                        opacity: isCurrentHubLine ? 0.85 : (inG ? 0.35 : 0.08), 
+                        dashArray: '4,4'
                     }).addTo(lineAutoHubLayer);
                 }
             });
@@ -575,16 +684,18 @@
                 if (st.is_reg_center || st.is_hub) return;
                 const inG = isInGroup(st);
                 const m = L.circleMarker([st.lat, st.lon], {
-                    radius: Math.max(1, 3.8 + (zoom - 10) * 0.8), // 確保半徑不為負數
+                    radius: Math.max(1, 3.8 + (zoom - 10) * 0.8),
                     fillColor: inG ? '#4299e1' : '#d4d4d4',
                     color: inG ? '#fff' : '#d4d4d4', weight: _w,
                     fillOpacity: inG ? 0.8 : 0.08
                 }).addTo(autoLayer);
                 m.bindPopup(_popup(st));
                 if (st === _openPopupFor) m.openPopup();
-                // 聚焦模式：轄下自動站一律顯示名稱；一般模式：依 effAuto + zoom>10 決定
-                if ((highlightedStation && inG) || (inG && effAuto && zoom > 10 && bounds.contains([st.lat, st.lon])))
+                
+                // 🚀 關鍵修改：拔除原本霸道的強制顯示，完全聽從 effAuto 與 _allowAuto 的指示
+                if (inG && effAuto && _allowAuto && bounds.contains([st.lat, st.lon])) {
                     m.bindTooltip(st.n, { permanent: true, direction: 'right', offset: [5, 0], className: 'station-name-label' });
+                }
             });
             // Pass 4/5：中繼站 markers（點擊可聚焦轄下測站）
             if (showHub) listToProcess.forEach(st => {
@@ -600,7 +711,8 @@
                 if (st === _openPopupFor) m.openPopup();
                 if (inG && effHub) m.bindTooltip(st.n, { permanent: true, direction: 'right', offset: [5, 0], className: 'station-name-label' });
                 // 點擊切換聚焦（同一站再點取消）；popup 由 pendingPopupStation 在下次 drawMap 後重開
-                m.on('click', function() {
+                m.on('click', function(e) {
+                    if (e && e.originalEvent) e.originalEvent.stopPropagation(); // 🚀 關鍵新增：防止點擊事件穿透到地圖空白處
                     const isSame = (highlightedStation === st);
                     highlightedStation = isSame ? null : st;
                     pendingPopupStation = isSame ? null : st;
@@ -621,7 +733,8 @@
                 if (st === _openPopupFor) m.openPopup();
                 if (inG && effCenter) m.bindTooltip(st.n, { permanent: true, direction: 'right', offset: [5, 0], className: 'station-name-label' });
                 // 點擊切換聚焦（同一站再點取消）；popup 由 pendingPopupStation 在下次 drawMap 後重開
-                m.on('click', function() {
+                m.on('click', function(e) {
+                    if (e && e.originalEvent) e.originalEvent.stopPropagation(); // 🚀 關鍵新增：防止點擊事件穿透到地圖空白處
                     const isSame = (highlightedStation === st);
                     highlightedStation = isSame ? null : st;
                     pendingPopupStation = isSame ? null : st;
@@ -631,6 +744,7 @@
         }
 
         function focusMainCat(mKey) { 
+            highlightedStation = null; // 🚀 關鍵新增：切換目錄時，自動解除右側點選聚焦狀態
             const nodes = []; 
             // 取得該大類下所有的站點
             Object.values(treeData[mKey]).forEach(sub => {
@@ -644,21 +758,48 @@
             drawMap(currentFilter);
 
             if (nodes.length > 0) {
-                const bounds = L.latLngBounds(nodes.map(s => [s.lat, s.lon]));
+                const focusCoords = nodes
+                    .filter(s => s.lat > 21.0 && s.lon > 117.5)
+                    .map(s => [s.lat, s.lon]);
+                
+                // 防呆機制：如果過濾後沒半個點（例如未來真的只有單獨點選東沙島目錄），就用原本的全部點
+                const finalCoords = focusCoords.length > 0 ? focusCoords : nodes.map(s => [s.lat, s.lon]);
+                const bounds = L.latLngBounds(finalCoords);
                 map.fitBounds(bounds, { padding: [50, 50] });
             }   
         }
         function focusGroupList(nodes) { 
+            highlightedStation = null; // 🚀 關鍵新增：切換目錄時，自動解除右側點選聚焦狀態
             const all = nodes.flatMap(n => getAll(n));
-            // 🚀 關鍵修正：更新全域過濾器狀態
             currentFilter = all; 
             drawMap(currentFilter); 
+            
             if (all.length > 0) {
-                const bounds = L.latLngBounds(all.map(s => [s.lat, s.lon]));
+                // 🚀 關鍵修改：同樣在計算視野時排除東沙、南沙
+                const focusCoords = all
+                    .filter(s => s.lat > 21.0 && s.lon > 117.5)
+                    .map(s => [s.lat, s.lon]);
+                
+                const finalCoords = focusCoords.length > 0 ? focusCoords : all.map(s => [s.lat, s.lon]);
+                const bounds = L.latLngBounds(finalCoords);
                 map.fitBounds(bounds, { padding: [40, 40] });
             } 
         }
-        function focusGroup(n) { const g = getAll(n); drawMap(g); map.fitBounds(L.latLngBounds(g.map(s=>[s.lat, s.lon])), {padding:[40,40]}); }
+        // 🚀 關鍵修改：補上全域過濾器同步
+        function focusGroup(n) { 
+            highlightedStation = null; // 🚀 關鍵新增：切換目錄時，自動解除右側點選聚焦狀態
+            const g = getAll(n); 
+            currentFilter = g; 
+            drawMap(g); 
+            
+            // 🚀 關鍵修改：同樣在計算視野時排除東沙、南沙
+            const focusCoords = g
+                .filter(s => s.lat > 21.0 && s.lon > 117.5)
+                .map(s => [s.lat, s.lon]);
+            
+            const finalCoords = focusCoords.length > 0 ? focusCoords : g.map(s => [s.lat, s.lon]);
+            map.fitBounds(L.latLngBounds(finalCoords), { padding: [40, 40] }); 
+        }
         function getAll(node, list = []) { list.push(node); if(node.children) node.children.forEach(c => getAll(c, list)); return list; }
         function focusPoint(st) { 
             map.setView([st.lat, st.lon], 14); 
@@ -685,19 +826,27 @@
             if (!highlightedStation) return true;
             if (st === highlightedStation || st.rid === highlightedStation.rid) return true;
             const hSt = highlightedStation;
+            
             if (hSt.is_reg_center) {
-                // 同 folder 的中繼站 → in-group
-                if (st.is_hub) return st.folder === hSt.folder;
-                // 自動站：其中繼站的 folder 符合 → in-group
-                if (!st.is_reg_center && !st.is_hub && st.repid) {
-                    const hub = allStations[st.repid];
-                    return hub && hub.folder === hSt.folder;
+                // 1. 如果點擊的是【區域中心】
+                if (st.is_hub) return st.folder === hSt.folder; // 同 folder 的中繼站
+                
+                if (!st.is_reg_center && !st.is_hub) { // 自動站的狀況：
+                    if (st.repid && allStations[st.repid]) {
+                        // 有經中繼站：看該中繼站的 folder 是否符合
+                        const hub = allStations[st.repid];
+                        return hub && hub.folder === hSt.folder;
+                    } else {
+                        // 🚀 新增直連判定：沒有中繼站，直接比對自己的 folder 是否符合該區域中心
+                        return st.folder === hSt.folder;
+                    }
                 }
                 return false;
             }
+            
             if (hSt.is_hub) {
-                // 自動站：repid 指向此中繼站 → in-group
-                // 修正點：改用 st.repid === hSt.rid 進行代碼比對，防呆且更精準！
+                // 2. 如果點擊的是【中繼站】
+                // 直連自動站沒有中繼站（repid 為空），這裡會自動回傳 false，符合邏輯
                 if (!st.is_reg_center && !st.is_hub && st.repid)
                     return st.repid === hSt.rid;
                 return false;
@@ -707,10 +856,15 @@
 
         function toggleName(type) {
             const zoom = map ? map.getZoom() : 0;
-            const autoOn = type === 'Center' ? (zoom >= 7) : (type === 'Hub' ? (zoom >= 10) : false);
+            const isFocused = !!highlightedStation; // 🚀 新增判斷
+            
+            let autoOn = false;
+            if (type === 'Center') autoOn = (zoom >= 7);
+            else if (type === 'Hub') autoOn = (zoom >= 10);
+            else if (type === 'Auto') autoOn = isFocused; // 🚀 自動站在聚焦模式下的預設是「顯示」
+            
             const cur = labelState[type];
-            // null(跟隨自動) → 依自動狀態切換成 false(強制隱) 或 true(強制顯)
-            // true/false(手動覆蓋) → 歸回 null(重新跟隨自動)
+            // 這樣一來，如果在聚焦模式 (autoOn = true)，你點擊按鈕，它就會正確切換成 false (強制隱藏)！
             labelState[type] = (cur === null) ? (autoOn ? false : true) : null;
             drawMap(currentFilter);
         }
