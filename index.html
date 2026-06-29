@@ -55,7 +55,7 @@
             position: absolute; top: 20px; right: 20px; z-index: 3000;
             background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px);
             padding: 0; border-radius: 12px; border: 1px solid rgba(255,255,255,0.5);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); font-size: 13px; width: 180px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); font-size: 13px; width: 250px;
             overflow: hidden;
         }
         .map-controls label { display: flex; align-items: center; cursor: pointer; gap: 10px; font-weight: 600; color: #4a5568; margin-bottom: 8px; }
@@ -85,6 +85,33 @@
         .info-table td { padding: 6px 8px; color: #2d3748; border-bottom: 1px solid #edf2f7; word-break: break-all; }
 
         @media (max-width: 768px) { :root { --sidebar-width: 85%; } #sidebar { position: absolute; } .map-controls { top: 85px; right: 10px; } }
+
+        /* 站名切換按鈕 */
+        .name-toggle-btn { font-size: 10px; padding: 1px 6px; border-radius: 4px; cursor: pointer; margin-left: auto; background: #edf2f7; border: 1px solid #cbd5e0; color: #4a5568; line-height: 1.6; }
+        .name-toggle-btn.active { background: var(--active-blue); color: white; border-color: var(--active-blue); }
+        .name-toggle-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        /* 地圖上的永久站名標籤 */
+        .leaflet-tooltip.station-name-label { background: transparent; border: none; box-shadow: none; font-size: 11px; font-weight: 700; color: #1a202c; white-space: nowrap; padding: 0 2px; }
+        .leaflet-tooltip.station-name-label::before { display: none; }
+
+        /* 側欄底部說明連結 */
+        .sidebar-footer { padding: 10px 14px; border-top: 1px solid #edf2f7; background: #f8fafc; flex-shrink: 0; }
+        .guide-link {
+            display: flex; align-items: center; gap: 9px;
+            padding: 10px 14px; border-radius: 9px;
+            text-decoration: none; color: #4a5568;
+            font-size: 13px; font-weight: 600;
+            background: white; border: 1.5px solid #e2e8f0;
+            transition: all 0.2s; cursor: pointer;
+        }
+        .guide-link:hover {
+            background: #ebf8ff; color: #2b6cb0;
+            border-color: #90cdf4;
+            box-shadow: 0 2px 6px rgba(66,153,225,0.15);
+        }
+        .guide-link svg { width: 16px; height: 16px; flex-shrink: 0; stroke: currentColor; }
+        .guide-link .gl-text { flex: 1; }
+        .guide-link .gl-ext { color: #a0aec0; font-size: 11px; }
     </style>
 
 </head>
@@ -106,19 +133,25 @@
             </div>
             <div class="tree" id="treeView"></div>
             <div class="tree" id="searchResults"></div>
+            <div class="sidebar-footer">
+                <a class="guide-link" href="OD_station_monitor_guide.html" target="_blank" rel="noopener">
+                    <i data-lucide="book-open"></i>
+                    <span class="gl-text">操作說明手冊</span>
+                    <span class="gl-ext"><i data-lucide="external-link"></i></span>
+                </a>
+            </div>
         </div>
 
         <div id="map">
             <details class="map-controls" open>
                 <summary>圖層設定</summary>
                 <div class="content">
-                    <label><input type="checkbox" id="layerCenter" checked onchange="drawMap()"> <span style="color:var(--reg-color);">●</span> 區域中心</label>
-                    <label><input type="checkbox" id="layerHub" checked onchange="drawMap()"> <span style="color:var(--hub-color);">●</span> 中繼站</label>
-                    <label><input type="checkbox" id="layerAuto" checked onchange="drawMap()"> <span style="color:var(--auto-color);">●</span> 自動站</label>
+                    <label><input type="checkbox" id="layerCenter" checked onchange="drawMap()"> <span style="color:var(--reg-color);">●</span> 區域中心 <button class="name-toggle-btn" id="nameBtnCenter" onclick="event.stopPropagation();toggleName('Center')" title="顯示/隱藏站名">顯示/隱藏名字</button></label>
+                    <label><input type="checkbox" id="layerHub" checked onchange="drawMap()"> <span style="color:var(--hub-color);">●</span> 中繼站 <button class="name-toggle-btn" id="nameBtnHub" onclick="event.stopPropagation();toggleName('Hub')" title="顯示/隱藏站名">顯示/隱藏名字</button></label>
+                    <label><input type="checkbox" id="layerAuto" checked onchange="drawMap()"> <span style="color:var(--auto-color);">●</span> 自動站 <button class="name-toggle-btn" id="nameBtnAuto" onclick="event.stopPropagation();toggleName('Auto')" title="顯示/隱藏站名">顯示/隱藏名字</button></label>
                     <hr style="border:0; border-top:1.5px solid #edf2f7; margin:10px 0;">
                     <label><input type="checkbox" id="linkAutoHub" checked onchange="drawMap()"> <span style="color:var(--hub-color); opacity:0.6;">---</span> 自動站-中繼站</label>
                     <label><input type="checkbox" id="linkHubReg" checked onchange="drawMap()"> <span style="color:var(--reg-color); opacity:0.8;">---</span> 中繼站-區域站</label>
-                    <label><input type="checkbox" id="showLabels" checked onchange="drawMap()"> 列印站名標籤</label>
                 </div>
             </details>
         </div>
@@ -126,15 +159,20 @@
 
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script>
         let geojsonData, treeData, mainOrder, cwaSubOrder, regionalOrder, regionalCenters, allStations;
-        let map, markerLayer, lineLayer, currentFilter = null;
+        let map, centerLayer, hubLayer, autoLayer, lineAutoHubLayer, lineCenterLayer, currentFilter = null;
+        const labelState = { Center: null, Hub: null, Auto: null }; // null=自動, true=強制顯示, false=強制隱藏
+        let highlightedStation = null; // 目前被點選聚焦的區域中心/中繼站物件，null=無聚焦
+        let pendingPopupStation = null; // 下一次 drawMap 後要自動開啟 popup 的站
 
         async function loadDataAndInit() {
             try {
                 // 同時下載兩個檔案，速度更快！
+                const currentTimeStamp = new Date().getTime(); 
                 const [resData, resGeo] = await Promise.all([
-                    fetch('stationData.json'),
+                    fetch('stationData.json?v=' + currentTimeStamp),
                     fetch('taiwan.json') // 👈 直接讀取原始地圖檔
                 ]);
                 const d = await resData.json();
@@ -167,8 +205,11 @@
                 style: { color: '#404040', weight: 0.5, fillOpacity: 0.05, fillColor: '#f8fafc' }
             }).addTo(map);
             }
-            markerLayer = L.layerGroup().addTo(map);
-            lineLayer = L.layerGroup().addTo(map);
+            lineCenterLayer  = L.layerGroup().addTo(map);  // 最底：中繼站-區域站連線
+            lineAutoHubLayer = L.layerGroup().addTo(map);  // 自動站-中繼站連線
+            autoLayer        = L.layerGroup().addTo(map);  // 自動站
+            hubLayer         = L.layerGroup().addTo(map);  // 中繼站
+            centerLayer      = L.layerGroup().addTo(map);  // 最頂：區域中心
             buildSidebar();
             drawMap();
             L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -267,30 +308,32 @@
             const bounds = map.getBounds();
             const size = map.getSize();
             const w = size.x, h = size.y;
-            // 讀取「顯示站名標籤」的勾選狀態
-            const showLabels = document.getElementById('showLabels').checked;
-            
 
+            // 1. 自動讀取目前地圖的名標籤狀態，不需依賴舊勾選框
+            const zoom = map.getZoom();
+            const effCenter = labelState.Center === null ? (zoom >= 7)  : labelState.Center;
+            const effHub    = labelState.Hub    === null ? (zoom >= 10) : labelState.Hub;
+            const effAuto   = labelState.Auto   === null ? false        : labelState.Auto;
 
             // 讀取 UI 的連線與圖層開關狀態
             const showHub = document.getElementById('layerHub').checked;
             const showCenter = document.getElementById('layerCenter').checked;
             const showAuto = document.getElementById('layerAuto').checked;
-            const showLinkAH = document.getElementById('linkAutoHub').checked; // 自動站-中繼站開關
-            const showLinkHR = document.getElementById('linkHubReg').checked;  // 中繼站-區域站開關
+            const showLinkAH = document.getElementById('linkAutoHub').checked; 
+            const showLinkHR = document.getElementById('linkHubReg').checked;  
 
             let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`;
             svg += `<rect width="100%" height="100%" fill="white" />`;
 
             const getPos = (lat, lon) => map.latLngToContainerPoint([lat, lon]);
 
-            // 1. 繪製 GeoJSON 海岸線 (從讀取的檔案)；這裡的設定不是畫在地圖上而是畫在你「下載的 SVG 檔案裡」。
+            // 繪製 GeoJSON 海岸線
             if (geojsonData.features) {
                 geojsonData.features.forEach(feat => {
                     const coords = feat.geometry.type === "Polygon" ? [feat.geometry.coordinates] : feat.geometry.coordinates;
                     coords.forEach(poly => poly.forEach(ring => {
                         let d = "M " + ring.map(p => {
-                            let pt = getPos(p[1], p[0]); // GeoJSON 是 [Lon, Lat]
+                            let pt = getPos(p[1], p[0]); 
                             return pt.x + " " + pt.y;
                         }).join(" L ");
                         svg += `<path d="${d}" fill="none" stroke="#404040" stroke-width="0.5" />`;
@@ -298,16 +341,14 @@
                 });
             }
 
-            // 2. 繪製連線 (連動連線開關)
+            // 繪製連線
             Object.values(allStations).forEach(st => {
                 if (bounds.contains([st.lat, st.lon])) {
                     const p1 = getPos(st.lat, st.lon);
-                    // 自動站-中繼站連線
                     if (showLinkAH && st.repid && allStations[st.repid]) {
                         const p2 = getPos(allStations[st.repid].lat, allStations[st.repid].lon);
                         svg += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#e53e3e" stroke-width="1" stroke-dasharray="4,4" opacity="0.4" />`;
                     }
-                    // 中繼站-區域中心連線
                     if (showLinkHR && st.is_hub && (!st.repid || !allStations[st.repid])) {
                         const center = regionalCenters[st.folder];
                         if (center) {
@@ -318,7 +359,7 @@
                 }
             });
 
-            // 3. 繪製測站
+            // 繪製測站與站名文字
             Object.values(allStations).forEach(st => {
                 if (bounds.contains([st.lat, st.lon])) {
                     let isVis = (st.is_reg_center && showCenter) || (st.is_hub && showHub) || (!st.is_reg_center && !st.is_hub && showAuto);
@@ -326,8 +367,20 @@
                         const p = getPos(st.lat, st.lon);
                         let color = st.is_reg_center ? "#38a169" : (st.is_hub ? "#e53e3e" : "#4299e1");
                         svg += `<circle cx="${p.x}" cy="${p.y}" r="${st.is_reg_center?6:st.is_hub?4:2}" fill="${color}" stroke="white" stroke-width="1" />`;
-                        // 修正點：只有在勾選「顯示站名標籤」時，才繪製文字
-                        if (showLabels && (st.is_reg_center || st.is_hub)) {
+                        
+                        // 2. 完美的同步邏輯：根據畫面當前的顯示規則決定是否輸出文字
+                        const inG = isInGroup(st);
+                        let printName = false;
+                        
+                        if (st.is_reg_center && inG && effCenter) printName = true;
+                        if (st.is_hub && inG && effHub) printName = true;
+                        if (!st.is_reg_center && !st.is_hub) {
+                            if ((highlightedStation && inG) || (inG && effAuto && zoom > 10)) {
+                                printName = true;
+                            }
+                        }
+
+                        if (printName) {
                             svg += `<text x="${p.x+8}" y="${p.y+4}" font-family="Arial" font-size="10" font-weight="bold" fill="#1a202c">${st.n}</text>`;
                         }
                     }
@@ -389,10 +442,30 @@
         // --- 關鍵修正：確保區域中心在聚焦模式下不消失 ---
         function drawMap(filter = null) {
             if (!map || typeof map.getZoom !== 'function') return;
-            markerLayer.clearLayers(); 
-            lineLayer.clearLayers();
+            centerLayer.clearLayers();
+            hubLayer.clearLayers();
+            autoLayer.clearLayers();
+            lineAutoHubLayer.clearLayers();
+            lineCenterLayer.clearLayers();
             // 2. 獲取當前縮放層級 (修復 zoom 未定義問題)
             const zoom = map.getZoom(); // 每次繪製時重新抓取當前縮放層級
+            const bounds = map.getBounds(); // 目前地圖可視範圍
+            // 計算有效標籤狀態（null=跟隨自動邏輯, true=強制顯示, false=強制隱藏）
+            const effCenter = labelState.Center === null ? (zoom >= 7)  : labelState.Center;
+            const effHub    = labelState.Hub    === null ? (zoom >= 10) : labelState.Hub;
+            const effAuto   = labelState.Auto   === null ? false        : labelState.Auto;
+            // 同步三個「名」按鈕的啟用狀態與外觀
+            const _allowAuto = zoom > 10;
+            const _btnC = document.getElementById('nameBtnCenter');
+            const _btnH = document.getElementById('nameBtnHub');
+            const _btnA = document.getElementById('nameBtnAuto');
+            if (_btnC) _btnC.classList.toggle('active', effCenter);
+            if (_btnH) _btnH.classList.toggle('active', effHub);
+            if (_btnA) {
+                _btnA.disabled = !_allowAuto;
+                _btnA.title = _allowAuto ? '顯示/隱藏站名' : '請放大至縣市層級（zoom > 10）才可啟用';
+                _btnA.classList.toggle('active', _allowAuto && effAuto);
+            }
 
             // 🚀 關鍵判斷：目前的清單是否屬於「署屬站」？
             // 如果 filter 是空的 (全台視圖)，預設為 true 以維持正常顯示
@@ -412,8 +485,6 @@
             const showLinkAH = isCWA ? document.getElementById('linkAutoHub').checked : false;
             const showLinkHR = isCWA ? document.getElementById('linkHubReg').checked : false;
             
-            const showLabels = document.getElementById('showLabels').checked;
-            
             // 核心改動：如果正在聚焦特定子集 (filter)，我們強制把所有區域中心補進去
             // 如果沒傳 filter，就顯示全部；有傳 filter，就只顯示 filter 的內容
             let listToProcess = filter ? [...filter] : Object.values(allStations);
@@ -423,62 +494,139 @@
                 });
             }
 
+            // ★ 分 5 Pass 繪製，確保 SVG 疊圖順序正確 ★
+
+            // 消耗本次 drawMap 要自動開啟 popup 的目標站
+            const _openPopupFor = pendingPopupStation;
+            pendingPopupStation = null;
+
+            // 預先計算各區域中心/中繼站的轄下統計（供 popup 顯示）
+            // 區域中心以 folder(字串) 為 key，避免 regionalCenters 與 allStations 物件參考不同造成 Map miss
+            const _centerCnt = {}; // folder → { hubs, autos }
+            const _hubCnt = new Map(); // hub 物件 → { autos }
+            Object.values(allStations).forEach(s => {
+                if (s.is_hub && s.folder) {
+                    if (!_centerCnt[s.folder]) _centerCnt[s.folder] = { hubs: 0, autos: 0 };
+                    _centerCnt[s.folder].hubs++;
+                } else if (!s.is_reg_center && !s.is_hub && s.repid && allStations[s.repid]) {
+                    const hub = allStations[s.repid];
+                    if (!_hubCnt.has(hub)) _hubCnt.set(hub, { autos: 0 });
+                    _hubCnt.get(hub).autos++;
+                    if (hub.folder) {
+                        if (!_centerCnt[hub.folder]) _centerCnt[hub.folder] = { hubs: 0, autos: 0 };
+                        _centerCnt[hub.folder].autos++;
+                    }
+                }
+            });
+            const _popup = st => {
+                let statsHTML = '';
+                if (st.is_reg_center && st.folder && _centerCnt[st.folder]) {
+                    const cnt = _centerCnt[st.folder];
+                    statsHTML = `<tr><th>管轄中繼站</th><td><b>${cnt.hubs}</b> 站</td></tr><tr><th>管轄自動站</th><td><b>${cnt.autos}</b> 站</td></tr>`;
+                } else if (st.is_hub && _hubCnt.has(st)) {
+                    statsHTML = `<tr><th>管轄自動站</th><td><b>${_hubCnt.get(st).autos}</b> 站</td></tr>`;
+                }
+                return `<div style="min-width:280px;"><b style="font-size:15px; color:#2d3748;">${st.n}</b>
+                    <hr style="border:0; border-top:1px solid #edf2f7; margin:8px 0;">
+                    <table class="info-table">
+                        <tr>
+                            <th>區域站</th><td>${st.reg}</td>
+                        </tr>
+                        <tr>
+                            <th>站碼</th><td>${st.cwbid}</td>
+                        </tr>
+                        <tr>
+                            <th>無線電站碼</th><td>${st.sid}</td>
+                        </tr>
+                        <tr>
+                            <th>座標</th><td>${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}</td>
+                        </tr>
+                        <tr>
+                            <th>地址</th><td>${st.addr}</td>
+                        </tr>${statsHTML}
+                    </table>
+                    </div>`;
+            };
+            const _w = 1.5 + (zoom - 8) * 0.2; // 邊框粗細（跟隨縮放）
+            // Pass 1/5：中繼站-區域站 連線（最底層）
             listToProcess.forEach(st => {
-                let  color, fillColor, weight, opacity, visible = false;
-                let dynamicRadius; // 改用不同的變數名稱避免衝突
-                
-                // 1. 修改「區域中心站」 (Regional Center)
-                if (st.is_reg_center) {
-                    //radius = 7;            // 圓圈大小
-                    dynamicRadius = 7 + (zoom - 8) * 2;
-                    //color = '#ffffff';     // 外框顏色 (現在是白色)
-                    color = '#f6e05e';     // 外框顏色 (現在是黃色)
-                    fillColor = '#38a169'; // 圓心顏色 (綠色)
-                    weight = 2.0;          // 外框粗細
-                    opacity = 1;           // 透明度 (0~1)
-                    if(showCenter) visible = true;
-                    
-                // 2. 修改「中繼站」 (Repeater / Hub)
-                } else if (st.is_hub) {
-                    dynamicRadius = 4.5 + (zoom - 8) * 1.5; 
-                    color = '#fff'; fillColor = '#e53e3e'; weight = 1.5; opacity = 0.9;
-                    if(showHub) visible = true;
-                    
-                // 3. 修改「自動站」 (Automatic Station)
-                } else {
-                    // 自動站：縮放 < 10 時隱藏以保證流暢度
-                    dynamicRadius = 3.8 + (zoom - 10) * 0.8;
-                    color = '#fff'; fillColor = '#4299e1'; weight = 0.5; opacity = 0.6;
-                    if(showAuto) visible = true;
-                }
-
-                if (visible) {
-                    // 🚀 核心優化：讓半徑跟隨縮放倍率調整
-                    // 基本邏輯：基礎值 + (目前縮放 - 初始縮放) * 增量
-
-                    const m = L.circleMarker([st.lat, st.lon], {
-                        radius: Math.max(1, dynamicRadius), // 確保半徑不為負數
-                        color: color,
-                        fillColor: st.is_reg_center ? '#38a169' : (st.is_hub ? '#e53e3e' : '#4299e1'),
-                        color: st.is_reg_center ? '#f6e05e' : '#fff', 
-                        weight: 1.5 + (zoom - 8) * 0.2, // 甚至連邊框都可以稍微加粗
-                        fillOpacity: 0.8
-                    }).addTo(markerLayer);
-                    m.bindPopup(`
-                        <div style="min-width:280px;"><b style="font-size:15px; color:#2d3748;">${st.n}</b><hr style="border:0; border-top:1px solid #edf2f7; margin:8px 0;">
-                        <table class="info-table"><tr><th>區域站</th><td>${st.reg}</td></tr><tr><th>站碼</th><td>${st.cwbid}</td></tr><tr><th>座標</th><td>${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}</td></tr><tr><th>地址</th><td>${st.addr}</td></tr></table></div>
-                    `);
-                }
-
-                
-                // 繪製連線 (嚴格限制在 isCWA 為 true 時)
-                if (isCWA && showLinkAH && st.repid && allStations[st.repid]) {
-                    L.polyline([[st.lat, st.lon], [allStations[st.repid].lat, allStations[st.repid].lon]], { color: '#e53e3e', weight: 1, opacity: 0.35, dashArray: '4,4' }).addTo(lineLayer);
-                }
                 if (isCWA && showLinkHR && st.is_hub && (!st.repid || !allStations[st.repid])) {
                     const center = regionalCenters[st.folder];
-                    if (center) L.polyline([[st.lat, st.lon], [center.lat, center.lon]], { color: '#38a169', weight: 1.8, opacity: 0.5, dashArray: '8,8' }).addTo(lineLayer);
+                    const inG = isInGroup(st);
+                    if (center) L.polyline([[st.lat, st.lon], [center.lat, center.lon]], {
+                        color: inG ? '#38a169' : '#d4d4d4', weight: 1.8,
+                        opacity: inG ? 0.5 : 0.08, dashArray: '8,8'
+                    }).addTo(lineCenterLayer);
                 }
+            });
+            // Pass 2/5：自動站-中繼站 連線
+            listToProcess.forEach(st => {
+                if (isCWA && showLinkAH && st.repid && allStations[st.repid]) {
+                    const inG = isInGroup(st);
+                    L.polyline([[st.lat, st.lon], [allStations[st.repid].lat, allStations[st.repid].lon]], {
+                        color: inG ? '#e53e3e' : '#d4d4d4', weight: 1,
+                        opacity: inG ? 0.35 : 0.08, dashArray: '4,4'
+                    }).addTo(lineAutoHubLayer);
+                }
+            });
+            // Pass 3/5：自動站 markers（點位最下層）
+            // 基本邏輯：基礎值 + (目前縮放 - 初始縮放) * 增量
+            if (showAuto) listToProcess.forEach(st => {
+                if (st.is_reg_center || st.is_hub) return;
+                const inG = isInGroup(st);
+                const m = L.circleMarker([st.lat, st.lon], {
+                    radius: Math.max(1, 3.8 + (zoom - 10) * 0.8), // 確保半徑不為負數
+                    fillColor: inG ? '#4299e1' : '#d4d4d4',
+                    color: inG ? '#fff' : '#d4d4d4', weight: _w,
+                    fillOpacity: inG ? 0.8 : 0.08
+                }).addTo(autoLayer);
+                m.bindPopup(_popup(st));
+                if (st === _openPopupFor) m.openPopup();
+                // 聚焦模式：轄下自動站一律顯示名稱；一般模式：依 effAuto + zoom>10 決定
+                if ((highlightedStation && inG) || (inG && effAuto && zoom > 10 && bounds.contains([st.lat, st.lon])))
+                    m.bindTooltip(st.n, { permanent: true, direction: 'right', offset: [5, 0], className: 'station-name-label' });
+            });
+            // Pass 4/5：中繼站 markers（點擊可聚焦轄下測站）
+            if (showHub) listToProcess.forEach(st => {
+                if (!st.is_hub) return;
+                const inG = isInGroup(st);
+                const m = L.circleMarker([st.lat, st.lon], {
+                    radius: Math.max(1, 4.5 + (zoom - 8) * 1.5),
+                    fillColor: inG ? '#e53e3e' : '#d4d4d4',
+                    color: inG ? '#fff' : '#d4d4d4', weight: _w,
+                    fillOpacity: inG ? 0.8 : 0.08
+                }).addTo(hubLayer);
+                m.bindPopup(_popup(st));
+                if (st === _openPopupFor) m.openPopup();
+                if (inG && effHub) m.bindTooltip(st.n, { permanent: true, direction: 'right', offset: [5, 0], className: 'station-name-label' });
+                // 點擊切換聚焦（同一站再點取消）；popup 由 pendingPopupStation 在下次 drawMap 後重開
+                m.on('click', function() {
+                    const isSame = (highlightedStation === st);
+                    highlightedStation = isSame ? null : st;
+                    pendingPopupStation = isSame ? null : st;
+                    drawMap(currentFilter);
+                });
+            });
+            // Pass 5/5：區域中心 markers（最頂層，點擊可聚焦轄下測站）
+            if (showCenter) listToProcess.forEach(st => {
+                if (!st.is_reg_center) return;
+                const inG = isInGroup(st);
+                const m = L.circleMarker([st.lat, st.lon], {
+                    radius: Math.max(1, 7 + (zoom - 8) * 2),
+                    fillColor: inG ? '#38a169' : '#d4d4d4',
+                    color: inG ? '#f6e05e' : '#d4d4d4', weight: _w,
+                    fillOpacity: inG ? 0.8 : 0.08
+                }).addTo(centerLayer);
+                m.bindPopup(_popup(st));
+                if (st === _openPopupFor) m.openPopup();
+                if (inG && effCenter) m.bindTooltip(st.n, { permanent: true, direction: 'right', offset: [5, 0], className: 'station-name-label' });
+                // 點擊切換聚焦（同一站再點取消）；popup 由 pendingPopupStation 在下次 drawMap 後重開
+                m.on('click', function() {
+                    const isSame = (highlightedStation === st);
+                    highlightedStation = isSame ? null : st;
+                    pendingPopupStation = isSame ? null : st;
+                    drawMap(currentFilter);
+                });
             });
         }
 
@@ -512,7 +660,17 @@
         }
         function focusGroup(n) { const g = getAll(n); drawMap(g); map.fitBounds(L.latLngBounds(g.map(s=>[s.lat, s.lon])), {padding:[40,40]}); }
         function getAll(node, list = []) { list.push(node); if(node.children) node.children.forEach(c => getAll(c, list)); return list; }
-        function focusPoint(st) { map.setView([st.lat, st.lon], 14); markerLayer.eachLayer(m => { if(m.getLatLng && m.getLatLng().lat === st.lat) m.openPopup(); }); }
+        function focusPoint(st) { 
+            map.setView([st.lat, st.lon], 14); 
+            // 修正：因為 markerLayer 已經被拆分，必須遍歷這三個圓點圖層來尋找對應的 Marker
+            [centerLayer, hubLayer, autoLayer].forEach(layer => {
+                layer.eachLayer(m => { 
+                    if (m.getLatLng && m.getLatLng().lat === st.lat && m.getLatLng().lng === st.lon) {
+                        m.openPopup(); 
+                    } 
+                }); 
+            });
+        }
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); setTimeout(() => map.invalidateSize(), 350); }
         function collapseAll() { document.querySelectorAll('#treeView details').forEach(d => d.open = false); document.querySelectorAll('.st-item').forEach(el => el.classList.remove('active-highlight')); }
         function resetMap() { 
@@ -522,7 +680,42 @@
         }
 
 
-        window.onload = loadDataAndInit;
+        // 判斷 st 是否在目前聚焦範圍內（highlightedStation 為 null 時全員 in-group）
+        function isInGroup(st) {
+            if (!highlightedStation) return true;
+            if (st === highlightedStation || st.rid === highlightedStation.rid) return true;
+            const hSt = highlightedStation;
+            if (hSt.is_reg_center) {
+                // 同 folder 的中繼站 → in-group
+                if (st.is_hub) return st.folder === hSt.folder;
+                // 自動站：其中繼站的 folder 符合 → in-group
+                if (!st.is_reg_center && !st.is_hub && st.repid) {
+                    const hub = allStations[st.repid];
+                    return hub && hub.folder === hSt.folder;
+                }
+                return false;
+            }
+            if (hSt.is_hub) {
+                // 自動站：repid 指向此中繼站 → in-group
+                // 修正點：改用 st.repid === hSt.rid 進行代碼比對，防呆且更精準！
+                if (!st.is_reg_center && !st.is_hub && st.repid)
+                    return st.repid === hSt.rid;
+                return false;
+            }
+            return false;
+        }
+
+        function toggleName(type) {
+            const zoom = map ? map.getZoom() : 0;
+            const autoOn = type === 'Center' ? (zoom >= 7) : (type === 'Hub' ? (zoom >= 10) : false);
+            const cur = labelState[type];
+            // null(跟隨自動) → 依自動狀態切換成 false(強制隱) 或 true(強制顯)
+            // true/false(手動覆蓋) → 歸回 null(重新跟隨自動)
+            labelState[type] = (cur === null) ? (autoOn ? false : true) : null;
+            drawMap(currentFilter);
+        }
+
+        window.onload = () => { loadDataAndInit(); lucide.createIcons(); };
     </script>
 </body>
 </html>
