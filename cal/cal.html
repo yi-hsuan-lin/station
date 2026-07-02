@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測站跨維度動態篩選戰情室</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <aside class="sidebar-library">
+            <h2>🛠️ 條件備選庫</h2>
+            <p class="hint">請將想要的篩選維度拖曳至右側過濾池</p>
+            <div class="filter-card-list">
+                <div class="filter-card" draggable="true" data-filter="unit">所屬單位</div>
+                <div class="filter-card" draggable="true" data-filter="transport">傳輸方式</div>
+                <div class="filter-card" draggable="true" data-filter="city">縣市選擇</div>
+                <div class="filter-card" draggable="true" data-filter="town">鄉鎮選區</div>
+                <div class="filter-card" draggable="true" data-filter="weather-freq">氣象資料頻率</div>
+                <div class="filter-card" draggable="true" data-filter="rain-freq">雨量資料頻率</div>
+                <div class="filter-card" draggable="true" data-filter="vendor">維護廠商</div>
+                <div class="filter-card" draggable="true" data-filter="public">對外提供狀態</div>
+                <div class="filter-card" draggable="true" data-filter="station_type">測站類型</div>
+                <div class="filter-card" draggable="true" data-filter="regional-center">區域站歸屬</div>
+                <div class="filter-card" draggable="true" data-filter="status">上架狀態</div>
+            </div>
+        </aside>
+
+        <main class="filter-workspace">
+            <h2>🎯 動態交互過濾池</h2>
+            <p class="hint">可將左側維度拖至下方兩大池，同池內為「或(OR)」，跨維度為「且(AND)」</p>
+            
+            <div class="drop-zone include-zone" data-zone="include">
+                <h3>🟢 包含池 (Include Zone)</h3>
+                <p class="zone-hint">符合此處條件的測站將被【留下】</p>
+            </div>
+
+            <div class="drop-zone exclude-zone" data-zone="exclude">
+                <h3>🔴 排除池 (Exclude Zone)</h3>
+                <p class="zone-hint">符合此處條件的測站將被【扣除】</p>
+            </div>
+        </main>
+
+        <div id="main-panel-resizer"></div>
+
+        <section class="result-dashboard">
+            <h2>📊 統計結果區</h2>
+            
+            <div class="counter-card">
+                <span class="counter-title">符合條件測站數</span>
+                <span id="total-stations" class="counter-number">0</span>
+                <span class="counter-unit">站</span>
+            </div>
+
+            <div class="station-list-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3>📋 測站詳細清單</h3>
+                    <button id="export-csv-btn" class="mini-export-btn">
+                        📥 匯出 CSV
+                    </button>
+                </div>
+                <table id="station-table">
+                    <thead>
+                        <tr>
+                            <th>CWBID</th>
+                            <th>站名</th>
+                            <th>縣市</th>
+                            <th>鄉鎮</th>
+                            <th class="resizable-th">高度<div class="resizer"></div></th>
+                        </tr>
+                    </thead>
+                    <tbody id="station-table-body">
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #888;">請拖曳條件開始篩選...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
