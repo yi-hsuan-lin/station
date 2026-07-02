@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>測站跨維度動態篩選戰情室</title>
+    <title>測站數量查詢網頁</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,20 +11,24 @@
     <div class="app-container">
         
         <aside class="sidebar-library">
+            
             <h2>🛠️ 條件備選庫</h2>
+            <a href="user_guide.html" target="_blank" style="text-decoration: none; font-size: 16px; cursor: pointer; color: white;" title="查看詳細使用說明">ℹ️ 說明文件</a>
+          
             <p class="hint">請將想要的篩選維度拖曳至右側過濾池</p>
             <div class="filter-card-list">
                 <div class="filter-card" draggable="true" data-filter="unit">所屬單位</div>
                 <div class="filter-card" draggable="true" data-filter="transport">傳輸方式</div>
                 <div class="filter-card" draggable="true" data-filter="city">縣市選擇</div>
-                <div class="filter-card" draggable="true" data-filter="town">鄉鎮選區</div>
+                <div class="filter-card" draggable="true" data-filter="town">鄉鎮選擇</div>
                 <div class="filter-card" draggable="true" data-filter="weather-freq">氣象資料頻率</div>
                 <div class="filter-card" draggable="true" data-filter="rain-freq">雨量資料頻率</div>
+                <div class="filter-card" draggable="true" data-filter="altitude">海拔高度</div>
                 <div class="filter-card" draggable="true" data-filter="vendor">維護廠商</div>
-                <div class="filter-card" draggable="true" data-filter="public">對外提供狀態</div>
                 <div class="filter-card" draggable="true" data-filter="station_type">測站類型</div>
                 <div class="filter-card" draggable="true" data-filter="regional-center">區域站歸屬</div>
-                <div class="filter-card" draggable="true" data-filter="status">上架狀態</div>
+                <div class="filter-card" draggable="true" data-filter="public" title="機場站、空品站不對外提供">對外提供狀態</div>
+                <div class="filter-card" draggable="true" data-filter="status" title="教學站、備援站未上架">上架狀態</div>
             </div>
         </aside>
 

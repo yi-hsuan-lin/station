@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測站跨維度動態篩選系統 - 完整維度篩選邏輯說明書</title>
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: "Segoe UI", "Microsoft JhengHei", Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #2d3748;
+            background-color: #f7fafc;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: #1a365d;
+            font-size: 28px;
+            border-bottom: 3px solid #3182ce;
+            padding-bottom: 12px;
+            margin-top: 0;
+            margin-bottom: 24px;
+        }
+        h2 {
+            color: #2c5282;
+            font-size: 20px;
+            margin-top: 32px;
+            margin-bottom: 16px;
+            padding-left: 10px;
+            border-left: 4px solid #4299e1;
+        }
+        h3 {
+            color: #2b6cb0;
+            font-size: 16px;
+            margin-top: 20px;
+            margin-bottom: 8px;
+        }
+        p {
+            margin-top: 0;
+            margin-bottom: 16px;
+            color: #4a5568;
+            text-align: justify;
+        }
+        ul, ol {
+            margin-top: 0;
+            margin-bottom: 16px;
+            padding-left: 24px;
+            color: #4a5568;
+        }
+        li {
+            margin-bottom: 12px;
+        }
+        .logic-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin: 24px 0;
+        }
+        .logic-item {
+            background: #f8fafc;
+            border: 1px solid #edf2f7;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .logic-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #2b6cb0;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .logic-code {
+            font-family: monospace;
+            background: #e2e8f0;
+            color: #4a5568;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .logic-details {
+            font-size: 14px;
+            color: #4a5568;
+            margin-left: 5px;
+        }
+        .highlight-box {
+            background-color: #fffaf0;
+            border-left: 4px solid #dd6b20;
+            padding: 16px;
+            border-radius: 0 8px 8px 0;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #a0aec0;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h1>🛠️ 測站跨維度動態篩選戰情室 - 系統篩選邏輯書</h1>
+        <p>本文件詳細記載「條件備選庫」內全部 <strong>11 項篩選維度</strong> 的底層資料對應關係與核心業務邏輯，供系統操作人員交叉比對與稽核時查閱。</p>
+
+        <h2>🎯 交互過濾池運算核心（組合邏輯）</h2>
+        <p>當您將左側維度卡片拖曳至中間的過濾池時，系統會遵循以下布林代數（Boolean）演算法進行即時運算：</p>
+        <ul>
+            <li><strong>同維度/同池內【或 (OR) 邏輯】：</strong> 如果您在同一個維度（例如「縣市選擇」）內同時勾選了「臺北市」與「新北市」，系統會尋找屬於臺北市<strong>或</strong>新北市的測站。</li>
+            <li><strong>跨維度/跨卡片【且 (AND) 邏輯】：</strong> 如果您在包含池放了「縣市選擇（臺北市）」與「維護廠商（翰昇）」，系統只會篩選出同時符合這兩項條件的交集觀測點。</li>
+            <li><strong>包含與排除【差集 (NOT) 邏輯】：</strong> 系統會先計算出「🟢 包含池」的所有交集結果，再強力扣除「🔴 排除池」中符合的任何站點。</li>
+        </ul>
+
+        <h2>📋 11 大維度底層分類詳細邏輯</h2>
+        <div class="logic-grid">
+
+            <div class="logic-item">
+                <div class="logic-title">📁 所屬單位 <span class="logic-code">unit / main_cat</span></div>
+                <div class="logic-details">
+                    <p><strong>業務定義：</strong> 劃分觀測資料的上游來源權責單位。</p>
+                    <p><strong>對應資料庫邏輯：</strong> 對應 JSON 的 <code>mappings.main</code> 架構。</p>
+                    <ul>
+                        <li><code>1</code> 署屬站：中央氣象署各科室直接管轄的核心觀測點。</li>
+                        <li><code>7</code> 外單位雨量站：包含水利署、北市府、農村水保署等外部合作移轉之雨量觀測計。</li>
+                        <li><code>4</code> 高公局 / <code>5</code> 西濱：交通部轄下重大國快道路之專專用邊氣象站。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="logic-item">
+                <div class="logic-title">📡 傳輸方式 <span class="logic-code">transport / sub_cat</span></div>
+                <div class="logic-details">
+                    <p><strong>業務定義：</strong> 測站資料回傳至中心端所使用的實體路由通訊媒介。</p>
+                    <ul>
+                        <li><strong>區域站(無線電)：</strong> 使用專屬無線電頻段，透過中繼站層層轉播回傳（常搭配區域站歸屬維度）。</li>
+                        <li><strong>4G行動數據：</strong> 裝載商用電信電路，透過行動網路直接點對點封包回傳。</li>
+                        <li><strong>有人站專線：</strong> 部分署屬大型有人站（氣象雷達站等）採用固網專線回傳。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="logic-item">
+                <div class="logic-title">🗺️ 地理行政區（縣市選擇 / 鄉鎮選區） <span class="logic-code">city</span> / <span class="logic-code">town</span></div>
+                <div class="logic-details">
+                    <p><strong>業務定義：</strong> 依據國家標準行政邊界進行測站地理劃分。</p>
+                    <p><strong>對應資料庫邏輯：</strong> 採用動態二級連動（Cascade）。</p>
+                    <ul>
+                        <li>當使用者在過濾池選擇「縣市選擇」（如 <code>3</code> 臺北市）時，「鄉鎮選區」的下拉選單會立刻動態連動，只顯示臺北市轄下的 <code>4</code> 北投區、<code>35</code> 大安區、<code>189</code> 文山區等代碼選項，避免無效條件組合。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="logic-item">
+                <div class="logic-title">⏱️ 資料更新頻率（氣象資料 / 雨量資料） <span class="logic-code">weather-freq</span> / <span class="logic-code">rain-freq</span></div>
+                <div class="logic-details">
+                    <p><strong>業務定義：</strong> 規範封包上傳與資料庫寫入的實時週期間隔。</p>
+                    <ul>
+                        <li><strong>常規站：</strong> 預設為每 10 分鐘或每 1 分鐘動態上傳。</li>
+                        <li><strong>邊坡道路站（如高公局系列）：</strong> 針對極端氣候防災需求，部分特殊站點具備秒級（如 1 分鐘內）高頻率雨量警示傳輸邏輯。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="logic-item">
+                <div class="logic-title">🔧 維護廠商 <span class="logic-code">vendor</span></div>
+                <div class="logic-details">
+                    <p><strong>業務定義：</strong> 劃分各測站實體硬體合約維護的權責標案廠商。</p>
+                    <p><strong>對應資料庫邏輯：</strong> 對應 JSON 的 <code>mappings.vendor</code> 架構。</p>
+                    <ul>
+                        <li><code>1</code> 翰昇、<code>2</code> 勤睿、<code>3</code> 達元：負責常規氣象署與道路標案測站巡檢。</li>
+                        <li><code>4</code> 到 <code>8</code>（如北市府、水利署、十河分署）：屬於外單位自主運維或指特定專管。可以用來稽核特定廠商在特定梅雨季時的通訊妥善率。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="logic-item">
+                <div class="logic-title">🔒 對外提供狀態 <span class="logic-code">public</span></div>
+                <div class="logic-details">
+                    <p><strong>業務定義：</strong> 控管該測站觀測資料是否開放給大眾或供外部 API 介接。</p>
+                    <div class="highlight-box" style="margin: 8px 0;">
+                        <strong>⚠️ 核心強制邏輯：</strong>
+                        <ul>
+                            <li><strong>民航局（機場站）：</strong> 基於航空安全法規與特定軍民航專專用通訊協定，所有民航局轄下之機場測站均<strong>強制不對外提供</strong>。</li>
+                            <li><strong>環境部（空品站）：</strong> 資料範疇屬於環境空氣品質指標，非典型大氣要素，依權責限制在流程中<strong>預設不對外提供</strong>。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="logic-item">
+                <div class="logic-title">📍 測站類型 <span class="logic-code">station_type</span></div>
+                <div class="logic-details">
+                    <p><strong>業務定義：</strong> 定義該實體觀測點上佈署的感測器能力型態。</p>
+                    <p><strong>對應資料庫邏輯：</strong> 對應 JSON 的 <code>mappings.station_type</code> 架構。</p>
+                    <ul>
+                        <li><code>1</code> 氣象站：同時具備氣溫、氣壓、風向風速等多要素觀測。</li>
+                        <li><code>2</code> 農業氣象站：額外包含日照、土壤濕度等農業專專用參數。</li>
+                        <li><code>4</code> 區域站 / <code>5</code> 雨量站：以觀測降雨量為主，多配置於山區防災熱點。</li>
+                        <li><code>6</code> 雙中繼站 / <code>7</code> 單中繼站：<strong>無實體觀測感測器</strong>，其主要任務為接收盲區自動站訊號，並轉發回地方中心。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="logic-item">
+                <div class="logic-title">🏢 區域站歸屬 <span class="logic-code">regional-center / folder</span></div>
+                <div class="logic-details">
+                    <p><strong>業務定義：</strong> 當傳輸方式為無線電時，中繼站與自動站實體歸屬控管的十三大核心氣象中心。</p>
+                    <p><strong>對應資料庫邏輯：</strong> 對應 JSON 的 <code>regionalCenters</code> 經緯度星狀拓撲。</p>
+                    <ul>
+                        <li>自動站若配置有 <code>repid</code>（代表它將訊號丟給特定中繼站），則會跟隨中繼站的 <code>folder</code>。</li>
+                        <li>全台劃分為：臺北、新竹、梧棲、臺中、日月潭、嘉義、臺南、高雄、恆春、宜蘭、花蓮、臺東等中心。篩選此維度時，系統會自動在背景建立星狀網路，繪製自動站 ➔ 中繼站 ➔ 區域中心的實體通訊連線。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="logic-item">
+                <div class="logic-title">🚀 上架狀態 <span class="logic-code">status</span></div>
+                <div class="logic-details">
+                    <p><strong>業務定義：</strong> 控管測站是否在前台主系統串流中正式發布與展示。</p>
+                    <div class="highlight-box" style="margin: 8px 0; border-left-color: #e53e3e;">
+                        <strong>⚠️ 核心強制邏輯（未上架規範）：</strong>
+                        <ul>
+                            <li><strong>教學站（如新北教學站）：</strong> 供學術研究、系統內部測試使用，非正式簽收節點，屬於<strong>未上架</strong>。</li>
+                            <li><strong>備援站（含所有資料後綴為「(備)」之測站）：</strong> 如 <em>東引(備)</em>、<em>馬公機場(備)</em>。備援站主要在主站故障時頂替路由，正常情況下，其資料未正式上架前台，避免數據重複累加。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">🏔️ 海拔高度 <span class="logic-code">altitude / alt</span></div>
+                <div class="logic-details">
+                    <p><strong>業務定義：</strong> 依據測站實體設置地點的平均海平面以上高度（公尺）進行範圍篩選。</p>
+                    <p><strong>對應資料庫邏輯：</strong> 對應 JSON 的數字型態 <code>alt</code> 欄位（例如：玉山站為 3952）。</p>
+                    <ul>
+                        <li>採用「區間數值交集」演算法。若僅輸入最低值（如 500），系統會撈出所有大於 500 公尺的淺山與高山站；若兩者皆輸入（如 1000 ~ 2000），則可精準鎖定特定中海拔霧林帶的觀測網妥善率。</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    
+    <div class="footer">
+        © 2026 測站通訊監控系統 | 大氣觀測組 資料品管科編製
+    </div>
+</div>
+
+</body>
+</html>

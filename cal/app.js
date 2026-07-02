@@ -1,8 +1,8 @@
 // ==========================================================================
 // 1. 全局變數與資料庫初始化
 // ==========================================================================
-let rawData = null;       /* 儲存原始 JSON 完整資料 */
-let stationsArray = [];   /* 儲存前處理過、貼好標籤的完整測站陣列 */
+let rawData = null;           /* 儲存原始 JSON 完整資料 */
+let stationsArray = [];       /* 儲存前處理過、貼好標籤的完整測站陣列 */
 let currentFilteredList = []; /* 儲存目前被篩選出來的測站陣列，供 CSV 匯出使用 */
 
 // 追蹤目前被拖曳的卡片 ID
@@ -23,7 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
             initStationData();   
             initDragAndDrop();  
             calculateStations(); 
-            initMainPanelResizer(); // ✨ 改為初始化：大板塊中線拉伸功能
+            initMainPanelResizer(); // ✨ 初始化：大板塊中線拉伸功能
         })
         .catch(err => console.error("JSON 資料載入失敗:", err));
 
@@ -34,7 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ==========================================================================
-// 🛠️ 大功臣：控制「過濾池」與「結果區」中間交界處的拉伸大腦
+// 🛠️ 控制「過濾池」與「結果區」中間交界處的拉伸功能
 // ==========================================================================
 function initMainPanelResizer() {
     const resizer = document.getElementById('main-panel-resizer');
@@ -46,12 +46,9 @@ function initMainPanelResizer() {
         resizer.classList.add('resizing');
 
         const onMouseMove = (moveEvent) => {
-            // 計算滑鼠當前位置距離視窗右側的距離 (就是右側戰情結果區的新寬度)
             const newRightWidth = window.innerWidth - moveEvent.clientX;
 
-            // 限制：右側區塊最少 300px，最多不超過視窗的一半，避免把過濾池擠到不見
             if (newRightWidth > 300 && newRightWidth < window.innerWidth * 0.6) {
-                // 動態修改網頁最外層 Grid 的三欄 + 一條線的寬度
                 container.style.gridTemplateColumns = `280px 1fr 6px ${newRightWidth}px`;
             }
         };
@@ -122,7 +119,7 @@ function getRainFreq(sub) {
 }
 
 // ==========================================================================
-// 3. 酷曳介面實作 (Drag and Drop API)
+// 3. 拖曳介面實作 (Drag and Drop API)
 // ==========================================================================
 function initDragAndDrop() {
     const cards = document.querySelectorAll('.filter-card');
@@ -164,14 +161,13 @@ function initDragAndDrop() {
 }
 
 // ==========================================================================
-// 4. 動態生成池子內的 Checkbox 列表
+// 4. 動態生成池子內的 UI 元件 (支援 Checkbox 與 Altitude 區間輸入)
 // ==========================================================================
 function renderFilterOptions(zone, zoneType, filterId) {
     const groupDiv = document.createElement('div');
     groupDiv.className = 'active-filter-group';
     groupDiv.id = `${zoneType}-group-${filterId}`;
     
-    const options = getOptionsByFilterId(filterId);
     let title = getTitleByFilterId(filterId);
 
     let checkboxesHtml = `
@@ -179,21 +175,40 @@ function renderFilterOptions(zone, zoneType, filterId) {
             <strong style="color:#67e8f9;">🔍 ${title}</strong>
             <button onclick="removeFilterGroup('${zoneType}', '${filterId}')" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:0.8rem;">❌ 移除</button>
         </div>
-        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; padding:8px 0;" id="${zoneType}-options-${filterId}">
     `;
 
-    options.forEach(opt => {
-        const displayValues = opt.text || opt.value || '';
-        const inputVal = opt.value !== undefined ? opt.value : opt.text;
-
+    // 🚀 ✨ 關鍵功能：如果拖進來的是海拔高度，渲染數值區間輸入框，而非 Checkbox
+    if (filterId === 'altitude') {
         checkboxesHtml += `
-            <label style="font-size:0.85rem; display:flex; align-items:center; gap:4px; cursor:pointer;">
-                <input type="checkbox" value="${inputVal}" data-text="${displayValues}" onchange="onCheckboxChange('${zoneType}', '${filterId}')">
-                ${displayValues}
-            </label>
+            <div style="display:flex; align-items:center; gap:8px; padding:10px 0;" id="${zoneType}-options-${filterId}">
+                <input type="number" class="alt-min" placeholder="最低(m)" min="0" max="4000" 
+                       style="width: 85px; padding: 6px; background:#1e293b; border: 1px solid #475569; border-radius: 6px; color:white; font-size:0.85rem;"
+                       oninput="onAltitudeInputChange('${zoneType}')">
+                <span style="color:#94a3b8;">~</span>
+                <input type="number" class="alt-max" placeholder="最高(m)" min="0" max="4000" 
+                       style="width: 85px; padding: 6px; background:#1e293b; border: 1px solid #475569; border-radius: 6px; color:white; font-size:0.85rem;"
+                       oninput="onAltitudeInputChange('${zoneType}')">
+                <span style="font-size: 0.85rem; color: #94a3b8;">公尺</span>
+            </div>
         `;
-    });
-    checkboxesHtml += `</div>`;
+    } else {
+        // 原有的常規 Checkbox 渲染邏輯
+        const options = getOptionsByFilterId(filterId);
+        checkboxesHtml += `<div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; padding:8px 0;" id="${zoneType}-options-${filterId}">`;
+        options.forEach(opt => {
+            const displayValues = opt.text || opt.value || '';
+            const inputVal = opt.value !== undefined ? opt.value : opt.text;
+
+            checkboxesHtml += `
+                <label style="font-size:0.85rem; display:flex; align-items:center; gap:4px; cursor:pointer;">
+                    <input type="checkbox" value="${inputVal}" data-text="${displayValues}" onchange="onCheckboxChange('${zoneType}', '${filterId}')">
+                    ${displayValues}
+                </label>
+            `;
+        });
+        checkboxesHtml += `</div>`;
+    }
+
     groupDiv.innerHTML = checkboxesHtml;
     zone.appendChild(groupDiv);
 
@@ -206,10 +221,7 @@ function getOptionsByFilterId(id) {
     
     if (id === 'station_type') {
         if (rawData.mappings && rawData.mappings.station_type) {
-            return Object.entries(rawData.mappings.station_type).map(([k, v]) => ({
-                value: k,
-                text: v
-            }));
+            return Object.entries(rawData.mappings.station_type).map(([k, v]) => ({ value: k, text: v }));
         }
         return [];
     }
@@ -227,7 +239,7 @@ function getOptionsByFilterId(id) {
 }
 
 function getTitleByFilterId(id) {
-    const titles = { unit: '所屬單位', transport: '傳輸方式', city: '縣市', town: '鄉鎮市區', 'weather-freq': '氣象頻率', 'rain-freq': '雨量頻率', vendor: '維護廠商', public: '對外提供', station_type: '測站類型', 'regional-center': '區域站歸屬', status: '上架狀態' };
+    const titles = { unit: '所屬單位', transport: '傳輸方式', city: '縣市', town: '鄉鎮市區', 'weather-freq': '氣象頻率', 'rain-freq': '雨量頻率', vendor: '維護廠商', public: '對外提供', station_type: '測站類型', 'regional-center': '區域站歸屬', status: '上架狀態', altitude: '海拔高度' };
     return titles[id] || id;
 }
 
@@ -245,6 +257,23 @@ function onCheckboxChange(zoneType, filterId) {
     }
 
     if (filterId === 'city') handleTownSelect联动(zoneType);
+    calculateStations();
+}
+
+// 🚀 ✨ 核心連動：高度數值輸入時，同步更新 activeFilters 架構並重新計算
+function onAltitudeInputChange(zoneType) {
+    const container = document.getElementById(`${zoneType}-options-altitude`);
+    if (!container) return;
+
+    const minVal = container.querySelector('.alt-min').value;
+    const maxVal = container.querySelector('.alt-max').value;
+
+    // 將字串數值轉為 float，留空則以極端值代入，確保篩選不破整
+    const min = minVal !== "" ? parseFloat(minVal) : -Infinity;
+    const max = maxVal !== "" ? parseFloat(maxVal) : Infinity;
+
+    // 儲存至 activeFilters，結構為 [min, max]
+    activeFilters[zoneType]['altitude'] = [min, max];
     calculateStations();
 }
 
@@ -299,8 +328,14 @@ function calculateStations() {
         return station.is_hub !== true && station.is_reg_center !== true;
     });
 
+    // 🟢 處理包含池邏輯
     Object.entries(activeFilters.include).forEach(([filterId, values]) => {
         filteredResults = filteredResults.filter(station => {
+            // 🚀 ✨ 海拔高度包含過濾：檢查 station.alt 是否在區間內
+            if (filterId === 'altitude') {
+                const stationAlt = station.alt !== undefined && station.alt !== null ? parseFloat(station.alt) : 0;
+                return stationAlt >= values[0] && stationAlt <= values[1];
+            }
             if (filterId === 'city') return values.includes(station.city.toString());
             if (filterId === 'town') return values.includes(station.town.toString());
             if (filterId === 'station_type') {
@@ -318,10 +353,16 @@ function calculateStations() {
         });
     });
 
+    // 🔴 處理排除池邏輯
     Object.entries(activeFilters.exclude).forEach(([filterId, values]) => {
         filteredResults = filteredResults.filter(station => {
             let matchExclude = false;
-            if (filterId === 'city') matchExclude = values.includes(station.city.toString());
+            // 🚀 ✨ 海拔高度排除過濾
+            if (filterId === 'altitude') {
+                const stationAlt = station.alt !== undefined && station.alt !== null ? parseFloat(station.alt) : 0;
+                matchExclude = (stationAlt >= values[0] && stationAlt <= values[1]);
+            }
+            else if (filterId === 'city') matchExclude = values.includes(station.city.toString());
             else if (filterId === 'town') matchExclude = values.includes(station.town.toString());
             else if (filterId === 'station_type') {
                 matchExclude = station.station_type !== undefined && values.includes(station.station_type.toString());
