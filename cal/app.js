@@ -316,16 +316,22 @@ function renderFilterOptions(zone, zoneType, filterId) {
 
     if (filterId === 'altitude') {
         checkboxesHtml += `
-            <div style="display:flex; align-items:center; gap:8px; padding:10px 0;" id="${zoneType}-options-${filterId}">
-                <input type="number" class="alt-min" placeholder="最低(m)" min="0" max="4000" 
-                       style="width: 85px; padding: 6px; background:#1e293b; border: 1px solid #475569; border-radius: 6px; color:white; font-size:0.85rem;"
-                       oninput="onAltitudeInputChange('${zoneType}')">
-                <span style="color:#94a3b8;">~</span>
-                <input type="number" class="alt-max" placeholder="最高(m)" min="0" max="4000" 
-                       style="width: 85px; padding: 6px; background:#1e293b; border: 1px solid #475569; border-radius: 6px; color:white; font-size:0.85rem;"
-                       oninput="onAltitudeInputChange('${zoneType}')">
-                <span style="font-size: 0.85rem; color: #94a3b8;">公尺</span>
+            <div id="${zoneType}-altitude-rows" style="display:flex; flex-direction:column; gap:8px; padding:8px 0;">
+                <div class="altitude-row" style="display:flex; align-items:center; gap:6px;">
+                    <input type="number" class="alt-min" placeholder="最低(m)" min="0" max="4000" 
+                           style="width: 75px; padding: 6px; background:#1e293b; border: 1px solid #475569; border-radius: 6px; color:white; font-size:0.85rem;"
+                           oninput="onAltitudeInputChange('${zoneType}')">
+                    <span style="color:#94a3b8;">~</span>
+                    <input type="number" class="alt-max" placeholder="最高(m)" min="0" max="4000" 
+                           style="width: 75px; padding: 6px; background:#1e293b; border: 1px solid #475569; border-radius: 6px; color:white; font-size:0.85rem;"
+                           oninput="onAltitudeInputChange('${zoneType}')">
+                    <span style="font-size: 0.8rem; color: #94a3b8;">m</span>
+                </div>
             </div>
+            <button type="button" onclick="addAltitudeRow('${zoneType}')" 
+                    style="margin-top:6px; background:#334155; border:1px dashed #475569; color:#67e8f9; padding:5px; border-radius:6px; font-size:0.75rem; cursor:pointer; width:100%; transition: background 0.2s;">
+                ➕ 新增高度區間
+            </button>
         `;
     } else {
         const options = getOptionsByFilterId(filterId);
@@ -425,18 +431,63 @@ function onCheckboxChange(zoneType, filterId) {
     calculateStations();
 }
 
+// ==========================================================================
+// 🚀 ✨ 重構：當任何一組海拔高度輸入框有變動時，重新整批打包收集資料
+// ==========================================================================
 function onAltitudeInputChange(zoneType) {
-    const container = document.getElementById(`${zoneType}-options-altitude`);
+    const container = document.getElementById(`${zoneType}-altitude-rows`);
     if (!container) return;
 
-    const minVal = container.querySelector('.alt-min').value;
-    const maxVal = container.querySelector('.alt-max').value;
+    const rows = container.querySelectorAll('.altitude-row');
+    const ranges = [];
 
-    const min = minVal !== "" ? parseFloat(minVal) : -Infinity;
-    const max = maxVal !== "" ? parseFloat(maxVal) : Infinity;
+    rows.forEach(row => {
+        const minVal = row.querySelector('.alt-min').value;
+        const maxVal = row.querySelector('.alt-max').value;
 
-    activeFilters[zoneType]['altitude'] = [min, max];
+        // 💡 只有當使用者這一行至少有填一個數字時，才納入運算，防止空行干擾
+        if (minVal !== "" || maxVal !== "") {
+            const min = minVal !== "" ? parseFloat(minVal) : -Infinity;
+            const max = maxVal !== "" ? parseFloat(maxVal) : Infinity;
+            ranges.push([min, max]); // 將這一行的區間塞入陣列
+        }
+    });
+
+    if (ranges.length > 0) {
+        activeFilters[zoneType]['altitude'] = ranges; // 更新為多組區間陣列
+    } else {
+        delete activeFilters[zoneType]['altitude']; // 如果全空就清除篩選
+    }
     calculateStations();
+}
+
+// ==========================================================================
+// 🚀 ✨ 新增助手：點擊按鈕時，動態在地圖卡片內部「生出新的一行輸入框」
+// ==========================================================================
+function addAltitudeRow(zoneType) {
+    const container = document.getElementById(`${zoneType}-altitude-rows`);
+    if (!container) return;
+
+    const row = document.createElement('div');
+    row.className = 'altitude-row';
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '6px';
+    row.style.marginTop = '4px';
+
+    row.innerHTML = `
+        <input type="number" class="alt-min" placeholder="最低(m)" min="0" max="4000" 
+               style="width: 75px; padding: 6px; background:#1e293b; border: 1px solid #475569; border-radius: 6px; color:white; font-size:0.85rem;"
+               oninput="onAltitudeInputChange('${zoneType}')">
+        <span style="color:#94a3b8;">~</span>
+        <input type="number" class="alt-max" placeholder="最高(m)" min="0" max="4000" 
+               style="width: 75px; padding: 6px; background:#1e293b; border: 1px solid #475569; border-radius: 6px; color:white; font-size:0.85rem;"
+               oninput="onAltitudeInputChange('${zoneType}')">
+        <span style="font-size: 0.8rem; color: #94a3b8;">m</span>
+        <button type="button" onclick="this.parentElement.remove(); onAltitudeInputChange('${zoneType}');" 
+                style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:0.8rem; padding:0 4px;" title="刪除此區間">❌</button>
+    `;
+    container.appendChild(row);
 }
 
 function removeFilterGroup(zoneType, filterId) {
@@ -486,9 +537,11 @@ function calculateStations() {
 
     Object.entries(activeFilters.include).forEach(([filterId, values]) => {
         filteredResults = filteredResults.filter(station => {
+            // 🚀 ✨ 升級：支援多組高度區間聯動（只要符合其中一組區間就判定通過！）
             if (filterId === 'altitude') {
                 const stationAlt = station.alt !== undefined && station.alt !== null ? parseFloat(station.alt) : 0;
-                return stationAlt >= values[0] && stationAlt <= values[1];
+                // values 目前是陣列：[[min1, max1], [min2, max2]...]
+                return values.some(range => stationAlt >= range[0] && stationAlt <= range[1]);
             }
             if (filterId === 'city') return values.includes(station.city.toString());
             if (filterId === 'town') return values.includes(station.town.toString());
@@ -508,9 +561,10 @@ function calculateStations() {
     Object.entries(activeFilters.exclude).forEach(([filterId, values]) => {
         filteredResults = filteredResults.filter(station => {
             let matchExclude = false;
+            // 🚀 ✨ 升級：支援多組高度區間排除（只要落在任何一個排除區間內，就扣除該站）
             if (filterId === 'altitude') {
                 const stationAlt = station.alt !== undefined && station.alt !== null ? parseFloat(station.alt) : 0;
-                matchExclude = (stationAlt >= values[0] && stationAlt <= values[1]);
+                matchExclude = values.some(range => stationAlt >= range[0] && stationAlt <= range[1]);
             }
             else if (filterId === 'city') matchExclude = values.includes(station.city.toString());
             else if (filterId === 'town') matchExclude = values.includes(station.town.toString());
@@ -679,7 +733,7 @@ function initModalResizer() {
 }
 
 // ==========================================================================
-// 🗺️ 渲染測站分布地圖 (已升級 preferCanvas 效能引擎，支援高解析無痛截圖)
+// 🗺️ 擺平錯位終極版：渲染測站分布地圖 (升級：支援多重海拔區間動態分色圖例)
 // ==========================================================================
 function renderMap() {
     const mapContainer = document.getElementById('map-container');
@@ -695,16 +749,17 @@ function renderMap() {
     }
 
     const colorPalette = [
-        { stroke: "#0284c7", fill: "#38bdf8" }, 
-        { stroke: "#16a34a", fill: "#4ade80" }, 
-        { stroke: "#d97706", fill: "#fbbf24" }, 
-        { stroke: "#9333ea", fill: "#c084fc" }, 
-        { stroke: "#e11d48", fill: "#fb7185" }, 
-        { stroke: "#0d9488", fill: "#2dd4bf" }, 
-        { stroke: "#ea580c", fill: "#ffedd5" }  
+        { stroke: "#0284c7", fill: "#38bdf8" }, // 1. 科技藍
+        { stroke: "#16a34a", fill: "#4ade80" }, // 2. 生態綠
+        { stroke: "#d97706", fill: "#fbbf24" }, // 3. 琥珀黃
+        { stroke: "#9333ea", fill: "#c084fc" }, // 4. 高貴紫
+        { stroke: "#e11d48", fill: "#fb7185" }, // 5. 玫瑰紅
+        { stroke: "#0d9488", fill: "#2dd4bf" }, // 6. 翡翠青
+        { stroke: "#ea580c", fill: "#ffedd5" }  // 7. 亮麗橘
     ];
 
-    const activeIncludeKeys = Object.keys(activeFilters.include).filter(k => k !== 'altitude');
+    // 🎯 核心修正 1：不再排除 altitude，允許海拔高度參與動態著色引擎
+    const activeIncludeKeys = Object.keys(activeFilters.include);
     let colorKey = null;
     let valueColorMap = {};
     let legendItems = []; 
@@ -714,28 +769,47 @@ function renderMap() {
         const chosenValues = activeFilters.include[colorKey];
         const labelTitle = getTitleByFilterId(colorKey);
         
-        chosenValues.forEach((val, index) => {
-            const colorObj = colorPalette[index % colorPalette.length];
-            valueColorMap[val] = colorObj;
-            
-            let displayTxt = val;
-            if (colorKey === 'city') displayTxt = rawData.mappings.city[val] || val;
-            else if (colorKey === 'town') displayTxt = rawData.mappings.town[val] || val;
-            else if (colorKey === 'station_type') displayTxt = rawData.mappings.station_type[val] || val;
-            else if (colorKey === 'regional-center') displayTxt = rawData.mappings.reg[val] || val;
-            
-            legendItems.push({
-                color: colorObj.stroke,
-                label: `${labelTitle}：${displayTxt}`
+        // 🚀 核心修正 2：如果當前著色基準是「海拔高度」
+        if (colorKey === 'altitude') {
+            // chosenValues 結構為 [[min1, max1], [min2, max2], ...]
+            chosenValues.forEach((range, index) => {
+                const colorObj = colorPalette[index % colorPalette.length];
+                
+                // 將數學極值優化為親民的簡報中文字
+                const minTxt = range[0] === -Infinity ? "0" : range[0];
+                const displayTxt = range[1] === Infinity 
+                    ? `${minTxt} m 以上` 
+                    : `${minTxt} ~ ${range[1]} m`;
+                
+                legendItems.push({
+                    color: colorObj.stroke,
+                    label: `${labelTitle}：${displayTxt}`
+                });
             });
-        });
+        } else {
+            // 原有的常規 Checkbox 選項著色與圖例生成邏輯
+            chosenValues.forEach((val, index) => {
+                const colorObj = colorPalette[index % colorPalette.length];
+                valueColorMap[val] = colorObj;
+                
+                let displayTxt = val;
+                if (colorKey === 'city') displayTxt = rawData.mappings.city[val] || val;
+                else if (colorKey === 'town') displayTxt = rawData.mappings.town[val] || val;
+                else if (colorKey === 'station_type') displayTxt = rawData.mappings.station_type[val] || val;
+                else if (colorKey === 'regional-center') displayTxt = rawData.mappings.reg[val] || val;
+                
+                legendItems.push({
+                    color: colorObj.stroke,
+                    label: `${labelTitle}：${displayTxt}`
+                });
+            });
+        }
     } else {
         legendItems.push({ color: "#0284c7", label: "觀測站點" });
     }
 
     if (!mapInstance) {
         mapContainer.innerHTML = '';
-        // 🚀 關鍵升級：preferCanvas: true 讓向量測站全部改在畫布渲染，大幅提高 html2canvas 相容度
         mapInstance = L.map('map-container', {
             zoomControl: true,
             attributionControl: false,
@@ -801,30 +875,52 @@ function renderMap() {
             let dotColor = "#0284c7"; let fillColor = "#38bdf8"; let matchValueName = "";
 
             if (colorKey) {
-                let stationValue = "";
-                if (colorKey === 'unit') stationValue = s._derivedUnit;
-                else if (colorKey === 'transport') stationValue = s._derivedTransport;
-                else if (colorKey === 'city') stationValue = s.city.toString();
-                else if (colorKey === 'town') stationValue = s.town.toString();
-                else if (colorKey === 'weather-freq') stationValue = s._derivedWeatherFreq;
-                else if (colorKey === 'rain-freq') stationValue = s._derivedRainFreq;
-                else if (colorKey === 'vendor') stationValue = s._derivedVendor;
-                else if (colorKey === 'public') stationValue = s._derivedPublic;
-                else if (colorKey === 'status') stationValue = s._derivedStatus;
-                else if (colorKey === 'station_type') stationValue = s.station_type?.toString();
-                else if (colorKey === 'regional-center') stationValue = s.reg?.toString();
+                // 🚀 核心修正 3：測站點繪製時的海拔多區間色彩比對大腦
+                if (colorKey === 'altitude') {
+                    const stationAlt = s.alt !== undefined && s.alt !== null ? parseFloat(s.alt) : 0;
+                    const chosenRanges = activeFilters.include['altitude'] || [];
+                    
+                    // 尋找當前這顆測站符合哪一組輸入框區間
+                    const matchedIdx = chosenRanges.findIndex(r => stationAlt >= r[0] && stationAlt <= r[1]);
+                    
+                    if (matchedIdx !== -1) {
+                        const colorObj = colorPalette[matchedIdx % colorPalette.length];
+                        dotColor = colorObj.stroke;
+                        fillColor = colorObj.fill;
 
-                if (colorKey === 'city') matchValueName = rawData.mappings.city[s.city] || s.city;
-                else if (colorKey === 'town') matchValueName = rawData.mappings.town[s.town] || s.town;
-                else if (colorKey === 'station_type') matchValueName = rawData.mappings.station_type[s.station_type] || s.station_type;
-                else if (colorKey === 'regional-center') matchValueName = rawData.mappings.reg[s.reg] || s.reg;
-                else matchValueName = stationValue;
-
-                if (valueColorMap[stationValue]) {
-                    dotColor = valueColorMap[stationValue].stroke;
-                    fillColor = valueColorMap[stationValue].fill;
+                        const r = chosenRanges[matchedIdx];
+                        const minTxt = r[0] === -Infinity ? "0" : r[0];
+                        matchValueName = r[1] === Infinity ? `${minTxt} m 以上` : `${minTxt} ~ ${r[1]} m`;
+                    } else {
+                        dotColor = "#64748b"; fillColor = "#cbd5e1";
+                    }
                 } else {
-                    dotColor = "#64748b"; fillColor = "#cbd5e1";
+                    // 原有的常規 Checkbox 欄位抓取與色彩比對
+                    let stationValue = "";
+                    if (colorKey === 'unit') stationValue = s._derivedUnit;
+                    else if (colorKey === 'transport') stationValue = s._derivedTransport;
+                    else if (colorKey === 'city') stationValue = s.city.toString();
+                    else if (colorKey === 'town') stationValue = s.town.toString();
+                    else if (colorKey === 'weather-freq') stationValue = s._derivedWeatherFreq;
+                    else if (colorKey === 'rain-freq') stationValue = s._derivedRainFreq;
+                    else if (colorKey === 'vendor') stationValue = s._derivedVendor;
+                    else if (colorKey === 'public') stationValue = s._derivedPublic;
+                    else if (colorKey === 'status') stationValue = s._derivedStatus;
+                    else if (colorKey === 'station_type') stationValue = s.station_type?.toString();
+                    else if (colorKey === 'regional-center') stationValue = s.reg?.toString();
+
+                    if (colorKey === 'city') matchValueName = rawData.mappings.city[s.city] || s.city;
+                    else if (colorKey === 'town') matchValueName = rawData.mappings.town[s.town] || s.town;
+                    else if (colorKey === 'station_type') matchValueName = rawData.mappings.station_type[s.station_type] || s.station_type;
+                    else if (colorKey === 'regional-center') matchValueName = rawData.mappings.reg[s.reg] || s.reg;
+                    else matchValueName = stationValue;
+
+                    if (valueColorMap[stationValue]) {
+                        dotColor = valueColorMap[stationValue].stroke;
+                        fillColor = valueColorMap[stationValue].fill;
+                    } else {
+                        dotColor = "#64748b"; fillColor = "#cbd5e1";
+                    }
                 }
             }
 
