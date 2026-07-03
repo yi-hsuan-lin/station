@@ -296,9 +296,16 @@
 
                 // 將數字轉換回文字
                 Object.values(allStations).forEach(st => {
-                    if (st.main_cat && mappings.main[st.main_cat]) st.main_cat = mappings.main[st.main_cat];
-                    if (st.sub_cat && mappings.sub[st.sub_cat]) st.sub_cat = mappings.sub[st.sub_cat];
-                    if (st.folder && mappings.folder[st.folder]) st.folder = mappings.folder[st.folder];
+                    if (st.main_cat && mappings.main && mappings.main[st.main_cat]) st.main_cat = mappings.main[st.main_cat];
+                    if (st.sub_cat && mappings.sub && mappings.sub[st.sub_cat]) st.sub_cat = mappings.sub[st.sub_cat];
+                    
+                    // 新版 JSON 將 folder 改名為 reg，這裡做向下相容
+                    if (st.reg && mappings.reg && mappings.reg[st.reg]) {
+                        st.reg = mappings.reg[st.reg];
+                        st.folder = st.reg; // 相容原本程式碼中使用 st.folder 的邏輯
+                    } else if (st.folder && mappings.folder && mappings.folder[st.folder]) {
+                        st.folder = mappings.folder[st.folder];
+                    }
                 });
 
                 initMap();
@@ -726,73 +733,79 @@
             link.href = url; link.download = "Map_Export.svg"; link.click();
         }
         
-        // 🚀 重新架構 buildSidebar 適應一維化資料
+        // 重新架構 buildSidebar 適應不固定深度的資料結構
         function buildSidebar() {
             const container = document.getElementById('treeView');
+            container.innerHTML = ''; // 確保先清空原本內容
             
-            // 💡 刪除了錯誤的 countFlat，全部回歸下方精準的 countStations 遞迴計算
+            // 動態修正結構：若「行動數據」在最外層，將它搬回「署屬站」底下
+            if (treeData["行動數據"] && treeData["署屬站"] && !treeData["署屬站"]["行動數據"]) {
+                treeData["署屬站"]["行動數據"] = treeData["行動數據"];
+                delete treeData["行動數據"];
+            }
 
-            mainOrder.forEach(mKey => {
-                const subs = treeData[mKey]; if (!subs) return;
+            // 遞迴建立目錄的函數
+            function createFolder(name, data, level, isRoot) {
+                const flatIds = getFlatIds(data);
+                const count = countStations(flatIds);
+
+                const det = document.createElement('details');
+                if (isRoot) det.id = "main-" + name;
                 
-                let mFlatIds = Object.values(subs).flatMap(s => Object.values(s)).flat();
-                let mCount = countStations(mFlatIds); // 👈 使用遞迴函數算大類數量
+                const sum = document.createElement('summary');
+                sum.className = isRoot ? 'main-summary' : (level === 1 ? 'sub-summary' : 'folder-summary');
                 
-                const mDet = document.createElement('details'); mDet.id = "main-" + mKey;
-                const mSum = document.createElement('summary'); mSum.className = 'main-summary';
-                mSum.innerHTML = `<span>📁 ${mKey}</span><span class="count-badge">${mCount} 站</span>`;
-                mSum.onclick = () => focusMainCat(mKey);
-                mDet.appendChild(mSum);
+                let icon = isRoot ? '📁' : (level === 1 ? '📍' : '⭐');
+                sum.innerHTML = `<span>${icon} ${name}</span><span class="count-badge">${count} 站</span>`;
                 
-                let sOrder = (mKey === "署屬站") ? cwaSubOrder : Object.keys(subs).sort();
-                sOrder.forEach(sKey => {
-                    if (!subs[sKey]) return;
-                    const folders = subs[sKey];
-                    let sFlatIds = Object.values(folders).flat();
-                    let sCount = countStations(sFlatIds); // 👈 使用遞迴函數算次分類數量
-                    
-                    const isFlat = (Object.keys(subs).length === 1 && (sKey === mKey || sKey === "None" || mKey === "民航局"));
-                    if (isFlat && !Object.keys(folders).some(f => f !== "None")) {
-                        folders["None"].forEach(nodeId => {
-                            if (allStations[nodeId] && !allStations[nodeId].repid) {
-                                mDet.appendChild(createRecursiveHTML(nodeId));
-                            }
-                        });
+                // 點擊事件
+                sum.onclick = (e) => { 
+                    if (!isRoot) e.stopPropagation(); 
+                    isRoot ? focusMainCat(name) : focusGroupList(flatIds); 
+                };
+                det.appendChild(sum);
+
+                if (Array.isArray(data)) {
+                    // 若為陣列，代表底下都是測站
+                    data.forEach(id => {
+                        if (allStations[id] && !allStations[id].repid) {
+                            det.appendChild(createRecursiveHTML(id));
+                        }
+                    });
+                } else {
+                    // 若為物件，依照特定順序遞迴建立子目錄
+                    let keys = Object.keys(data);
+                    if (name === "署屬站" && typeof cwaSubOrder !== 'undefined') {
+                        keys = cwaSubOrder.filter(k => keys.includes(k)).concat(keys.filter(k => !cwaSubOrder.includes(k)));
+                    } else if (name === "區域站" && typeof regionalOrder !== 'undefined') {
+                        keys = regionalOrder.filter(k => keys.includes(k)).concat(keys.filter(k => !regionalOrder.includes(k)));
                     } else {
-                        const sDet = document.createElement('details'); sDet.id = "sub-" + mKey + "-" + sKey;
-                        const sSum = document.createElement('summary'); sSum.className = 'sub-summary';
-                        sSum.innerHTML = `<span>📍 ${sKey}</span><span class="count-badge">${sCount} 站</span>`;
-                        sSum.onclick = (e) => { e.stopPropagation(); focusGroupList(sFlatIds); };
-                        sDet.appendChild(sSum);
-                        
-                        let fKeys = (sKey === "區域站") ? regionalOrder : Object.keys(folders).sort();
-                        fKeys.forEach(fKey => {
-                            if (!folders[fKey]) return;
-                            if (fKey === "None") {
-                                folders[fKey].forEach(nodeId => {
-                                    if (allStations[nodeId] && !allStations[nodeId].repid) {
-                                        sDet.appendChild(createRecursiveHTML(nodeId));
-                                    }
-                                });
-                            } else {
-                                const fDet = document.createElement('details'); fDet.id = "folder-" + sKey + "-" + fKey;
-                                const fSum = document.createElement('summary'); fSum.className = 'folder-summary';
-                                fSum.innerHTML = `<span>⭐ ${fKey}</span><span class="count-badge">${countStations(folders[fKey])} 站</span>`; // 👈 使用遞迴函數算資料夾數量
-                                fSum.onclick = (e) => { e.stopPropagation(); focusGroupList(folders[fKey]); };
-                                fDet.appendChild(fSum);
-                                
-                                folders[fKey].forEach(nodeId => {
-                                    if (allStations[nodeId] && !allStations[nodeId].repid) {
-                                        fDet.appendChild(createRecursiveHTML(nodeId));
-                                    }
-                                });
-                                sDet.appendChild(fDet);
-                            }
-                        });
-                        mDet.appendChild(sDet);
+                        keys.sort();
+                    }
+                    
+                    keys.forEach(k => {
+                        det.appendChild(createFolder(k, data[k], level + 1, false));
+                    });
+                }
+                return det;
+            }
+
+            // 依照 mainOrder 建立大分類
+            const processedKeys = new Set();
+            if (typeof mainOrder !== 'undefined') {
+                mainOrder.forEach(mKey => {
+                    if (treeData[mKey]) {
+                        container.appendChild(createFolder(mKey, treeData[mKey], 0, true));
+                        processedKeys.add(mKey);
                     }
                 });
-                container.appendChild(mDet);
+            }
+
+            // 把未定義在 mainOrder 中的其餘分類也加上去
+            Object.keys(treeData).forEach(mKey => {
+                if (!processedKeys.has(mKey)) {
+                    container.appendChild(createFolder(mKey, treeData[mKey], 0, true));
+                }
             });
         }
 
@@ -1103,18 +1116,28 @@
             });
         }
 
-        // 🚀 修改：將大分類底下的測站蒐集改為直接展開
+        // 幫助取得任意樹狀結構下所有的測站 ID 陣列
+        function getFlatIds(node) {
+            if (!node) return [];
+            if (Array.isArray(node)) return node;
+            let ids = [];
+            for (let key in node) {
+                ids = ids.concat(getFlatIds(node[key]));
+            }
+            return ids;
+        }
+
+        // 修改：讓大分類點擊時能正確解析不同深度的資料結構
         function focusMainCat(mKey) { 
             highlightedStation = null; 
             const nodes = []; 
-            Object.values(treeData[mKey]).forEach(sub => {
-                Object.values(sub).forEach(folder => {
-                    folder.forEach(id => {
-                        const st = allStations[id];
-                        if (st && !nodes.includes(st)) nodes.push(st);
-                    });
-                });
-            }); 
+            const flatIds = getFlatIds(treeData[mKey]); // 使用遞迴取得所有子孫 ID
+            
+            flatIds.forEach(id => {
+                const st = allStations[id];
+                if (st && !nodes.includes(st)) nodes.push(st);
+            });
+            
             currentFilter = nodes;
             drawMap(currentFilter);
 
