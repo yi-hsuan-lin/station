@@ -27,22 +27,22 @@ body {
 }
 
 /* ==========================================================================
-   主版面配置微調 (將原本固定比例改為更具彈性的 Grid)
+   2. 主版面配置 (滿版無大捲軸)
    ========================================================================== */
 .app-container {
     display: grid;
-    /* 預先給定：左側 280px，中間彈性(1fr)，右側預設 400px */
-    grid-template-columns: 280px 1fr 6px 400px; /* 💡 插入了 6px 的拉伸條空間 */
-    height: 100vh;
-    width: 100vw;
+    grid-template-columns: 280px 1fr 6px 450px; /* 寬度依拉伸邏輯動態改變 */
+    height: 100vh;      /* 強制鎖定等於瀏覽器視窗高度 */
+    margin: 0;
+    padding: 0;
+    overflow: hidden;   /* 防止整個網頁出現大捲軸 */
+    background-color: #0f172a; 
 }
 
-/* ==========================================================================
-   ✨ 板塊交界處拉伸條樣式
-   ========================================================================== */
+/* ✨ 板塊交界處拉伸條樣式 */
 #main-panel-resizer {
-    grid-column: 3; /* 💡 固定在 Grid 的第三欄 */
-    background-color: #1e293b; /* 平時跟面板背景融為一體 */
+    grid-column: 3; /* 固定在 Grid 的第三欄 */
+    background-color: #1e293b; 
     cursor: col-resize; /* 滑鼠移上去顯示「左右拉伸」箭頭 */
     width: 6px;
     height: 100%;
@@ -50,12 +50,11 @@ body {
     z-index: 10;
 }
 
-/* 滑鼠懸浮或正在拖動時，拉伸條亮起科技藍，暗示可以拉動 */
-#main-panel-resizer:hover,
+/* #main-panel-resizer:hover,
 #main-panel-resizer.resizing {
     background-color: var(--accent-blue, #38bdf8);
     box-shadow: 0 0 8px var(--accent-blue, #38bdf8);
-}
+} */
 
 /* 標題與提示通用樣式 */
 h2 {
@@ -72,43 +71,86 @@ h2 {
 }
 
 /* ==========================================================================
-   3. 左側：條件備選庫 (Sidebar)
+   3. 左側：條件備選庫 (Sidebar - 滾軸完美內縮對稱版)
    ========================================================================== */
 .sidebar-library {
-    width: 280px;         /* 根據你原本的設計調整寬度 */
-    height: 100vh;        /* 讓側邊欄與視窗同高 */
-    background-color: var(--panel-bg);
+    width: 280px;         
+    height: 100%;         /* 繼承父層 Grid 高度 */
+    background-color: transparent; /* 移除背景色，展現底層最深的科技黑 */
     border-right: 1px solid #334155;
     padding: 20px;
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
+    overflow: hidden;     /* 沒收外層大捲軸 */
 }
 
-.filter-card-list {
+/* 🚀 ✨ 新增：左側外部卡片大容器 (完美複製右側 .station-list-container 的外觀) */
+.filter-library-container {
     flex: 1;
-    overflow-y: auto; /* 選項多時可滾動 */
-    flex-grow: 1;         /* 自動填滿剩餘的垂直空間 */
+    height: 0;            /* 彈性高度防爆鎖 */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;     /* 鎖定邊界 */
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: #1e293b;  /* 淺色卡片底色縮小到這裡 */
+    padding: 15px;        /* 💡 核心：內襯 15px 成功把內部的滾動條往內推，與右側完全一致！ */
+    box-sizing: border-box;
+}
+
+/* 🚀 ✨ 修改：左側內部真實滾動容器 (對齊右側 .table-responsive) */
+.filter-card-list {
+    flex-grow: 1;
+    height: 0;            /* 雙重防爆鎖，確保底部絕不外溢卡死 */
+    overflow-y: auto;     /* 垂直方向：自動出現精緻滾動條 */
+    overflow-x: hidden;   /* 橫向方向：全面鎖死不破壞版面 */
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding-right: 8px;   /* 預留空間給滾動條，避免卡片被擋住 */
-    scrollbar-width: thin; /* Firefox */
+    padding-right: 4px;   /* 預留微小空間給垂直滾動條 */
+    box-sizing: border-box;
+    scrollbar-width: thin; 
 }
 
-/* Chrome, Safari, Edge 的滾動條美化（選用） */
-.filter-card-list::-webkit-scrollbar {
+/* ==========================================================================
+   ✨ 全局滾動條美化 (終極強制覆蓋版 - 放最底下確保生效)
+   ========================================================================== */
+
+/* 1. 支援 Firefox 的寫法 */
+.filter-card-list,
+.drop-zone,
+.table-responsive {
+    scrollbar-width: thin;
+    scrollbar-color: #475569 #1e293b;
+}
+
+/* 2. 支援 Chrome / Edge / Safari 的寫法 */
+.filter-card-list::-webkit-scrollbar,
+.drop-zone::-webkit-scrollbar,
+.table-responsive::-webkit-scrollbar {
     width: 6px;
+    height: 6px;
 }
-.filter-card-list::-webkit-scrollbar-track {
-    background: #f1f5f9;
+
+.filter-card-list::-webkit-scrollbar-track,
+.drop-zone::-webkit-scrollbar-track,
+.table-responsive::-webkit-scrollbar-track {
+    background: #1e293b;
     border-radius: 4px;
 }
-.filter-card-list::-webkit-scrollbar-thumb {
-    background: #cbd5e0;
+
+.filter-card-list::-webkit-scrollbar-thumb,
+.drop-zone::-webkit-scrollbar-thumb,
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #475569;
     border-radius: 4px;
 }
-.filter-card-list::-webkit-scrollbar-thumb:hover {
-    background: #a0aec0;
+
+.filter-card-list::-webkit-scrollbar-thumb:hover,
+.drop-zone::-webkit-scrollbar-thumb:hover,
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
 }
 
 /* 可拖曳的標籤卡片 */
@@ -116,10 +158,11 @@ h2 {
     background-color: var(--card-bg);
     padding: 12px;
     border-radius: 6px;
-    cursor: grab; /* 滑鼠移上去顯示「手掌抓取」形狀 */
+    cursor: grab; 
     border: 1px solid #475569;
     transition: all 0.2s ease;
-    user-select: none; /* 防止拖曳時選取到文字 */
+    user-select: none; 
+    flex-shrink: 0;       /* 鎖定卡片高度不縮水 */
 }
 
 .filter-card:hover {
@@ -128,13 +171,183 @@ h2 {
 }
 
 .filter-card:active {
-    cursor: grabbing; /* 正在點擊拖曳時顯示「緊抓的手掌」 */
+    cursor: grabbing; 
+}
+/* 🚀 ✨ 新增：施工中 / 未開放的卡片樣式 */
+.filter-card.disabled-card {
+    background-color: #1e293b;       /* 背景改為較暗的底色 */
+    color: #64748b;                  /* 文字變暗淡 */
+    border: 1px dashed #475569;      /* 改用虛線邊框，呈現施工感 */
+    cursor: not-allowed;             /* 游標變成紅色的禁止符號 🚫 */
+    opacity: 0.7;                    /* 整體透明度降低 */
+}
+
+/* 強制取消 hover 與 active 的任何互動特效 */
+.filter-card.disabled-card:hover {
+    background-color: #1e293b;
+    border-color: #475569;
+}
+
+.filter-card.disabled-card:active {
+    cursor: not-allowed; 
+}
+
+/* ==========================================================================
+   5. 右側：戰情結果區 (Dashboard - 解決錯位與滾動條溢出螢幕終極修復)
+   ========================================================================== */
+.result-dashboard {
+    height: 100vh;           /* 強制拉齊與視窗等高 */
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    padding-bottom: 24px;   /* 🎛️ 給予右側外框舒適的底部實體邊界 */
+    box-sizing: border-box;  /* 🚀 讓 padding 計算在 100vh 內部，絕不溢出 */
+    overflow: hidden;        /* 強制沒收右側大外框的網頁大捲軸 */
+}
+
+/* 數字計數器大卡片 */
+.counter-card {
+    background: linear-gradient(135deg, #0284c7, #0369a1); 
+    padding: 20px 24px;      
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    margin-bottom: 0;        
+    
+    /* 解鎖核心：給予初始高度，並允許由 JS 進行動態高度拉伸 */
+    height: 140px;           
+    flex-shrink: 0;          
+    box-sizing: border-box;
+}
+
+.counter-title {
+    display: block;
+    font-size: 0.9rem;
+    color: #e0f2fe;
+    margin-bottom: 4px;
+}
+
+.counter-number {
+    font-size: 3.5rem;       
+    font-weight: bold;
+    color: #ffffff;
+    font-family: 'Courier New', Courier, monospace; 
+    line-height: 1;          
+}
+
+.counter-unit {
+    font-size: 1rem;
+    color: #e0f2fe;
+    margin-left: 4px;
+}
+
+/* 垂直拉伸控制條樣式 */
+#sub-panel-resizer {
+    height: 8px;             
+    width: 100%;             
+    background-color: #1e293b; 
+    cursor: row-resize;      
+    margin: 8px 0;           
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    flex-shrink: 0;          
+    z-index: 20;
+}
+
+/* #sub-panel-resizer:hover,
+#sub-panel-resizer.resizing {
+    background-color: var(--accent-blue, #38bdf8);
+    box-shadow: 0 0 8px var(--accent-blue, #38bdf8);
+} */
+
+/* 詳細資料表格總容器 */
+.station-list-container {
+    flex-grow: 1;           /* 🚀 自動伸展，完美填滿扣除計數大卡後的右側垂直空間 */
+    height: 0;              /* 🚀 關鍵核心防爆鎖：迫使瀏覽器依彈性高度重新截斷，絕不往下外溢 */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;        /* 限制這個白框容器不得被內容表格撐開 */
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: #1e293b;
+    padding: 15px;
+    box-sizing: border-box;  /* 🚀 確保白框的 Border 算在彈性高度內 */
+}
+
+/* 📥 匯出 CSV 的標題與按鈕列 */
+.station-list-container > div {
+    flex-shrink: 0;         
+    margin-bottom: 12px;
+}
+
+/* 控制滾動條的包覆層 */
+.station-list-container .table-responsive {
+    flex-grow: 1;
+    height: 0;              /* 🚀 雙重防爆鎖！將滾動區塊牢牢鎖死在內部剩餘高度 */
+    overflow-y: auto;       /* 垂直方向：自動出現精緻捲軸 */
+    overflow-x: hidden;     /* ⛔ 橫向方向：全面鎖死、強制隱藏橫向滾動軸 */
+    width: 100%;
+    box-sizing: border-box;
+    padding-right: 4px;     
+}
+
+/* 標準 Table 佈局 */
+#station-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    table-layout: fixed;     
+}
+
+/* 精準控制每一欄的寬度比例，上下一體對齊 */
+#station-table th:nth-child(1), #station-table td:nth-child(1) { width: 22%; } 
+#station-table th:nth-child(2), #station-table td:nth-child(2) { width: 22%; } 
+#station-table th:nth-child(3), #station-table td:nth-child(3) { width: 18%; } 
+#station-table th:nth-child(4), #station-table td:nth-child(4) { width: 18%; } 
+#station-table th:nth-child(5), #station-table td:nth-child(5) { width: 20%; } 
+
+#station-table th, #station-table td {
+    padding: 12px 8px;       
+    text-align: left;
+    border-bottom: 1px solid #334155;
+    word-break: break-all;   
+    vertical-align: middle;
+    overflow: hidden;        
+    text-overflow: ellipsis; 
+    white-space: nowrap;     
+}
+
+/* 表格標頭：滾動時釘在最頂端 */
+#station-table thead {
+    position: sticky;        
+    top: 0;
+    background-color: #334155; 
+    z-index: 10;
+}
+
+#station-table thead tr {
+    border-bottom: 2px solid #475569;
+}
+
+#station-table-body {
+    display: table-row-group; 
+    width: 100%;
+}
+
+#station-table-body tr:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+#station-table td span {
+    display: inline-block;
+    white-space: nowrap;
 }
 
 /* ==========================================================================
    4. 中間：拖曳過濾池 (Workspace)
    ========================================================================== */
 .filter-workspace {
+    height: 100vh;
     padding: 16px;
     display: flex;
     flex-direction: column;
@@ -145,7 +358,7 @@ h2 {
 /* 接收拖曳的區域 (Drop Zone) */
 .drop-zone {
     flex: 1;
-    border: 2px dashed #475569; /* 虛線框框，暗示可以放東西 */
+    border: 2px dashed #475569; 
     border-radius: 8px;
     padding: 16px;
     background-color: var(--panel-bg);
@@ -153,53 +366,66 @@ h2 {
     transition: background-color 0.2s, border-color 0.2s;
 }
 
-/* 綠色包含池特殊樣式 */
 .include-zone h3 { color: var(--zone-include); }
 .include-zone.drag-over {
     border-color: var(--zone-include);
-    background-color: rgba(16, 185, 129, 0.05); /* 當卡片懸浮在上方時，泛起淡淡的綠光 */
+    background-color: rgba(16, 185, 129, 0.05); 
 }
 
-/* 紅色排除池特殊樣式 */
 .exclude-zone h3 { color: var(--zone-exclude); }
 .exclude-zone.drag-over {
     border-color: var(--zone-exclude);
-    background-color: rgba(239, 68, 68, 0.05); /* 當卡片懸浮在上方時，泛起淡淡的紅光 */
+    background-color: rgba(239, 68, 68, 0.05); 
+}
+
+.active-filter-group {
+    margin-bottom: 12px;
+    background: #0f172a;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #334155;
 }
 
 /* ==========================================================================
-   5. 右側：戰情結果區 (Dashboard)
+   5. 右側：戰情結果區 (Dashboard - 垂直拉伸流暢解鎖版)
    ========================================================================== */
 .result-dashboard {
-    background-color: var(--panel-bg);
-    border-left: 1px solid #334155;
-    padding: 16px;
+    height: 100vh;           /* 固定與視窗等高 */
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    padding: 20px;
+    box-sizing: border-box;  
+    overflow: hidden;        /* 沒收大外框捲軸 */
 }
 
 /* 數字計數器大卡片 */
 .counter-card {
-    background: linear-gradient(135deg, #0284c7, #0369a1); /* 漸層藍色，像亮起來一樣 */
-    padding: 24px;
+    background: linear-gradient(135deg, #0284c7, #0369a1); 
+    padding: 20px 24px;      
     border-radius: 8px;
     text-align: center;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    margin-bottom: 0;        /* 🚀 移除 margin，因為間距改由拉伸條的 margin 控制 */
+    
+    /* 🚀 解鎖核心：允許 JavaScript 自由改寫實體高度 */
+    height: 140px;           /* 預設初始高度 */
+    flex-shrink: 0;          /* 防止被下方列表擠壓變小 */
+    box-sizing: border-box;
 }
 
 .counter-title {
     display: block;
     font-size: 0.9rem;
     color: #e0f2fe;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 
 .counter-number {
-    font-size: 3.5rem;
+    font-size: 3.5rem;       
     font-weight: bold;
     color: #ffffff;
-    font-family: 'Courier New', Courier, monospace; /* 等寬字體，數字跳動時不會晃動 */
+    font-family: 'Courier New', Courier, monospace; 
+    line-height: 1;          
 }
 
 .counter-unit {
@@ -208,54 +434,106 @@ h2 {
     margin-left: 4px;
 }
 
-/* 詳細資料表格容器 */
-.station-list-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+/* 🚀 垂直拉伸控制條樣式（維持你最愛的發光特效） */
+#sub-panel-resizer {
+    height: 8px;             /* 稍微加寬至 8px，讓滑鼠更好抓取 */
+    width: 100%;             
+    background-color: #1e293b; 
+    cursor: row-resize;      /* 顯示上下拉伸箭頭 */
+    margin: 8px 0;           /* 精準分配控制條與上下區塊的間距 */
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    flex-shrink: 0;          
+    z-index: 20;
 }
 
-.station-list-container table {
+
+
+/* 詳細資料表格總容器 */
+.station-list-container {
+    /* 🚀 解鎖核心：不要用 height: 0，改用 flex: 1 1 0% 讓它自動伸縮，完美承接拉伸後的剩餘空間 */
+    flex: 1 1 0%;            
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;        /* 鎖定邊界，表格超長時不撐開白框 */
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: #1e293b;
+    padding: 15px;
+    box-sizing: border-box;
+}
+
+/* 📥 匯出 CSV 的標題與按鈕列 */
+.station-list-container > div {
+    flex-shrink: 0;         
+    margin-bottom: 12px;
+}
+
+/* 控制滾動條的包覆層 */
+.station-list-container .table-responsive {
+    flex-grow: 1;
+    height: 0;              /* 這裡維持 0，確保表格內部捲軸可以順利計算高度 */
+    overflow-y: auto;       
+    overflow-x: hidden;     /* 強制隱藏橫向滾動軸 */
+    width: 100%;
+    box-sizing: border-box;
+    padding-right: 4px;     
+}
+
+/* 標準 Table 佈局 */
+#station-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.85rem;
+    table-layout: fixed;     
 }
 
-.station-list-container th, .station-list-container td {
-    padding: 10px;
+#station-table th:nth-child(1), #station-table td:nth-child(1) { width: 22%; } 
+#station-table th:nth-child(2), #station-table td:nth-child(2) { width: 22%; } 
+#station-table th:nth-child(3), #station-table td:nth-child(3) { width: 18%; } 
+#station-table th:nth-child(4), #station-table td:nth-child(4) { width: 18%; } 
+#station-table th:nth-child(5), #station-table td:nth-child(5) { width: 20%; } 
+
+#station-table th, #station-table td {
+    padding: 12px 8px;       
     text-align: left;
     border-bottom: 1px solid #334155;
+    word-break: break-all;   
+    vertical-align: middle;
+    overflow: hidden;        
+    text-overflow: ellipsis; 
+    white-space: nowrap;     
 }
 
-.station-list-container th {
-    background-color: var(--card-bg);
-    color: var(--text-muted);
-    position: sticky; /* 滾動時表頭固定在最上方 */
+/* 表格標頭置頂固定 */
+#station-table thead {
+    position: sticky;        
     top: 0;
+    background-color: #334155; 
+    z-index: 10;
 }
 
-.station-list-container tbody {
-    display: block;
-    overflow-y: auto; /* 表格內容過長時可滾動 */
-    max-height: calc(100vh - 280px); /* 動態計算剩餘高度 */
+#station-table thead tr {
+    border-bottom: 2px solid #475569;
 }
 
-.station-list-container tr {
-    display: table;
+#station-table-body {
+    display: table-row-group; 
     width: 100%;
-    table-layout: fixed; /* 固定欄寬 */
 }
 
-.station-list-container tr:hover {
-    background-color: rgba(255, 255, 255, 0.02);
+#station-table-body tr:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+#station-table td span {
+    display: inline-block;
+    white-space: nowrap;
 }
 
 /* ==========================================================================
-   ✨ 進階微調：精簡匯出按鈕與欄位調整寬度
+   6. 匯出按鈕與欄位拉伸小元件
    ========================================================================== */
-
-/* 縮小後的精緻按鈕 */
 .mini-export-btn {
     background: #10b981;
     color: white;
@@ -272,23 +550,173 @@ h2 {
     background: #059669;
 }
 
-/* 讓高度的表頭具備相對定位，用來放拉伸條 */
 .resizable-th {
     position: relative;
 }
 
-/* 右側欄位邊緣的隱形拉伸拖拽條 */
 .resizer {
     position: absolute;
     top: 0;
     right: 0;
     width: 6px;
-    cursor: col-resize; /* 當滑鼠移上去時，顯示「左右箭頭」的調整寬度游標 */
+    cursor: col-resize; 
     user-select: none;
     height: 100%;
     background: rgba(255, 255, 255, 0.05);
 }
 
 .resizer:hover, .resizer.resizing {
-    background: var(--accent-blue); /* 拖動時拉伸條亮起科技藍 */
+    background: var(--accent-blue); 
+}
+
+/* ==========================================================================
+   7. 地圖彈出視窗 (Map Modal)
+   ========================================================================== */
+.mini-map-btn {
+    background: #0284c7; /* 科技藍，與 CSV 的綠色做區分 */
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.mini-map-btn:hover {
+    background: #0369a1;
+}
+
+/* 遮罩層 (帶有毛玻璃特效) */
+.modal-overlay {
+    display: none; /* 預設隱藏 */
+    position: fixed;
+    top: 0; left: 0; 
+    width: 100vw; height: 100vh;
+    background: rgba(15, 23, 42, 0.85); 
+    backdrop-filter: blur(5px);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 啟動時顯示 */
+.modal-overlay.active {
+    display: flex;
+}
+
+/* 視窗本體 (✨ 長官最愛的高級簡報白底風格) */
+.modal-content {
+    background: #ffffff;          /* 純白底色，截圖貼 PPT 最搭 */
+    border: 1px solid #cbd5e1;    /* 乾淨的淺灰邊框 */
+    border-radius: 12px;
+    width: 520px;                 /* 🎯 修改：改為直式黃金寬度，完美貼合台灣與離島分布 */
+    max-width: 95vw;              /* 🎯 新增：手機或小螢幕防溢出彈性鎖 */
+    height: 90vh;                 /* 🎯 修改：拉高垂直高度，爭取最大顯示空間 */
+    display: flex;
+    flex-direction: column;
+
+    /* 🚀 核心新增：解鎖縮放限制與定位基準 */
+    position: relative;           /* 讓右下角拉伸點可以絕對定位 */
+    min-width: 450px;             /* 🔒 防爆鎖：限制最小寬度，確保圖例能看清 */
+    min-height: 400px;            /* 🔒 防爆鎖：限制最小高度 */
+    max-width: 95vw;              
+    max-height: 95vh;
+
+    /* 換成柔和的商務風陰影 */
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0,0,0,0.05); 
+    overflow: hidden;
+    animation: modalFadeIn 0.3s ease-out forwards;
+}
+
+/* 🚀 新增：視窗右下角拉伸斜角控制點樣式 */
+.modal-resizer {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 16px;
+    height: 16px;
+    cursor: se-resize;            /* 滑鼠移上去顯示「東南雙向拉伸」箭頭 */
+    /* 使用漸層色畫出經典的高質感商務斜向小三角 */
+    background: linear-gradient(135deg, transparent 50%, #94a3b8 50%);
+    border-radius: 0 0 12px 0;    /* 完美貼合父層的圓角邊緣 */
+    z-index: 1010;                /* 確保絕對不會被地圖或圖例擋住 */
+    transition: background 0.2s;
+}
+
+.modal-resizer:hover {
+    background: linear-gradient(135deg, transparent 50%, #0284c7 50%); /* 懸停時變科技藍 */
+}
+
+.modal-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #e2e8f0; /* 淺灰色分隔線 */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;          /* 標題列微微的亮灰色，增加層次 */
+}
+
+.modal-header h3 { 
+    margin: 0; 
+    font-size: 1.25rem; 
+    color: #0f172a;               /* 深色實體文字，清晰好讀 */
+    font-weight: bold;
+}
+
+.close-btn {
+    background: none; border: none; color: #64748b; font-size: 1.5rem; 
+    cursor: pointer; transition: color 0.2s, transform 0.2s;
+}
+
+.close-btn:hover { color: #ef4444; transform: scale(1.1); }
+
+/* 地圖要放的畫布區 */
+.map-container {
+    flex-grow: 1;
+    background: #ffffff;          /* 畫布也是純白色 */
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 🚀 ✨ 新增：長官最愛的乾淨地圖標籤樣式 */
+.map-tooltip {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    color: #0f172a;
+    font-size: 0.85rem;
+    font-weight: bold;
+    border-radius: 6px;
+    padding: 6px 10px;
+}
+
+/* 確保 Leaflet 畫布底色是純白 */
+.leaflet-container {
+    background: #ffffff !important; 
+}
+
+/* 載入中文字樣的顏色也要調暗，才在白底上看得到 */
+.map-container div {
+    color: #475569 !important;
+}
+
+/* 簡單的彈出動畫 */
+@keyframes modalFadeIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 🚀 ✨ 新增：SVG 測站點點特效 */
+.station-dot {
+    cursor: crosshair;
+    transition: all 0.15s ease-in-out;
+}
+.station-dot:hover {
+    stroke-width: 2.5px;
+    opacity: 1;
 }

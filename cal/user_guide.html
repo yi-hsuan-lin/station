@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>測站數量查詢網頁 - 12種分類方法說明文件</title>
+    <title>測站數量查詢網頁 - 分類方法與地圖優化說明文件</title>
     <style>
         *, *::before, *::after {
             box-sizing: border-box;
@@ -108,137 +108,72 @@
 
 <div class="container">
     <div class="card">
-        <h1>📊 測站數量查詢網頁 - 12種分類方法說明文件</h1>
-        <p>本文件完全對應系統<code>app.js</code>與過濾池底層邏輯，詳細說明目前提供的 12 種分類篩選方法與其對應資料屬性關係：</p>
-        <h2>🎯 交互過濾池運算核心（組合邏輯）</h2>
-        <p>當您將左側維度卡片拖曳至中間的過濾池時，系統會遵循以下布林代數（Boolean）演算法進行即時運算：</p>
+        <h1>📊 測站數量查詢網頁 - 說明文件</h1>
+        <p>本文件完全對應系統 <code>app.js</code> 與過濾池底層運算核心，詳細說明目前提供的 12 種分類篩選方法、地圖視覺化邏輯與進階簡報功能：</p>
+        
+
+        <h2>🎯 交互過濾池操作規則</h2>
+        <p>透過將左側卡片拖曳至過濾池中，您可以自由組合出複雜的篩選條件：</p>
         <ul>
-            <li><strong>同維度/同池內【或 (OR) 邏輯】：</strong> 如果您在同一個維度（例如「縣市選擇」）內同時勾選了「臺北市」與「新北市」，系統會尋找屬於臺北市<strong>或</strong>新北市的測站。</li>
-            <li><strong>跨維度/跨卡片【且 (AND) 邏輯】：</strong> 如果您在包含池放了「縣市選擇（臺北市）」與「維護廠商（翰昇）」，系統只會篩選出同時符合這兩項條件的交集觀測點。</li>
-            <li><strong>包含與排除【差集 (NOT) 邏輯】：</strong> 系統會先計算出「🟢 包含池」的所有交集結果，再強力扣除「🔴 排除池」中符合的任何站點。</li>
+            <li><strong>同卡片內【勾選多個 = 或 (OR)】：</strong> 如果您在「縣市選擇」內同時勾選了「臺北市」與「新北市」，系統會抓出屬於臺北市<strong>或</strong>新北市的所有測站。</li>
+            <li><strong>跨卡片之間【複合疊加 = 且 (AND)】：</strong> 如果您同時拉出了「縣市選擇（臺北市）」與「傳輸方式（4G）」，系統只會留下同時符合這兩項條件的測站。</li>
+            <li><strong>包含與排除【扣除邏輯】：</strong> 系統會以「🟢 包含池」留下的測站為基準，強力扣除任何符合「🔴 排除池」條件的測站。</li>
         </ul>
-        <h2>📋 12種分類方法與資料比對邏輯</h2>
+
+        <h2>📋 12種分類方法快速對照</h2>
         <div class="logic-grid">
+            <div class="logic-item"><div class="logic-title">1. 所屬單位</div><div class="logic-details">篩選中央署屬站、民航局、環境部、高公局或台北市政府等不同管轄權責。</div></div>
+            <div class="logic-item"><div class="logic-title">2. 傳輸方式</div><div class="logic-details">區分為 4G、無線電、實體網路、外單位雨量資料交換。</div></div>
+            <div class="logic-item"><div class="logic-title">3. 縣市選擇</div><div class="logic-details">選取特定的縣市。列表已依台灣地理「由北到南」貼心排序，方便您快速尋找。</div></div>
+            <div class="logic-item"><div class="logic-title">4. 鄉鎮選區</div><div class="logic-details">選取特定鄉鎮市區。具備連動功能，會自動根據您勾選的縣市進行範圍縮小。</div></div>
+            <div class="logic-item"><div class="logic-title">5. 氣象資料頻率</div><div class="logic-details">區分為 1分鐘、10分鐘傳輸，或純雨量站（不接受氣象篩選）。</div></div>
+            <div class="logic-item"><div class="logic-title">6. 雨量資料頻率</div><div class="logic-details">常規站點為 1分鐘回傳，外部資料交換站為 10分鐘回傳。</div></div>
+            <div class="logic-item"><div class="logic-title">7. 維護廠商</div><div class="logic-details">篩選負責該站維護合約的民間廠商，或各分署管轄區域。</div></div>
+            <div class="logic-item"><div class="logic-title">8. 對外提供狀態</div><div class="logic-details">區分為「有對外提供」與「沒有對外提供」（如機場站、空品站預設不對外提供）。</div></div>
+            <div class="logic-item"><div class="logic-title">9. 測站類型</div><div class="logic-details">篩選常規氣象站、雨量站、單/雙中繼站、區域中心等。</div></div>
+            <div class="logic-item"><div class="logic-title">10. 區域站歸屬</div><div class="logic-details">篩選無線電主要歸屬的 12 大管理中心轄區。</div></div>
+            <div class="logic-item"><div class="logic-title">11. 上架狀態</div><div class="logic-details">區分為正式上架站與未上架站（教學站、防災通訊備援站預設屬於未上架）。</div></div>
+            <div class="logic-item"><div class="logic-title">12. 海拔高度</div><div class="logic-details">直接在輸入框填入最低與最高公尺數，即可精準留存該高度區間內的測站。</div></div>
+        </div>
 
+        <h2>🗺️ 實務操作：地圖分布圖與簡報圖片下載指南</h2>
+        <p>當您調整好篩選條件後，可以利用右側統計結果區的「🗺️ 分布圖」按鈕開啟直式精美地圖：</p>
+        
+        <div class="logic-grid">
+            
             <div class="logic-item">
-                <div class="logic-title">1. 所屬單位 <span class="logic-code">unit / _derivedUnit</span></div>
+                <div class="logic-title">💡 核心技巧：如何讓地圖上的站點出現不同顏色？</div>
                 <div class="logic-details">
-                    <p><strong>比對欄位：</strong> 衍生標籤 <code>_derivedUnit</code></p>
-                    <p><strong>底層邏輯：</strong> 依據 <code>main_cat</code> 欄位對應文字（如署屬站、高公局、西濱、環境部、民航局、合作站）。特別當 <code>main_cat === 7</code> 且 <code>sub_cat === 11</code>（北市府）時，會再細分並回傳「北市府大地工程處」或「北市府水利工程處」之標籤。</p>
-                </div>
-            </div>
-
-            <div class="logic-item">
-                <div class="logic-title">2. 傳輸方式 <span class="logic-code">transport / _derivedTransport</span></div>
-                <div class="logic-details">
-                    <p><strong>比對欄位：</strong> 衍生標籤 <code>_derivedTransport</code></p>
-                    <p><strong>底層邏輯：</strong> 依據 <code>sub_cat</code> 欄位對應分類：</p>
+                    <p>地圖內建「智慧動態著色大腦」，顏色完全跟隨您的過濾池選項即時改變：</p>
                     <ul>
-                        <li><code>sub_cat === 8</code>：回傳「無線電」</li>
-                        <li><code>sub_cat</code> 為 <code>3, 5, 6, 9</code>：回傳「4G」</li>
-                        <li><code>sub_cat</code> 為 <code>1, 2</code>：回傳「實體網路」</li>
-                        <li><code>sub_cat</code> 為 <code>10, 11, 12, 13, 14, 15</code>：回傳「外單位雨量資料交換」</li>
+                        <li><strong>全場統一藍色</strong>：在預設狀態、或您在包含池中「只勾選單一項目」時（例如只勾選了臺北市），地圖為了維持乾淨，所有測站點點皆會統一顯示為<strong>科技藍色</strong>，圖例會顯示「觀測站點」。</li>
+                        <li><strong>觸發多色分類</strong>：當您將分類卡片（如：傳輸方式、維護廠商、縣市選擇）拖進「🟢 包含池」，並且<strong>同時勾選兩個（含）以上的項目</strong>（例如同時勾選 4G 和 無線電），地圖就會自動幫站點著上不同的鮮艷顏色！</li>
+                        <li><strong>動態圖例同步</strong>：同時，右下角的「地圖圖例」也會立刻變身，自動列出每個顏色代表的項目名稱（當項目很多時，會自動排成雙欄網格，維持畫面清爽）。</li>
                     </ul>
                 </div>
             </div>
 
             <div class="logic-item">
-                <div class="logic-title">3. 縣市選擇 <span class="logic-code">city</span></div>
+                <div class="logic-title">📌 離島完美收錄（免手動調視角）</div>
                 <div class="logic-details">
-                    <p><strong>比對欄位：</strong> 原始屬性 <code>city</code></p>
-                    <p><strong>底層邏輯：</strong> 比對測站所屬的縣市代碼（對應 <code>rawData.mappings.city</code> 字典），並可與「鄉鎮選區」維度進行下拉式選單的跨卡片二級連動（Cascade）。</p>
+                    <p>地圖視窗開啟時，會自動偵測您目前篩選出的所有測站位置。不論您選了哪些地方，系統會自動縮放到最完美的比例，<strong>將台灣本島以及澎湖、金門、馬祖主要離島同時裝進畫面正中央</strong>，您完全不需要頻繁地用滑鼠縮放或移動找離島。</p>
                 </div>
             </div>
 
             <div class="logic-item">
-                <div class="logic-title">4. 鄉鎮選區 <span class="logic-code">town</span></div>
+                <div class="logic-title">📌 滑動縮放與自由拉伸視窗</div>
                 <div class="logic-details">
-                    <p><strong>比對欄位：</strong> 原始屬性 <code>town</code></p>
-                    <p><strong>底層邏輯：</strong> 比對測站所屬的鄉鎮市區代碼（對應 <code>rawData.mappings.town</code> 字典）。若畫面上同時存在「縣市選擇」卡片，未包含於所選縣市轄區內的鄉鎮標籤將會被動態隱藏。</p>
-                </div>
-            </div>
-
-            <div class="logic-item">
-                <div class="logic-title">5. 氣象資料頻率 <span class="logic-code">weather-freq / _derivedWeatherFreq</span></div>
-                <div class="logic-details">
-                    <p><strong>比對欄位：</strong> 衍生標籤 <code>_derivedWeatherFreq</code></p>
-                    <p><strong>底層邏輯：</strong> 依據 <code>sub_cat</code> 欄位區分：</p>
                     <ul>
-                        <li><code>sub_cat</code> 為 <code>10, 11, 12, 13, 14, 15</code> 之外單位雨量站：回傳「不接受篩選(純雨量站)」</li>
-                        <li><code>sub_cat === 8</code>（無線電）：回傳「10分鐘」</li>
-                        <li>其餘常規站：回傳「1分鐘」</li>
+                        <li><strong>點點自動變大</strong>：在看全台灣大範圍時，點點會自動縮小防重疊；當您用滑鼠滾輪放大到局部縣市時，點點會跟著滾輪動態變大，方便您 hover 檢視測站名稱。</li>
+                        <li><strong>自由拉大視窗</strong>：如果右下角的圖例字太多、擋到了地圖上的測站，您可以隨時把滑鼠移到視窗的<strong>右下角角落</strong>，按住滑鼠即可像桌面軟體一樣「自由拉大或拉高整張地圖視窗」，放開滑鼠時畫面會滑順定格，絕對不亂跳。</li>
                     </ul>
                 </div>
             </div>
 
             <div class="logic-item">
-                <div class="logic-title">6. 雨量資料頻率 <span class="logic-code">rain-freq / _derivedRainFreq</span></div>
+                <div class="logic-title">📌 產出簡報（PPT）神器：一鍵下載無暇圖片</div>
                 <div class="logic-details">
-                    <p><strong>比對欄位：</strong> 衍生標籤 <code>_derivedRainFreq</code></p>
-                    <p><strong>底層邏輯：</strong> 依據 <code>sub_cat</code> 欄位區分：</p>
-                    <ul>
-                        <li><code>sub_cat</code> 為 <code>10, 11, 12, 13, 14, 15</code> 之外單位雨量站：回傳「10分鐘」</li>
-                        <li>其餘常規站：回傳「1分鐘」</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="logic-item">
-                <div class="logic-title">7. 維護廠商 <span class="logic-code">vendor / _derivedVendor</span></div>
-                <div class="logic-details">
-                    <p><strong>比對欄位：</strong> 衍生標籤 <code>_derivedVendor</code></p>
-                    <p><strong>底層邏輯：</strong> 依據 <code>vendor</code> 欄位對應文字（如翰昇、勤睿、達元、農村水保署等）。特別當 <code>vendor === 7</code>（十河局）時，會再依據 <code>reg</code> 轄區代碼細分並回傳「十河分署-翡翠水庫(23)」、「十河分署-石門水庫(24)」或「十河分署-第10河川局(25)」。</p>
-                </div>
-            </div>
-
-            <div class="logic-item">
-                <div class="logic-title">8. 對外提供狀態 <span class="logic-code">public / _derivedPublic</span></div>
-                <div class="logic-details">
-                    <p><strong>比對欄位：</strong> 衍生標籤 <code>_derivedPublic</code></p>
-                    <p><strong>底層邏輯：</strong> 依據 <code>main_cat</code> 進行布林判斷：</p>
-                    <ul>
-                        <li><code>main_cat</code> 屬於 <code>[1, 2, 4, 5, 7]</code> 陣列之一：回傳「有對外提供」</li>
-                        <li><code>main_cat</code> 不屬於上述陣列（如民航局<code>3</code>、環境部<code>6</code>）：回傳「沒有對外提供」</li>
-                    </ul>
-                    <div class="highlight-box">
-                        <strong>⚠️ 業務重要提示：</strong> 機場站（民航局）與空品站（環境部）在此項分類篩選中預設皆為「沒有對外提供」。
-                    </div>
-                </div>
-            </div>
-
-            <div class="logic-item">
-                <div class="logic-title">9. 測站類型 <span class="logic-code">station_type</span></div>
-                <div class="logic-details">
-                    <p><strong>比對欄位：</strong> 原始屬性 <code>station_type</code></p>
-                    <p><strong>底層邏輯：</strong> 比對測站型態代碼（對應 <code>rawData.mappings.station_type</code> 字典，例如：氣象站、農業氣象站、空品站、區域站、雨量站、單/雙中繼站）。</p>
-                    <p><small style="color:#718096;">* 註：系統預設會自動過濾移除中繼站與區域中心。但若「包含池」或「排除池」中明確加入了「測站類型」維度卡片，則系統會停用預設過濾，允許中繼站與區域中心進入篩選串流。</small></p>
-                </div>
-            </div>
-
-            <div class="logic-item">
-                <div class="logic-title">10. 區域站歸屬 <span class="logic-code">regional-center</span></div>
-                <div class="logic-details">
-                    <p><strong>比對欄位：</strong> 原始屬性 <code>reg</code></p>
-                    <p><strong>底層邏輯：</strong> 針對無線電區域測站進行管理。篩選範圍限定為 <code>[8] 宜蘭</code> 至 <code>[19] 高雄</code> 等 12 大核心管理區域站代碼（對應 <code>rawData.mappings.reg</code> 字典）。</p>
-                </div>
-            </div>
-
-            <div class="logic-item">
-                <div class="logic-title">11. 上架狀態 <span class="logic-code">status / _derivedStatus</span></div>
-                <div class="logic-details">
-                    <p><strong>比對欄位：</strong> 衍生標籤 <code>_derivedStatus</code></p>
-                    <p><strong>底層邏輯：</strong> 檢查 <code>cwbid</code> 正式代碼欄位。若 <code>cwbid</code> 為空字串 <code>""</code> 或其字串值為 <code>"nan"</code>，系統即將其衍生貼上「未上架」標籤；反之則回傳「正式上架站」。</p>
-                    <div class="highlight-box" style="border-left-color: #e53e3e;">
-                        <strong>⚠️ 業務重要提示：</strong> 系統內所有屬於測試用的教學站，以及資料後綴為「(備)」的通訊防災備援站點，在無配置正式 CWBID 代碼的情況下，皆會被此分類歸納至「未上架」狀態。
-                    </div>
-                </div>
-            </div>
-
-            <div class="logic-item">
-                <div class="logic-title">12. 海拔高度 <span class="logic-code">altitude</span></div>
-                <div class="logic-details">
-                    <p><strong>比對欄位：</strong> 原始屬性 <code>alt</code></p>
-                    <p><strong>底層邏輯：</strong> 採用「連續數值區間」交集篩選。過濾池會動態產生最低值（Min）與最高值（Max）的數值輸入框，並與測站的 <code>alt</code> 高度欄位進行區間包含比對。若輸入框留空，則分別以 <code>-Infinity</code> 或 <code>Infinity</code> 代入作為無限制邊界。</p>
+                    <p>在畫面上用滑鼠將地圖移動或縮放到您最滿意的局部或全台視角後，點擊右上角的<strong>「📥 下載圖片」</strong>按鈕。系統會精準捕捉您在螢幕上看到的完美範圍，自動剔除 [+ -] 縮放按鈕，並生成一張<strong>純白底、超高解析度的 PNG 圖片</strong>。您可以直接貼進 PPT 簡報中，完全不需要手動截圖或二次裁剪！</p>
                 </div>
             </div>
 
