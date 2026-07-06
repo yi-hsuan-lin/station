@@ -9,7 +9,11 @@ let taiwanGeoData = null;     /* 儲存台灣縣市邊界資料 */
 let mapInstance = null;       /* Leaflet 地圖實體 */
 let markersLayer = null;      /* 測站標記圖層 */
 
+let markerDict = {};          /* 儲存地圖上每顆點點的實體，供搜尋引擎呼叫 */
 let draggedFilterId = null;
+
+let isSearchMode = false;
+let searchTargetStation = null;
 
 const activeFilters = {
     include: {},
@@ -105,6 +109,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (mapBtn && closeMapBtn && mapModal && modalContent) {
         mapBtn.addEventListener('click', () => {
+            isSearchMode = false;
+            searchTargetStation = null;
+            const searchInput = document.getElementById('station-search-input');
+            if (searchInput) searchInput.value = '';
+
             modalContent.style.position = '';
             modalContent.style.top = '';
             modalContent.style.left = '';
@@ -130,7 +139,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     initMainPanelResizer(); 
     initSubPanelResizer();  
-    initModalResizer();     
+    initModalResizer();  
+    initSearchEngine(); 
 });
 
 // ==========================================================================
@@ -176,14 +186,12 @@ function initStationData() {
         station._derivedWeatherFreq = getWeatherFreq(station.sub_cat);
         station._derivedRainFreq = getRainFreq(station.sub_cat);
 
-        // 🚀 ✨ 關鍵修正：上架狀態全面改由 station_publish 欄位精準控制
         if (Number(station.station_publish) === 0) {
             station._derivedStatus = "未上架";
         } else {
             station._derivedStatus = "正式上架";
         }
 
-        // 對外供應狀態的「代碼轉文字」翻譯機
         station.supply_channels = []; 
         if (station.data_supply && typeof station.data_supply === 'object') {
             Object.entries(station.data_supply).forEach(([code, value]) => {
@@ -230,6 +238,128 @@ function getWeatherFreq(sub) {
 }
 function getRainFreq(sub) {
     return [10, 11, 12, 13, 14, 15, "10", "11", "12", "13", "14", "15"].includes(sub) ? "10分鐘" : "1分鐘";
+}
+
+function generateStationPopupHtml(s) {
+    try {
+        const unit = s._derivedUnit || "未知單位";
+        const regName = (rawData.mappings.reg && rawData.mappings.reg[s.reg]) ? rawData.mappings.reg[s.reg] : "無區域中心";
+        const typeName = (rawData.mappings.station_type && rawData.mappings.station_type[s.station_type]) ? rawData.mappings.station_type[s.station_type] : "未知類型";
+        const transport = s._derivedTransport || "未知傳輸";
+        const vendor = s._derivedVendor || "無維護廠商";
+        const alt = (s.alt !== undefined && s.alt !== null) ? `${s.alt}m` : "無高度資料";
+        const status = s._derivedStatus || "未知狀態";
+        
+        let supplyTagsHtml = "";
+        if (s.supply_channels && s.supply_channels.length > 0) {
+            supplyTagsHtml = s.supply_channels.map(c => `<span class="s-tag supply-tag">${c}</span>`).join('');
+        } else {
+            supplyTagsHtml = `<span class="s-tag" style="background:#f1f5f9; color:#64748b; border-color:#e2e8f0;">無對外供應</span>`;
+        }
+
+        let warningHtml = "";
+        if (status === "未上架" && s.publish_reason) {
+            warningHtml = `<div style="margin-top:6px; color:#ef4444; font-size:0.75rem; font-weight:bold;">🚧 暫不上架：${s.publish_reason}</div>`;
+        }
+
+        return `
+            <div style="text-align:center; min-width: 240px; padding: 4px;">
+                <strong style="font-size:1.2rem; color:#0f172a;">${s.n}</strong>
+                <span style="color:#64748b; font-size:0.85rem; margin-left:4px;">(${s.cwbid || s.sid})</span>
+                ${warningHtml}
+                
+                <div class="station-path-box">
+                    <strong style="color:#1e293b;">📍 管理與通訊路徑：</strong><br>
+                    <div style="margin-top:6px; font-weight:500; color:#334155; display:flex; align-items:center; flex-wrap:wrap;">
+                        🏢 ${unit} <span class="path-arrow">▶</span> 
+                        📡 ${regName} <span class="path-arrow">▶</span> 
+                        🌧️ ${typeName} <span class="path-arrow">▶</span> 
+                        📶 ${transport}
+                    </div>
+                </div>
+
+                <div style="font-size: 0.75rem; color: #64748b; margin-top: 8px; text-align: left; font-weight:bold;">🏷️ 測站符合條件：</div>
+                <div class="station-tags">
+                    <span class="s-tag">⛰️ 海拔 ${alt}</span>
+                    <span class="s-tag">🛠️ ${vendor}</span>
+                    <span class="s-tag ${status === '未上架' ? 'warning-tag' : ''}">${status === '正式上架' ? '✅ 正式上架' : '❌ 未上架'}</span>
+                </div>
+                
+                <div style="margin-top: 12px; border-top: 1px dashed #cbd5e1; padding-top: 8px;">
+                    <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 4px; text-align: left; font-weight:bold;">📦 資料供應狀態：</div>
+                    <div class="station-tags">
+                        ${supplyTagsHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (e) {
+        console.error("生成履歷發生錯誤:", e);
+        return `<div style="text-align:center; color:#ef4444;">資料解析發生錯誤</div>`;
+    }
+}
+
+function initSearchEngine() {
+    const searchInput = document.getElementById('station-search-input');
+    const searchBtn = document.getElementById('station-search-btn');
+    
+    if (!searchInput || !searchBtn) return;
+
+    const performSearch = () => {
+        const rawQuery = searchInput.value.trim();
+        if (!rawQuery) {
+            alert("請先輸入站名或代碼！");
+            return;
+        }
+
+        if (stationsArray.length === 0) {
+            alert("資料尚未載入完成，請稍候再試。");
+            return;
+        }
+
+        const query = rawQuery.toLowerCase();
+        const queryTai = query.replace(/台/g, '臺');
+
+        const target = stationsArray.find(s => {
+            const sid = String(s.sid || "").toLowerCase();
+            const cwbid = String(s.cwbid || "").toLowerCase();
+            const name = String(s.n || "");
+            
+            return sid === query || cwbid === query || name.includes(query) || name.includes(queryTai);
+        });
+
+        if (target) {
+            if (!target.lat || !target.lon) {
+                alert(`測站 [${target.n}] 無座標資料無法定位！`);
+                return;
+            }
+
+            isSearchMode = true;
+            searchTargetStation = target;
+
+            const mapModal = document.getElementById('map-modal');
+            if (!mapModal.classList.contains('active')) {
+                mapModal.classList.add('active');
+            }
+            
+            renderMap(); 
+
+        } else {
+            alert(`找不到包含「${rawQuery}」的測站代碼或名稱，請更換關鍵字再試！`);
+        }
+    };
+
+    searchBtn.addEventListener('click', performSearch);
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performSearch();
+    });
+
+    searchInput.addEventListener('input', () => {
+        if (searchInput.value.trim() === '') {
+            isSearchMode = false;
+            searchTargetStation = null;
+        }
+    });
 }
 
 // ==========================================================================
@@ -394,13 +524,13 @@ function getOptionsByFilterId(id) {
     if (id === 'status') {
         return [
             {value: '正式上架', text: '正式上架'}, 
-            {value: '未上架', text: '未上架', hint: '(空品、機場、備援、教學、臨時站)'}
+            {value: '未上架', text: '未上架', hint: '(依據資料庫站點屬性)'}
         ];
     }
     if (id === 'public') {
         return [
             {value: '官網', text: '🌐 官網展示'},
-            {value: 'PDS', text: '🗄️ PDS 系統'},
+            {value: 'PDS', text: '🗄️ PDS 系統(建置中)'},
             {value: '申購', text: '💰 資料申購'},
             {value: 'O-A0001', text: ' └ O-A0001 (逐時氣象)'},
             {value: 'O-A0002', text: ' └ O-A0002 (雨量)'},
@@ -489,6 +619,7 @@ function handleTownSelect連動(zoneType) {
 
     const selectedCities = activeFilters[zoneType]['city'] || [];
     const labels = townContainer.querySelectorAll('label');
+    let needUpdate = false;
 
     labels.forEach(label => {
         const checkbox = label.querySelector('input');
@@ -503,10 +634,22 @@ function handleTownSelect連動(zoneType) {
                 label.style.display = 'flex';
             } else {
                 label.style.display = 'none';
-                checkbox.checked = false;
+                if (checkbox.checked) {
+                    checkbox.checked = false;
+                    needUpdate = true;
+                }
             }
         }
     });
+
+    if (needUpdate) {
+        const checkedValues = Array.from(townContainer.querySelectorAll('input[type="checkbox"]:checked')).map(input => input.value);
+        if (checkedValues.length > 0) {
+            activeFilters[zoneType]['town'] = checkedValues;
+        } else {
+            delete activeFilters[zoneType]['town'];
+        }
+    }
 }
 
 function calculateStations() {
@@ -594,7 +737,6 @@ function renderTable(list) {
         const cityName = rawData.mappings.city[s.city] || "未知";
         const townName = rawData.mappings.town[s.town] || s.town || "無";
         
-        // 🚀 ✨ 新增：在詳細清單的「未上架」提示中，一併顯示下架原因
         const reasonAttr = s.publish_reason ? `title="暫不上架原因：${s.publish_reason}"` : "";
         const displayCwbid = (s._derivedStatus === "未上架") 
             ? `<span style="color:#94a3b8; font-style:italic; cursor:help;" ${reasonAttr}>未上架(${s.sid})</span>` 
@@ -756,22 +898,27 @@ function renderMap() {
                 legendItems.push({ color: colorObj.stroke, label: `${labelTitle}：${displayTxt}` });
             });
         } else {
-            chosenValues.forEach((val, index) => {
-                const colorObj = colorPalette[index % colorPalette.length];
-                valueColorMap[val] = colorObj;
-                
-                let displayTxt = val;
-                if (colorKey === 'city') displayTxt = rawData.mappings.city[val] || val;
-                else if (colorKey === 'town') displayTxt = rawData.mappings.town[val] || val;
-                else if (colorKey === 'station_type') displayTxt = rawData.mappings.station_type[val] || val;
-                else if (colorKey === 'regional-center') displayTxt = rawData.mappings.reg[val] || val;
-                else if (colorKey === 'public') {
-                    const opt = getOptionsByFilterId('public').find(o => o.value === val);
-                    displayTxt = opt ? opt.text.replace(' └ ', '') : val; 
-                }
-                
-                legendItems.push({ color: colorObj.stroke, label: `${labelTitle}：${displayTxt}` });
-            });
+            // 🚀 防護一：保護圖例生成陣列，避免特殊字串引發崩潰
+            try {
+                chosenValues.forEach((val, index) => {
+                    const colorObj = colorPalette[index % colorPalette.length];
+                    valueColorMap[val] = colorObj;
+                    
+                    let displayTxt = val;
+                    if (colorKey === 'city') displayTxt = rawData.mappings.city[val] || val;
+                    else if (colorKey === 'town') displayTxt = rawData.mappings.town[val] || val;
+                    else if (colorKey === 'station_type') displayTxt = rawData.mappings.station_type[val] || val;
+                    else if (colorKey === 'regional-center') displayTxt = rawData.mappings.reg[val] || val;
+                    else if (colorKey === 'public') {
+                        const opt = getOptionsByFilterId('public').find(o => o.value === val);
+                        displayTxt = opt ? opt.text.replace(' └ ', '') : val; 
+                    }
+                    
+                    legendItems.push({ color: colorObj.stroke, label: `${labelTitle}：${displayTxt}` });
+                });
+            } catch (e) {
+                console.error("圖例生成發生錯誤", e);
+            }
         }
     } else {
         legendItems.push({ color: "#0284c7", label: "觀測站點" });
@@ -815,88 +962,136 @@ function renderMap() {
     if (markersLayer) mapInstance.removeLayer(markersLayer);
     markersLayer = L.featureGroup().addTo(mapInstance);
 
+    markerDict = {}; 
+
     const initZoom = mapInstance.getZoom();
     const initRadius = getRadiusByZoom(initZoom);
 
-    currentFilteredList.forEach(s => {
-        if (s.lat && s.lon) {
-            let dotColor = "#0284c7"; let fillColor = "#38bdf8"; let matchValueName = "";
+    const listToRender = (isSearchMode && searchTargetStation) ? [searchTargetStation] : currentFilteredList;
 
-            if (colorKey) {
-                if (colorKey === 'altitude') {
-                    const stationAlt = s.alt !== undefined && s.alt !== null ? parseFloat(s.alt) : 0;
-                    const chosenRanges = activeFilters.include['altitude'] || [];
-                    const matchedIdx = chosenRanges.findIndex(r => stationAlt >= r[0] && stationAlt <= r[1]);
-                    
-                    if (matchedIdx !== -1) {
-                        const colorObj = colorPalette[matchedIdx % colorPalette.length];
-                        dotColor = colorObj.stroke; fillColor = colorObj.fill;
-                        const r = chosenRanges[matchedIdx];
-                        const minTxt = r[0] === -Infinity ? "0" : r[0];
-                        matchValueName = r[1] === Infinity ? `${minTxt} m 以上` : `${minTxt} ~ ${r[1]} m`;
+    // 🚀 防護二：在每顆點點的渲染過程加上 try-catch，防止單一壞點帶崩整張圖
+    listToRender.forEach(s => {
+        try {
+            if (s.lat && s.lon) {
+                let dotColor = "#0284c7"; let fillColor = "#38bdf8"; let matchValueName = "";
+
+                if (colorKey) {
+                    if (colorKey === 'altitude') {
+                        const stationAlt = s.alt !== undefined && s.alt !== null ? parseFloat(s.alt) : 0;
+                        const chosenRanges = activeFilters.include['altitude'] || [];
+                        const matchedIdx = chosenRanges.findIndex(r => stationAlt >= r[0] && stationAlt <= r[1]);
+                        
+                        if (matchedIdx !== -1) {
+                            const colorObj = colorPalette[matchedIdx % colorPalette.length];
+                            dotColor = colorObj.stroke; fillColor = colorObj.fill;
+                            const r = chosenRanges[matchedIdx];
+                            const minTxt = r[0] === -Infinity ? "0" : r[0];
+                            matchValueName = r[1] === Infinity ? `${minTxt} m 以上` : `${minTxt} ~ ${r[1]} m`;
+                        } else {
+                            dotColor = "#64748b"; fillColor = "#cbd5e1";
+                        }
                     } else {
-                        dotColor = "#64748b"; fillColor = "#cbd5e1";
-                    }
-                } else {
-                    let stationValue = "";
-                    if (colorKey === 'unit') stationValue = s._derivedUnit || "";
-                    else if (colorKey === 'transport') stationValue = s._derivedTransport || "";
-                    else if (colorKey === 'city') stationValue = String(s.city || "");
-                    else if (colorKey === 'town') stationValue = String(s.town || "");
-                    else if (colorKey === 'weather-freq') stationValue = s._derivedWeatherFreq || "";
-                    else if (colorKey === 'rain-freq') stationValue = s._derivedRainFreq || "";
-                    else if (colorKey === 'vendor') stationValue = s._derivedVendor || "";
-                    else if (colorKey === 'status') stationValue = s._derivedStatus || "";
-                    else if (colorKey === 'station_type') stationValue = String(s.station_type || "");
-                    else if (colorKey === 'regional-center') stationValue = String(s.reg || "");
-                    else if (colorKey === 'public') {
-                        stationValue = chosenValues.find(v => (s.supply_channels || []).includes(v)) || "";
-                    }
+                        let stationValue = "";
+                        if (colorKey === 'unit') stationValue = s._derivedUnit || "";
+                        else if (colorKey === 'transport') stationValue = s._derivedTransport || "";
+                        else if (colorKey === 'city') stationValue = String(s.city || "");
+                        else if (colorKey === 'town') stationValue = String(s.town || "");
+                        else if (colorKey === 'weather-freq') stationValue = s._derivedWeatherFreq || "";
+                        else if (colorKey === 'rain-freq') stationValue = s._derivedRainFreq || "";
+                        else if (colorKey === 'vendor') stationValue = s._derivedVendor || "";
+                        else if (colorKey === 'status') stationValue = s._derivedStatus || "";
+                        else if (colorKey === 'station_type') stationValue = String(s.station_type || "");
+                        else if (colorKey === 'regional-center') stationValue = String(s.reg || "");
+                        else if (colorKey === 'public') {
+                            stationValue = chosenValues.find(v => (s.supply_channels || []).includes(v)) || "";
+                        }
 
-                    if (colorKey === 'city') matchValueName = rawData.mappings.city[s.city] || s.city;
-                    else if (colorKey === 'town') matchValueName = rawData.mappings.town[s.town] || s.town;
-                    else if (colorKey === 'station_type') matchValueName = rawData.mappings.station_type[s.station_type] || s.station_type;
-                    else if (colorKey === 'regional-center') matchValueName = rawData.mappings.reg[s.reg] || s.reg;
-                    else if (colorKey === 'public') matchValueName = stationValue; 
-                    else matchValueName = stationValue;
+                        if (colorKey === 'city') matchValueName = rawData.mappings.city[s.city] || s.city;
+                        else if (colorKey === 'town') matchValueName = rawData.mappings.town[s.town] || s.town;
+                        else if (colorKey === 'station_type') matchValueName = rawData.mappings.station_type[s.station_type] || s.station_type;
+                        else if (colorKey === 'regional-center') matchValueName = rawData.mappings.reg[s.reg] || s.reg;
+                        else if (colorKey === 'public') matchValueName = stationValue; 
+                        else matchValueName = stationValue;
 
-                    if (valueColorMap[stationValue]) {
-                        dotColor = valueColorMap[stationValue].stroke; fillColor = valueColorMap[stationValue].fill;
-                    } else {
-                        dotColor = "#64748b"; fillColor = "#cbd5e1";
+                        if (valueColorMap[stationValue]) {
+                            dotColor = valueColorMap[stationValue].stroke; fillColor = valueColorMap[stationValue].fill;
+                        } else {
+                            dotColor = "#64748b"; fillColor = "#cbd5e1";
+                        }
                     }
                 }
+
+                const marker = L.circleMarker([s.lat, s.lon], { radius: initRadius, color: dotColor, weight: 1.5, fillColor: fillColor, fillOpacity: 0.85 });
+
+                let badgeHtml = "";
+                if (colorKey && matchValueName) {
+                    const labelTitle = getTitleByFilterId(colorKey);
+                    badgeHtml = `<div style="margin-top: 4px; font-size: 0.75rem; background: ${dotColor}1a; color: ${dotColor}; border: 1px solid ${dotColor}40; padding: 1px 6px; border-radius: 4px; display: inline-block;">${labelTitle}：${matchValueName}</div>`;
+                }
+
+                let reasonHtml = "";
+                if (s._derivedStatus === "未上架" && s.publish_reason) {
+                    reasonHtml = `<div style="margin-top: 4px; font-size: 0.75rem; background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 2px 6px; border-radius: 4px; display: inline-block;">🚧 暫不上架：${s.publish_reason}</div>`;
+                }
+
+                marker.bindTooltip(`<div style="text-align:center;"><span style="color:#64748b; font-size:0.75rem;">${s.cwbid || s.sid}</span><br><strong style="font-size:1rem; color:#0f172a;">${s.n}</strong><br>${badgeHtml}<br>${reasonHtml}</div>`, {
+                    direction: 'top', className: 'map-tooltip', offset: [0, -5]
+                });
+
+                marker.bindPopup(generateStationPopupHtml(s));
+
+                markerDict[s.sid] = marker;
+                markersLayer.addLayer(marker);
             }
-
-            const marker = L.circleMarker([s.lat, s.lon], { radius: initRadius, color: dotColor, weight: 1.5, fillColor: fillColor, fillOpacity: 0.85 });
-
-            let badgeHtml = "";
-            if (colorKey && matchValueName) {
-                const labelTitle = getTitleByFilterId(colorKey);
-                badgeHtml = `<div style="margin-top: 4px; font-size: 0.75rem; background: ${dotColor}1a; color: ${dotColor}; border: 1px solid ${dotColor}40; padding: 1px 6px; border-radius: 4px; display: inline-block;">${labelTitle}：${matchValueName}</div>`;
-            }
-
-            // 🚀 ✨ 新增：在地圖 Tooltip 顯示下架原因的紅色警告標籤
-            let reasonHtml = "";
-            if (s._derivedStatus === "未上架" && s.publish_reason) {
-                reasonHtml = `<div style="margin-top: 4px; font-size: 0.75rem; background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 2px 6px; border-radius: 4px; display: inline-block;">🚧 暫不上架：${s.publish_reason}</div>`;
-            }
-
-            marker.bindTooltip(`<div style="text-align:center;"><span style="color:#64748b; font-size:0.75rem;">${s.cwbid || s.sid}</span><br><strong style="font-size:1rem; color:#0f172a;">${s.n}</strong><br>${badgeHtml}<br>${reasonHtml}</div>`, {
-                direction: 'top', className: 'map-tooltip', offset: [0, -5]
-            });
-
-            markersLayer.addLayer(marker);
+        } catch (err) {
+            console.error("繪製測站標記時發生錯誤:", s.sid, err);
         }
     });
 
+    // 🚀 防護三：捕捉零面積邊界死機問題，並全面容錯地圖視角移動
     setTimeout(() => {
-        mapInstance.invalidateSize(); 
-        if (currentFilteredList.length > 0) {
-            const boundsPoints = [];
-            currentFilteredList.forEach(s => { if (s.lat && s.lon && parseFloat(s.lat) > 21.5) boundsPoints.push([s.lat, s.lon]); });
-            if (boundsPoints.length > 0) { mapInstance.fitBounds(L.latLngBounds(boundsPoints), { padding: [45, 45] }); } 
-            else { mapInstance.setView([currentFilteredList[0].lat, currentFilteredList[0].lon], 9); }
-        } else { mapInstance.setView([23.7, 120.9], 7); }
+        if (!mapInstance) return;
+        try {
+            mapInstance.invalidateSize(); 
+            
+            if (listToRender.length > 0) {
+                if (isSearchMode && searchTargetStation) {
+                    mapInstance.setView([searchTargetStation.lat, searchTargetStation.lon], 12);
+                    if (markerDict[searchTargetStation.sid]) {
+                        setTimeout(() => markerDict[searchTargetStation.sid].openPopup(), 400);
+                    }
+                } else {
+                    const boundsPoints = [];
+                    listToRender.forEach(s => { 
+                        if (s.lat && s.lon && parseFloat(s.lat) > 21.5) {
+                            boundsPoints.push([parseFloat(s.lat), parseFloat(s.lon)]); 
+                        }
+                    });
+                    
+                    if (boundsPoints.length > 0) {
+                        const bounds = L.latLngBounds(boundsPoints);
+                        // 零面積防彈：如果矩形的東北角和西南角一模一樣（代表只有一個點或完全重疊），強制改用 setView
+                        if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
+                            mapInstance.setView(boundsPoints[0], 12);
+                        } else {
+                            mapInstance.fitBounds(bounds, { padding: [45, 45], maxZoom: 12 });
+                        }
+                    } else { 
+                        const validS = listToRender.find(s => s.lat && s.lon);
+                        if (validS) {
+                            mapInstance.setView([validS.lat, validS.lon], 9);
+                        } else {
+                            mapInstance.setView([23.7, 120.9], 7);
+                        }
+                    }
+                }
+            } else { 
+                mapInstance.setView([23.7, 120.9], 7); 
+            }
+        } catch (err) {
+            console.error("地圖視角校正發生錯誤:", err);
+            // 發生最糟狀況的最後防線：回到全台灣預設視角
+            mapInstance.setView([23.7, 120.9], 7);
+        }
     }, 360); 
 }
