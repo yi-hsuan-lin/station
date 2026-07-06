@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>測站數量查詢網頁</title>
+    <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🗺️</text></svg>'>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -22,17 +23,17 @@
             <div class="filter-library-container">
                 <div class="filter-card-list">
                     <div class="filter-card" draggable="true" data-filter="unit">所屬單位</div>
-                    <div class="filter-card" draggable="true" data-filter="transport">傳輸方式</div>
+                    <div class="filter-card" draggable="true" data-filter="station_type" title="氣象站、雨量站、農業站、區域站、中繼站...等">測站類型</div>
+                    <div class="filter-card" draggable="true" data-filter="transport" title="無線電、4G、實體網路、外單位交換">傳輸方式</div>
                     <div class="filter-card" draggable="true" data-filter="city">縣市選擇</div>
                     <div class="filter-card" draggable="true" data-filter="town">鄉鎮選擇</div>
-                    <div class="filter-card" draggable="true" data-filter="weather-freq">氣象資料頻率</div>
-                    <div class="filter-card" draggable="true" data-filter="rain-freq">雨量資料頻率</div>
                     <div class="filter-card" draggable="true" data-filter="altitude">海拔高度</div>
-                    <div class="filter-card" draggable="true" data-filter="vendor">維護廠商</div>
-                    <div class="filter-card" draggable="true" data-filter="station_type">測站類型</div>
                     <div class="filter-card" draggable="true" data-filter="regional-center">區域站歸屬</div>
-                    <div class="filter-card" draggable="true" data-filter="public" title="機場站、空品站不對外提供">對外提供狀態</div>
-                    <div class="filter-card" draggable="true" data-filter="status" title="教學站、備援站未上架">上架狀態</div>
+                    <div class="filter-card" draggable="true" data-filter="weather-freq" title="1分鐘、10分鐘">氣象資料頻率</div>
+                    <div class="filter-card" draggable="true" data-filter="rain-freq" title="1分鐘、10分鐘">雨量資料頻率</div>
+                    <div class="filter-card" draggable="true" data-filter="vendor">維護廠商</div>
+                    <div class="filter-card" draggable="true" data-filter="status" title="含不對外開放、教學、備援站等未上架狀態過濾">測站上架狀態</div>
+                    <div class="filter-card" draggable="true" data-filter="public" title="官網、PDS、申購、Open Data等資料供應管道檢索">資料供應狀態</div>
                     <div class="filter-card disabled-card" title="後端資料準備中，敬請期待！">觀測項目 🚧 (建置中)</div>
                     <div class="filter-card disabled-card" title="後端資料準備中，敬請期待！">建站日期 🚧 (建置中)</div>
                 </div>

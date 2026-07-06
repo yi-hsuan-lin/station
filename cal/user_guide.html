@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>測站數量查詢網頁 - 分類方法與地圖優化說明文件</title>
+    <title>測站數量查詢網頁 - 使用者操作說明文件</title>
     <style>
         *, *::before, *::after {
             box-sizing: border-box;
@@ -70,14 +70,6 @@
             align-items: center;
             gap: 10px;
         }
-        .logic-code {
-            font-family: monospace;
-            background: #e2e8f0;
-            color: #4a5568;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 13px;
-        }
         .logic-details {
             font-size: 14px;
             color: #4a5568;
@@ -108,9 +100,8 @@
 
 <div class="container">
     <div class="card">
-        <h1>📊 測站數量查詢網頁 - 說明文件</h1>
-        <p>本文件完全對應系統 <code>app.js</code> 與過濾池底層運算核心，詳細說明目前提供的 12 種分類篩選方法、地圖視覺化邏輯與進階簡報功能：</p>
-        
+        <h1>📊 測站數量查詢網頁 - 使用手冊</h1>
+        <p>歡迎使用本系統！本文件將引導您如何操作「動態過濾池」以及全新升級的「智慧分佈地圖與圖片下載」功能：</p>
 
         <h2>🎯 交互過濾池操作規則</h2>
         <p>透過將左側卡片拖曳至過濾池中，您可以自由組合出複雜的篩選條件：</p>
@@ -129,10 +120,19 @@
             <div class="logic-item"><div class="logic-title">5. 氣象資料頻率</div><div class="logic-details">區分為 1分鐘、10分鐘傳輸，或純雨量站（不接受氣象篩選）。</div></div>
             <div class="logic-item"><div class="logic-title">6. 雨量資料頻率</div><div class="logic-details">常規站點為 1分鐘回傳，外部資料交換站為 10分鐘回傳。</div></div>
             <div class="logic-item"><div class="logic-title">7. 維護廠商</div><div class="logic-details">篩選負責該站維護合約的民間廠商，或各分署管轄區域。</div></div>
-            <div class="logic-item"><div class="logic-title">8. 對外提供狀態</div><div class="logic-details">區分為「有對外提供」與「沒有對外提供」（如機場站、空品站預設不對外提供）。</div></div>
+            <div class="logic-item">
+                <div class="logic-title">8. 對外供應狀態 <span class="logic-code">public</span></div>
+                <div class="logic-details">
+                    <p><strong>功能說明：</strong> 滿足精準的「資料產品目錄」檢索需求，查看特定資料流的分佈狀況。</p>
+                    <p><strong>操作指南：</strong> 展開後提供四大主要管道（官網、PDS、申購、Open Data）。其中 Open Data 更細分出 <strong>O-A0001 至 O-A0091 等五大核心公眾氣象資料產品</strong>。您可以勾選「O-A0002」，地圖就會立刻把全台灣有在上架開源雨量資料產品的站點用特定顏色高亮標示出來，方便您進行圖資品管與盤點！</p>
+                </div>
+            </div>
             <div class="logic-item"><div class="logic-title">9. 測站類型</div><div class="logic-details">篩選常規氣象站、雨量站、單/雙中繼站、區域中心等。</div></div>
             <div class="logic-item"><div class="logic-title">10. 區域站歸屬</div><div class="logic-details">篩選無線電主要歸屬的 12 大管理中心轄區。</div></div>
-            <div class="logic-item"><div class="logic-title">11. 上架狀態</div><div class="logic-details">區分為正式上架站與未上架站（教學站、防災通訊備援站預設屬於未上架）。</div></div>
+            <div class="logic-item">
+                <div class="logic-title">11. 上架狀態</div>
+                <div class="logic-details">區分為「正式上架」與「未上架」站點。系統預設會自動排除未上架測站。若您將未上架測站加入清單，<strong>滑鼠停留在清單站碼上或開啟地圖查看時，系統會貼心地顯示專屬的「暫不上架原因」！</strong></div>
+            </div>
             <div class="logic-item"><div class="logic-title">12. 海拔高度</div><div class="logic-details">直接在輸入框填入最低與最高公尺數，即可精準留存該高度區間內的測站。</div></div>
         </div>
 
@@ -140,7 +140,6 @@
         <p>當您調整好篩選條件後，可以利用右側統計結果區的「🗺️ 分布圖」按鈕開啟直式精美地圖：</p>
         
         <div class="logic-grid">
-            
             <div class="logic-item">
                 <div class="logic-title">💡 核心技巧：如何讓地圖上的站點出現不同顏色？</div>
                 <div class="logic-details">
@@ -150,6 +149,13 @@
                         <li><strong>觸發多色分類</strong>：當您將分類卡片（如：傳輸方式、維護廠商、縣市選擇）拖進「🟢 包含池」，並且<strong>同時勾選兩個（含）以上的項目</strong>（例如同時勾選 4G 和 無線電），地圖就會自動幫站點著上不同的鮮艷顏色！</li>
                         <li><strong>動態圖例同步</strong>：同時，右下角的「地圖圖例」也會立刻變身，自動列出每個顏色代表的項目名稱（當項目很多時，會自動排成雙欄網格，維持畫面清爽）。</li>
                     </ul>
+                </div>
+            </div>
+
+            <div class="logic-item">
+                <div class="logic-title">📌 異常站點醒目提示</div>
+                <div class="logic-details">
+                    <p>若地圖上包含「未上架」的測站，點擊或將滑鼠移至該點點上方時，不僅會顯示基本資訊，還會額外彈出醒目的<strong>紅色警告標籤</strong>，清楚標示該站的「暫不上架原因」，方便您進行資料盤點與截圖匯報！</p>
                 </div>
             </div>
 
