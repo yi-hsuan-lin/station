@@ -5,103 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>測站數量查詢網頁 - 使用者操作說明文件</title>
     <style>
-        *, *::before, *::after {
-            box-sizing: border-box;
-        }
-        body {
-            font-family: "Segoe UI", "Microsoft JhengHei", Helvetica, Arial, sans-serif;
-            line-height: 1.6;
-            color: #2d3748;
-            background-color: #f7fafc;
-            margin: 0;
-            padding: 0;
-        }
-        .container {
-            max-width: 1000px;
-            margin: 40px auto;
-            padding: 0 20px;
-        }
-        .card {
-            background: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            padding: 40px;
-            margin-bottom: 30px;
-        }
-        h1 {
-            color: #1a365d;
-            font-size: 26px;
-            border-bottom: 3px solid #3182ce;
-            padding-bottom: 12px;
-            margin-top: 0;
-            margin-bottom: 24px;
-        }
-        h2 {
-            color: #2c5282;
-            font-size: 18px;
-            margin-top: 32px;
-            margin-bottom: 16px;
-            padding-left: 10px;
-            border-left: 4px solid #4299e1;
-        }
-        p {
-            margin-top: 0;
-            margin-bottom: 16px;
-            color: #4a5568;
-        }
-        .logic-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            margin: 24px 0;
-        }
-        .logic-item {
-            background: #f8fafc;
-            border: 1px solid #edf2f7;
-            border-radius: 8px;
-            padding: 20px;
-        }
-        .logic-title {
-            font-size: 15px;
-            font-weight: 700;
-            color: #2b6cb0;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .logic-details {
-            font-size: 14px;
-            color: #4a5568;
-        }
-        ul {
-            margin: 0;
-            padding-left: 20px;
-        }
-        li {
-            margin-bottom: 6px;
-        }
-        .highlight-box {
-            background-color: #fffaf0;
-            border-left: 4px solid #dd6b20;
-            padding: 12px 16px;
-            border-radius: 0 6px 6px 0;
-            margin: 10px 0;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 40px;
-            color: #a0aec0;
-            font-size: 12px;
-        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: "Segoe UI", "Microsoft JhengHei", Helvetica, Arial, sans-serif; line-height: 1.6; color: #2d3748; background-color: #f7fafc; margin: 0; padding: 0; }
+        .container { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+        .card { background: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); padding: 40px; margin-bottom: 30px; }
+        h1 { color: #1a365d; font-size: 26px; border-bottom: 3px solid #3182ce; padding-bottom: 12px; margin-top: 0; margin-bottom: 24px; }
+        h2 { color: #2c5282; font-size: 18px; margin-top: 32px; margin-bottom: 16px; padding-left: 10px; border-left: 4px solid #4299e1; }
+        p { margin-top: 0; margin-bottom: 16px; color: #4a5568; }
+        .logic-grid { display: flex; flex-direction: column; gap: 16px; margin: 24px 0; }
+        .logic-item { background: #f8fafc; border: 1px solid #edf2f7; border-radius: 8px; padding: 20px; }
+        .logic-title { font-size: 15px; font-weight: 700; color: #2b6cb0; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+        .logic-details { font-size: 14px; color: #4a5568; }
+        ul { margin: 0; padding-left: 20px; }
+        li { margin-bottom: 6px; }
+        .highlight-box { background-color: #fffaf0; border-left: 4px solid #dd6b20; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 10px 0; }
+        .footer { text-align: center; margin-top: 40px; color: #a0aec0; font-size: 12px; }
     </style>
 </head>
 <body>
-
 <div class="container">
     <div class="card">
         <h1>📊 測站數量查詢網頁 - 使用手冊</h1>
-        <p>歡迎使用本系統！本文件將引導您如何操作「動態過濾池」以及全新升級的「智慧分佈地圖與圖片下載」功能：</p>
+        <p>歡迎使用本系統！本文件將引導您如何操作「動態過濾池」、「智慧搜尋排序」，以及全新升級的「智慧分佈地圖與圖片下載」功能：</p>
 
         <h2>🎯 交互過濾池操作規則</h2>
         <p>透過將左側卡片拖曳至過濾池中，您可以自由組合出複雜的篩選條件：</p>
@@ -109,87 +34,77 @@
             <li><strong>同卡片內【勾選多個 = 或 (OR)】：</strong> 如果您在「縣市選擇」內同時勾選了「臺北市」與「新北市」，系統會抓出屬於臺北市<strong>或</strong>新北市的所有測站。</li>
             <li><strong>跨卡片之間【複合疊加 = 且 (AND)】：</strong> 如果您同時拉出了「縣市選擇（臺北市）」與「傳輸方式（4G）」，系統只會留下同時符合這兩項條件的測站。</li>
             <li><strong>包含與排除【扣除邏輯】：</strong> 系統會以「🟢 包含池」留下的測站為基準，強力扣除任何符合「🔴 排除池」條件的測站。</li>
+            <li><strong>一鍵清空：</strong> 點擊過濾池右上角的「🗑️ 清空條件」按鈕，即可瞬間還原所有篩選狀態，方便重新查詢。</li>
         </ul>
 
         <h2>📋 12種分類方法快速對照</h2>
         <div class="logic-grid">
             <div class="logic-item"><div class="logic-title">1. 所屬單位</div><div class="logic-details">篩選中央署屬站、民航局、環境部、高公局或台北市政府等不同管轄權責。</div></div>
             <div class="logic-item"><div class="logic-title">2. 傳輸方式</div><div class="logic-details">區分為 4G、無線電、實體網路、外單位雨量資料交換。</div></div>
-            <div class="logic-item"><div class="logic-title">3. 縣市選擇</div><div class="logic-details">選取特定的縣市。列表已依台灣地理「由北到南」貼心排序，方便您快速尋找。</div></div>
-            <div class="logic-item"><div class="logic-title">4. 鄉鎮選區</div><div class="logic-details">選取特定鄉鎮市區。具備連動功能，會自動根據您勾選的縣市進行範圍縮小。</div></div>
-            <div class="logic-item"><div class="logic-title">5. 氣象資料頻率</div><div class="logic-details">區分為 1分鐘、10分鐘傳輸，或純雨量站（不接受氣象篩選）。</div></div>
-            <div class="logic-item"><div class="logic-title">6. 雨量資料頻率</div><div class="logic-details">常規站點為 1分鐘回傳，外部資料交換站為 10分鐘回傳。</div></div>
-            <div class="logic-item"><div class="logic-title">7. 維護廠商</div><div class="logic-details">篩選負責該站維護合約的民間廠商，或各分署管轄區域。</div></div>
+            <div class="logic-item"><div class="logic-title">3. 縣市與鄉鎮</div><div class="logic-details">選取特定的縣市與鄉鎮市區。縣市列表已依台灣地理「由北到南」貼心排序，且鄉鎮會隨縣市選擇自動連動過濾。</div></div>
+            <div class="logic-item"><div class="logic-title">4. 資料頻率 (氣象/雨量)</div><div class="logic-details">區分為 1分鐘、10分鐘傳輸，或純雨量站（不接受氣象篩選）。</div></div>
+            <div class="logic-item"><div class="logic-title">5. 維護廠商</div><div class="logic-details">篩選負責該站維護合約的民間廠商，或各分署管轄區域。</div></div>
+            <div class="logic-item"><div class="logic-title">6. 對外供應狀態</div><div class="logic-details">滿足「資料產品目錄」檢索需求。您可以勾選「O-A0002」，地圖就會把全台灣有在上架開源雨量資料產品的站點用特定顏色高亮標示出來！</div></div>
+            <div class="logic-item"><div class="logic-title">7. 測站類型與區域站歸屬</div><div class="logic-details">篩選常規氣象站、雨量站、單/雙中繼站、區域中心，或 12 大管理中心轄區。</div></div>
+            <div class="logic-item"><div class="logic-title">8. 上架狀態</div><div class="logic-details">區分正式上架與未上架。系統預設排除未上架測站，若將其加入清單，地圖上會貼心顯示專屬的「暫不上架原因」警告！</div></div>
+            <div class="logic-item"><div class="logic-title">9. 海拔高度</div><div class="logic-details">直接在輸入框填入最低與最高公尺數，即可精準留存該高度區間內的測站。</div></div>
+        </div>
+
+        <h2>🔍 智慧搜尋與資料表互動</h2>
+        <p>系統不僅提供分類篩選，更配備了強大的全文檢索與表格互動功能：</p>
+        <div class="logic-grid">
             <div class="logic-item">
-                <div class="logic-title">8. 對外供應狀態 <span class="logic-code">public</span></div>
+                <div class="logic-title">✨ 多關鍵字模糊搜尋（Autocomplete）</div>
                 <div class="logic-details">
-                    <p><strong>功能說明：</strong> 滿足精準的「資料產品目錄」檢索需求，查看特定資料流的分佈狀況。</p>
-                    <p><strong>操作指南：</strong> 展開後提供四大主要管道（官網、PDS、申購、Open Data）。其中 Open Data 更細分出 <strong>O-A0001 至 O-A0091 等五大核心公眾氣象資料產品</strong>。您可以勾選「O-A0002」，地圖就會立刻把全台灣有在上架開源雨量資料產品的站點用特定顏色高亮標示出來，方便您進行圖資品管與盤點！</p>
+                    <p>在左側搜尋框中，您可以輸入站名或代碼。系統更支援<strong>複合關鍵字搜尋</strong>（請用空白鍵隔開），例如輸入 <code>花蓮 國小</code>，系統會即時跳出下拉選單，為您找出同時符合這兩個字詞的測站，點選即可立刻在地圖上精準定位！</p>
                 </div>
             </div>
-            <div class="logic-item"><div class="logic-title">9. 測站類型</div><div class="logic-details">篩選常規氣象站、雨量站、單/雙中繼站、區域中心等。</div></div>
-            <div class="logic-item"><div class="logic-title">10. 區域站歸屬</div><div class="logic-details">篩選無線電主要歸屬的 12 大管理中心轄區。</div></div>
             <div class="logic-item">
-                <div class="logic-title">11. 上架狀態</div>
-                <div class="logic-details">區分為「正式上架」與「未上架」站點。系統預設會自動排除未上架測站。若您將未上架測站加入清單，<strong>滑鼠停留在清單站碼上或開啟地圖查看時，系統會貼心地顯示專屬的「暫不上架原因」！</strong></div>
+                <div class="logic-title">✨ 表格點擊排序 (Sorting)</div>
+                <div class="logic-details">
+                    <p>右下角的測站詳細清單，現在具備試算表般的排序功能。只需滑鼠點擊表格上方的標題欄位（如 <strong>站名、縣市、高度</strong>），表格就會自動幫您升降冪排序，並顯示 🔼/🔽 箭頭提示，讓您快速找出最高海拔或特定縣市的測站。</p>
+                </div>
             </div>
-            <div class="logic-item"><div class="logic-title">12. 海拔高度</div><div class="logic-details">直接在輸入框填入最低與最高公尺數，即可精準留存該高度區間內的測站。</div></div>
+            <div class="logic-item">
+                <div class="logic-title">✨ 表格與地圖一鍵連動 (Click to Focus)</div>
+                <div class="logic-details">
+                    <p>看到表格裡感興趣的測站嗎？<strong>直接用滑鼠點擊那一行資料</strong>，地圖視窗就會像魔術般自動彈出，並且流暢地飛梭至該測站的上空，為您打開專屬的詳細圖卡！</p>
+                </div>
+            </div>
         </div>
 
         <h2>🗺️ 實務操作：地圖分布圖與簡報圖片下載指南</h2>
-        <p>當您調整好篩選條件後，可以利用右側統計結果區的「🗺️ 分布圖」按鈕開啟直式精美地圖：</p>
-        
         <div class="logic-grid">
             <div class="logic-item">
-                <div class="logic-title">💡 核心技巧：如何讓地圖上的站點出現不同顏色？</div>
+                <div class="logic-title">📌 資訊滿載的詳細圖卡 (Popup)</div>
                 <div class="logic-details">
-                    <p>地圖內建「智慧動態著色大腦」，顏色完全跟隨您的過濾池選項即時改變：</p>
+                    <p>在地圖上點選任何一個點點，跳出的圖卡資訊極其豐富。除了基本歸屬路徑與供應狀態外，現在還貼心加入了<strong>📍 縣市鄉鎮標示</strong>以及<strong>🌐 精確到小數點後四位的經緯度座標</strong>。若該站為未上架狀態，卡片中央會以紅框醒目提示未上架原因，一目瞭然。</p>
+                </div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">📌 動態顏色分類與圖例同步</div>
+                <div class="logic-details">
+                    <p>當您在包含池中「同時勾選兩個（含）以上的項目」（如：同時勾選 4G 和 無線電），地圖就會自動幫站點著上不同的鮮艷顏色！右下角的「地圖圖例」也會立刻變身，自動列出每個顏色代表的項目名稱。</p>
+                </div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">📌 自由縮放、拉伸視窗與完美離島視角</div>
+                <div class="logic-details">
                     <ul>
-                        <li><strong>全場統一藍色</strong>：在預設狀態、或您在包含池中「只勾選單一項目」時（例如只勾選了臺北市），地圖為了維持乾淨，所有測站點點皆會統一顯示為<strong>科技藍色</strong>，圖例會顯示「觀測站點」。</li>
-                        <li><strong>觸發多色分類</strong>：當您將分類卡片（如：傳輸方式、維護廠商、縣市選擇）拖進「🟢 包含池」，並且<strong>同時勾選兩個（含）以上的項目</strong>（例如同時勾選 4G 和 無線電），地圖就會自動幫站點著上不同的鮮艷顏色！</li>
-                        <li><strong>動態圖例同步</strong>：同時，右下角的「地圖圖例」也會立刻變身，自動列出每個顏色代表的項目名稱（當項目很多時，會自動排成雙欄網格，維持畫面清爽）。</li>
+                        <li><strong>智慧縮放</strong>：地圖開啟時，會自動計算最完美的比例，將台灣本島與澎湖、金門、馬祖同時收錄在畫面正中央。點點大小也會隨著您的滑鼠滾輪動態放大縮小。</li>
+                        <li><strong>拉大視窗</strong>：您可以隨時按住地圖視窗的<strong>右下角角落</strong>，像桌面軟體一樣自由拉大或拉高整張地圖視窗，獲得更寬廣的視野。</li>
                     </ul>
                 </div>
             </div>
-
-            <div class="logic-item">
-                <div class="logic-title">📌 異常站點醒目提示</div>
-                <div class="logic-details">
-                    <p>若地圖上包含「未上架」的測站，點擊或將滑鼠移至該點點上方時，不僅會顯示基本資訊，還會額外彈出醒目的<strong>紅色警告標籤</strong>，清楚標示該站的「暫不上架原因」，方便您進行資料盤點與截圖匯報！</p>
-                </div>
-            </div>
-
-            <div class="logic-item">
-                <div class="logic-title">📌 離島完美收錄（免手動調視角）</div>
-                <div class="logic-details">
-                    <p>地圖視窗開啟時，會自動偵測您目前篩選出的所有測站位置。不論您選了哪些地方，系統會自動縮放到最完美的比例，<strong>將台灣本島以及澎湖、金門、馬祖主要離島同時裝進畫面正中央</strong>，您完全不需要頻繁地用滑鼠縮放或移動找離島。</p>
-                </div>
-            </div>
-
-            <div class="logic-item">
-                <div class="logic-title">📌 滑動縮放與自由拉伸視窗</div>
-                <div class="logic-details">
-                    <ul>
-                        <li><strong>點點自動變大</strong>：在看全台灣大範圍時，點點會自動縮小防重疊；當您用滑鼠滾輪放大到局部縣市時，點點會跟著滾輪動態變大，方便您 hover 檢視測站名稱。</li>
-                        <li><strong>自由拉大視窗</strong>：如果右下角的圖例字太多、擋到了地圖上的測站，您可以隨時把滑鼠移到視窗的<strong>右下角角落</strong>，按住滑鼠即可像桌面軟體一樣「自由拉大或拉高整張地圖視窗」，放開滑鼠時畫面會滑順定格，絕對不亂跳。</li>
-                    </ul>
-                </div>
-            </div>
-
             <div class="logic-item">
                 <div class="logic-title">📌 產出簡報（PPT）神器：一鍵下載無暇圖片</div>
                 <div class="logic-details">
-                    <p>在畫面上用滑鼠將地圖移動或縮放到您最滿意的局部或全台視角後，點擊右上角的<strong>「📥 下載圖片」</strong>按鈕。系統會精準捕捉您在螢幕上看到的完美範圍，自動剔除 [+ -] 縮放按鈕，並生成一張<strong>純白底、超高解析度的 PNG 圖片</strong>。您可以直接貼進 PPT 簡報中，完全不需要手動截圖或二次裁剪！</p>
+                    <p>將地圖縮放到最滿意的局部或全台視角後，點擊右上角的<strong>「📥 下載圖片」</strong>按鈕。系統會精準捕捉您看到的完美範圍，生成一張<strong>純白底、高解析度的 PNG 圖片</strong>。可直接貼進簡報，完全不需要手動截圖或二次裁剪！</p>
                 </div>
             </div>
-
         </div>
     </div>
-    
-    <div class="footer">
-        © 2026 測站通訊監控系統 | 大氣觀測組 資料品管科編製
-    </div>
+    <div class="footer">© 2026 測站通訊監控系統 | 大氣觀測組 資料品管科編製</div>
 </div>
-
 </body>
 </html>
