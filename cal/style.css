@@ -386,6 +386,25 @@ h2 {
     border: 1px solid #334155;
 }
 
+/* 💡 新增：過濾池上下拉伸控制條 (完全對齊 sub-panel-resizer 風格) */
+#zone-resizer {
+    height: 8px;             
+    width: 100%;             
+    background-color: #1e293b; /* 沉穩的深灰色 */
+    cursor: row-resize;        /* 上下拉伸的游標 */
+    margin: 8px 0;           
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    flex-shrink: 0;          
+    z-index: 20;
+}
+
+/* 滑鼠游標懸停與拖曳中的發光特效 */
+/* #zone-resizer:hover,
+#zone-resizer.resizing {
+    background-color: var(--accent-blue, #38bdf8);
+} */
+
 /* ==========================================================================
    5. 右側：戰情結果區 (Dashboard - 垂直拉伸流暢解鎖版)
    ========================================================================== */

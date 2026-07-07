@@ -5,6 +5,7 @@ let rawData = null;           /* 儲存原始 JSON 完整資料 */
 let stationsArray = [];       /* 儲存前處理過、貼好標籤的完整測站陣列 */
 let currentFilteredList = []; /* 儲存目前被篩選出來的測站陣列，供 CSV 匯出使用 */
 let currentSort = { column: null, direction: 'asc' }; /* 記錄表格目前的排序狀態 */
+let manualExcludedSids = []; /* 儲存使用者在表格上手動剔除的測站 SID */
 
 let taiwanGeoData = null;     /* 儲存台灣縣市邊界資料 */
 let mapInstance = null;       /* Leaflet 地圖實體 */
@@ -144,6 +145,8 @@ document.addEventListener("DOMContentLoaded", () => {
     initSearchEngine(); 
     initResetButton(); // 👈 加入這行啟動重置按鈕功能
     initTableSorting();// 👈 加入這行啟動表格排序
+    initBatchDelete(); // 💡 確保有這行！這是賦予按鈕靈魂的關鍵！
+    initZoneResizer(); // 👈 加入這行啟動上下拉伸功能
 });
 
 // ==========================================================================
@@ -221,7 +224,7 @@ function getDerivedUnitString(station) {
 }
 
 function getDerivedVendorString(station) {
-    if (station.vendor != 7) return rawData.mappings.vendor[station.vendor] || "未指定";
+    if (station.vendor != 7) return rawData.mappings.vendor[station.vendor] || "未知";
     if (station.reg == 23) return "十河分署-翡翠水庫";
     if (station.reg == 24) return "十河分署-石門水庫";
     if (station.reg == 25) return "十河分署-第10河川局";
@@ -259,9 +262,12 @@ function generateStationPopupHtml(s) {
         const cityName = (rawData.mappings.city && rawData.mappings.city[s.city]) ? rawData.mappings.city[s.city] : "未知縣市";
         const townName = (rawData.mappings.town && rawData.mappings.town[s.town]) ? rawData.mappings.town[s.town] : "";
 
-        // 💡 新增：擷取經緯度並四捨五入到小數點後 4 位，若無資料則顯示無
         const latDisplay = (s.lat !== undefined && s.lat !== null) ? parseFloat(s.lat).toFixed(4) : "無資料";
         const lonDisplay = (s.lon !== undefined && s.lon !== null) ? parseFloat(s.lon).toFixed(4) : "無資料";
+
+        // 💡 新增：提取氣象與雨量頻率屬性
+        const weatherFreq = s._derivedWeatherFreq || "未知";
+        const rainFreq = s._derivedRainFreq || "未知";
 
         // 處理資料供應狀態標籤
         let supplyTagsHtml = "";
@@ -281,7 +287,7 @@ function generateStationPopupHtml(s) {
         }
 
         return `
-            <div style="min-width: 260px; padding: 4px; font-family: inherit;">
+            <div style="min-width: 280px; padding: 4px; font-family: inherit;">
                 <div style="text-align:center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 10px;">
                     <strong style="font-size:1.3rem; color:#0f172a;">${s.n}</strong>
                     <span style="color:#64748b; font-size:0.9rem; margin-left:4px;">(${s.cwbid || s.sid})</span>
@@ -310,6 +316,10 @@ function generateStationPopupHtml(s) {
                     <span style="background:#f1f5f9; border:1px solid #cbd5e1; padding:3px 8px; border-radius:4px; font-size:0.75rem; color:#475569;">⛰️ 海拔 ${alt}</span>
                     <span style="background:#f1f5f9; border:1px solid #cbd5e1; padding:3px 8px; border-radius:4px; font-size:0.75rem; color:#475569;">🌐 經緯度 ${latDisplay}, ${lonDisplay}</span>
                     <span style="background:#f1f5f9; border:1px solid #cbd5e1; padding:3px 8px; border-radius:4px; font-size:0.75rem; color:#475569;">🛠️ ${vendor}</span>
+                    
+                    <span style="background:#f1f5f9; border:1px solid #cbd5e1; padding:3px 8px; border-radius:4px; font-size:0.75rem; color:#475569;">🌤️ 氣象頻率: ${weatherFreq}</span>
+                    <span style="background:#f1f5f9; border:1px solid #cbd5e1; padding:3px 8px; border-radius:4px; font-size:0.75rem; color:#475569;">🌧️ 雨量頻率: ${rainFreq}</span>
+                    
                     <span style="background:${status === '正式上架' ? '#dcfce7' : '#fee2e2'}; border:1px solid ${status === '正式上架' ? '#bbf7d0' : '#fecaca'}; padding:3px 8px; border-radius:4px; font-size:0.75rem; color:${status === '正式上架' ? '#16a34a' : '#ef4444'}; font-weight:bold;">${status === '正式上架' ? '✅ 正式上架' : '❌ 未上架'}</span>
                 </div>
                 
@@ -548,7 +558,41 @@ function renderFilterOptions(zone, zoneType, filterId) {
                 ➕ 新增高度區間
             </button>
         `;
-    } else {
+    } 
+    // 💡 核心新增：站碼規則專屬的彈性輸入介面
+    // 💡 升級：站碼規則支援「多選/多組列」輸入介面
+    else if (filterId === 'station-code-rule') {
+        checkboxesHtml += `
+            <div style="display:flex; flex-direction:column; gap:10px; padding:8px 0;">
+                
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #475569; padding-bottom:8px; margin-bottom:4px;">
+                    <span style="font-size:0.85rem; color:#94a3b8;">多重條件邏輯：</span>
+                    <select class="code-logic-select" onchange="onCodeRuleInputChange('${zoneType}')" style="background:#1e293b; border: 1px solid #475569; border-radius: 4px; color:white; font-size:0.8rem; padding:2px 6px; outline:none;">
+                        <option value="or">符合任一 (聯集)</option>
+                        <option value="and">符合全部 (交集)</option>
+                    </select>
+                </div>
+
+                <div style="display:flex; gap:12px; border-bottom:1px dashed #475569; padding-bottom:10px;">
+                    <label style="font-size:0.85rem; display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="checkbox" value="46start" class="quick-rule" onchange="onCodeRuleInputChange('${zoneType}')"> 46開頭(有人站)
+                    </label>
+                    <label style="font-size:0.85rem; display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="checkbox" value="2nd_2" class="quick-rule" onchange="onCodeRuleInputChange('${zoneType}')"> 第2碼為2(農業站)
+                    </label>
+                </div>
+                
+                <div id="${zoneType}-code-rule-rows" style="display:flex; flex-direction:column; gap:6px;">
+                    </div>
+                
+                <button type="button" onclick="addStationCodeRuleRow('${zoneType}')" 
+                        style="margin-top:4px; background:#334155; border:1px dashed #475569; color:#67e8f9; padding:5px; border-radius:6px; font-size:0.75rem; cursor:pointer; width:100%; transition: background 0.2s;">
+                    ➕ 新增自訂站碼規則
+                </button>
+            </div>
+        `;
+    }
+    else {
         const options = getOptionsByFilterId(filterId);
         checkboxesHtml += `<div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; padding:8px 0;" id="${zoneType}-options-${filterId}">`;
         options.forEach(opt => {
@@ -650,7 +694,7 @@ function getOptionsByFilterId(id) {
 }
 
 function getTitleByFilterId(id) {
-    const titles = { unit: '所屬單位', transport: '傳輸方式', city: '縣市', town: '鄉鎮市區', 'weather-freq': '氣象頻率', 'rain-freq': '雨量頻率', vendor: '維護廠商', public: '對外供應狀態', station_type: '測站類型', 'regional-center': '區域站歸屬', status: '上架狀態', altitude: '海拔高度' };
+    const titles = { unit: '所屬單位', transport: '傳輸方式', city: '縣市', town: '鄉鎮市區', 'weather-freq': '氣象頻率', 'rain-freq': '雨量頻率', vendor: '維護廠商', public: '對外供應狀態', station_type: '測站類型', 'regional-center': '區域站歸屬', status: '上架狀態', altitude: '海拔高度','station-code-rule': '站碼規則'};
     return titles[id] || id;
 }
 
@@ -776,6 +820,45 @@ function calculateStations() {
                 const stationAlt = station.alt !== undefined && station.alt !== null ? parseFloat(station.alt) : 0;
                 return values.some(range => stationAlt >= range[0] && stationAlt <= range[1]);
             }
+            // 💡 新增這段：包含池的字串拆解比對
+            if (filterId === 'station-code-rule') {
+                // 💡 升級：將測站代碼統一轉成大寫，消除大小寫差異
+                const idStr = String(station.cwbid || station.sid || "").toUpperCase();
+                let cardPassed = false;
+                let hasActiveCondition = false;
+
+                if ((values.quick && values.quick.length > 0) || (values.custom && values.custom.length > 0)) {
+                    hasActiveCondition = true;
+                    let results = []; 
+
+                    // 檢查快速規則
+                    if (values.quick && values.quick.length > 0) {
+                        if (values.quick.includes('46start')) results.push(idStr.startsWith('46'));
+                        if (values.quick.includes('2nd_2')) results.push(idStr.charAt(1) === '2');
+                    }
+
+                    // 檢查自訂規則
+                    if (values.custom && values.custom.length > 0) {
+                        values.custom.forEach(rule => {
+                            if (rule.type === 'prefix') {
+                                // 💡 升級：將使用者輸入的字串也轉成大寫再比對
+                                results.push(idStr.startsWith(String(rule.value).toUpperCase()));
+                            } else if (rule.type === 'position') {
+                                // 💡 升級：將使用者輸入的字元也轉成大寫再比對
+                                results.push(idStr.charAt(rule.pos - 1) === String(rule.char).toUpperCase());
+                            }
+                        });
+                    }
+
+                    // 根據交集/聯集決定最終結果
+                    if (values.logic === 'and') {
+                        cardPassed = results.every(r => r === true); 
+                    } else {
+                        cardPassed = results.some(r => r === true);  
+                    }
+                }
+                return hasActiveCondition ? cardPassed : true;
+            }
             if (filterId === 'city') return values.includes(String(station.city || ""));
             if (filterId === 'town') return values.includes(String(station.town || ""));
             if (filterId === 'station_type') return values.includes(String(station.station_type || ""));
@@ -802,6 +885,42 @@ function calculateStations() {
                 const stationAlt = station.alt !== undefined && station.alt !== null ? parseFloat(station.alt) : 0;
                 matchExclude = values.some(range => stationAlt >= range[0] && stationAlt <= range[1]);
             }
+            // 💡 新增這段：排除池的字串拆解比對
+            else if (filterId === 'station-code-rule') {
+                // 💡 升級：將測站代碼統一轉成大寫
+                const idStr = String(station.cwbid || station.sid || "").toUpperCase();
+                let cardPassed = false;
+                let hasActiveCondition = false;
+
+                if ((values.quick && values.quick.length > 0) || (values.custom && values.custom.length > 0)) {
+                    hasActiveCondition = true;
+                    let results = [];
+
+                    if (values.quick && values.quick.length > 0) {
+                        if (values.quick.includes('46start')) results.push(idStr.startsWith('46'));
+                        if (values.quick.includes('2nd_2')) results.push(idStr.charAt(1) === '2');
+                    }
+
+                    if (values.custom && values.custom.length > 0) {
+                        values.custom.forEach(rule => {
+                            if (rule.type === 'prefix') {
+                                // 💡 升級：將使用者輸入的字串也轉成大寫再比對
+                                results.push(idStr.startsWith(String(rule.value).toUpperCase()));
+                            } else if (rule.type === 'position') {
+                                // 💡 升級：將使用者輸入的字元也轉成大寫再比對
+                                results.push(idStr.charAt(rule.pos - 1) === String(rule.char).toUpperCase());
+                            }
+                        });
+                    }
+
+                    if (values.logic === 'and') {
+                        cardPassed = results.every(r => r === true);
+                    } else {
+                        cardPassed = results.some(r => r === true);
+                    }
+                }
+                matchExclude = hasActiveCondition ? cardPassed : false;
+            }
             else if (filterId === 'city') matchExclude = values.includes(String(station.city || ""));
             else if (filterId === 'town') matchExclude = values.includes(String(station.town || ""));
             else if (filterId === 'station_type') matchExclude = values.includes(String(station.station_type || ""));
@@ -822,6 +941,11 @@ function calculateStations() {
         });
     });
 
+    // 💡 新增這段：過濾掉使用者手動按下垃圾桶剔除的測站
+    if (manualExcludedSids.length > 0) {
+        filteredResults = filteredResults.filter(s => !manualExcludedSids.includes(s.sid));
+    }
+
     // 重置排序狀態 UI
     currentSort = { column: null, direction: 'asc' };
     document.querySelectorAll('#station-table th .sort-icon').forEach(icon => icon.innerHTML = "");
@@ -838,8 +962,12 @@ function renderTable(list) {
     const tbody = document.getElementById('station-table-body');
     if (!tbody) return;
 
+    // 每次重新渲染表格時，把全選框恢復為未勾選狀態
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
+
     if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #ef4444;">無符合目前組合條件的測站</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #ef4444;">無符合目前組合條件的測站</td></tr>`;
         return;
     }
 
@@ -855,9 +983,12 @@ function renderTable(list) {
 
         const displayAlt = (s.alt !== undefined && s.alt !== null) ? `${s.alt} 公尺` : "-";
         
-        // 💡 修正：每一行 <tr> 加上 clickable-row 類別與 data-sid 屬性，並將游標改為手勢
+        // 💡 修正：在第一欄放入 checkbox，並加上 event.stopPropagation() 防止點擊時觸發地圖彈窗
         html += `
             <tr class="clickable-row" data-sid="${s.sid}" style="cursor: pointer;" title="點擊在地圖上定位此測站">
+                <td style="text-align: center;" onclick="event.stopPropagation();">
+                    <input type="checkbox" class="row-checkbox" data-sid="${s.sid}" style="cursor: pointer; transform: scale(1.2);">
+                </td>
                 <td>${displayCwbid}</td>
                 <td>${s.n}</td>
                 <td>${cityName}</td>
@@ -867,15 +998,12 @@ function renderTable(list) {
     });
     tbody.innerHTML = html;
 
-    // 💡 新增：表格渲染完後，抓取所有行並綁定點擊事件
+    // 綁定點擊行 -> 打開地圖事件
     tbody.querySelectorAll('.clickable-row').forEach(row => {
         row.addEventListener('click', () => {
             const sid = row.getAttribute('data-sid');
-            // 從完整陣列中找出被點擊的那筆測站資料
             const target = stationsArray.find(s => String(s.sid) === String(sid));
-            if (target) {
-                focusStationOnMap(target); // 🚀 觸發全域定位
-            }
+            if (target) focusStationOnMap(target);
         });
     });
 }
@@ -1243,6 +1371,7 @@ function initResetButton() {
         // 1. 清空背後的資料物件
         activeFilters.include = {};
         activeFilters.exclude = {};
+        manualExcludedSids = []; // 💡 新增：同時清空手動剔除的黑名單
 
         // 2. 清除畫面上所有已經拖曳過去的條件卡片
         document.querySelectorAll('.active-filter-group').forEach(el => el.remove());
@@ -1351,4 +1480,213 @@ function focusStationOnMap(targetStation) {
     
     // 3. 呼夾地圖重繪（這時地圖會依據 isSearchMode 飛過去並打開 Popup）
     renderMap(); 
+}
+
+// ==========================================================================
+// 🧠 監聽站碼彈性規則輸入
+// ==========================================================================
+function onCodeRuleInputChange(zoneType) {
+    const groupDiv = document.getElementById(`${zoneType}-group-station-code-rule`);
+    if (!groupDiv) return;
+
+    // 1. 收集勾選與輸入的資料
+    const quickChecked = Array.from(groupDiv.querySelectorAll('.quick-rule:checked')).map(el => el.value);
+    const prefixVal = groupDiv.querySelector('.code-prefix').value.trim();
+    const posNumVal = groupDiv.querySelector('.code-pos').value.trim();
+    const posCharVal = groupDiv.querySelector('.code-char').value.trim();
+
+    const ruleState = {
+        quick: quickChecked,
+        prefix: prefixVal,
+        posNum: posNumVal ? parseInt(posNumVal) : null,
+        posChar: posCharVal
+    };
+
+    // 2. 判斷是否有任何一項條件被啟動了
+    if (quickChecked.length > 0 || prefixVal !== "" || (posNumVal !== "" && posCharVal !== "")) {
+        activeFilters[zoneType]['station-code-rule'] = ruleState;
+    } else {
+        delete activeFilters[zoneType]['station-code-rule']; // 沒條件就刪除，不影響篩選
+    }
+
+    // 3. 重新計算表格與地圖
+    calculateStations();
+}
+
+// ==========================================================================
+// 🧠 站碼多組規則：動態產生與動態切換輸入框
+// ==========================================================================
+function addStationCodeRuleRow(zoneType) {
+    const container = document.getElementById(`${zoneType}-code-rule-rows`);
+    if (!container) return;
+
+    const row = document.createElement('div');
+    row.className = 'code-rule-row';
+    row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '6px'; row.style.marginTop = '4px';
+
+    // 內建下拉選單，讓使用者自由切換這列要比對什麼規則
+    row.innerHTML = `
+        <select class="rule-type" onchange="toggleRuleInputs(this, '${zoneType}')" style="padding: 4px 6px; background:#1e293b; border: 1px solid #475569; border-radius: 6px; color:white; font-size:0.85rem; outline:none;">
+            <option value="prefix">開頭為</option>
+            <option value="position">特定位置</option>
+        </select>
+        <div class="rule-inputs-container" style="display:flex; align-items:center; gap:4px; flex:1;">
+            <input type="text" class="code-prefix" placeholder="如: 46" style="width: 80px; padding: 5px 8px; background:#1e293b; border: 1px solid #475569; border-radius: 6px; color:white; font-size:0.85rem;" oninput="onCodeRuleInputChange('${zoneType}')">
+        </div>
+        <button type="button" onclick="this.parentElement.remove(); onCodeRuleInputChange('${zoneType}');" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:0.85rem; padding:0 4px;" title="刪除此條件">❌</button>
+    `;
+    container.appendChild(row);
+    onCodeRuleInputChange(zoneType);
+}
+
+// 切換選單時，動態改變輸入框的 HTML 結構
+function toggleRuleInputs(selectEl, zoneType) {
+    const container = selectEl.parentElement.querySelector('.rule-inputs-container');
+    if (!container) return;
+
+    if (selectEl.value === 'prefix') {
+        container.innerHTML = `
+            <input type="text" class="code-prefix" placeholder="如: 46" style="width: 80px; padding: 5px 8px; background:#1e293b; border: 1px solid #475569; border-radius: 6px; color:white; font-size:0.85rem;" oninput="onCodeRuleInputChange('${zoneType}')">
+        `;
+    } else {
+        container.innerHTML = `
+            <span style="font-size:0.85rem; color:#94a3b8;">第</span>
+            <input type="number" class="code-pos" placeholder="2" min="1" max="10" style="width: 45px; padding: 5px 2px; text-align:center; background:#1e293b; border: 1px solid #475569; border-radius: 6px; color:white; font-size:0.85rem;" oninput="onCodeRuleInputChange('${zoneType}')">
+            <span style="font-size:0.85rem; color:#94a3b8;">碼為</span>
+            <input type="text" class="code-char" placeholder="2" maxLength="1" style="width: 40px; padding: 5px 2px; text-align:center; background:#1e293b; border: 1px solid #475569; border-radius: 6px; color:white; font-size:0.85rem;" oninput="onCodeRuleInputChange('${zoneType}')">
+        `;
+    }
+    onCodeRuleInputChange(zoneType);
+}
+
+// 收集全數動態列的資料並打包進全域變數
+function onCodeRuleInputChange(zoneType) {
+    const groupDiv = document.getElementById(`${zoneType}-group-station-code-rule`);
+    if (!groupDiv) return;
+
+    const quickChecked = Array.from(groupDiv.querySelectorAll('.quick-rule:checked')).map(el => el.value);
+    
+    const rows = groupDiv.querySelectorAll('.code-rule-row');
+    const customRules = [];
+
+    // 迴圈遍歷使用者建立的所有規則列
+    rows.forEach(row => {
+        const type = row.querySelector('.rule-type').value;
+        if (type === 'prefix') {
+            const prefixInput = row.querySelector('.code-prefix');
+            const prefixVal = prefixInput ? prefixInput.value.trim() : "";
+            if (prefixVal) customRules.push({ type: 'prefix', value: prefixVal });
+        } else if (type === 'position') {
+            const posInput = row.querySelector('.code-pos');
+            const charInput = row.querySelector('.code-char');
+            const posVal = posInput ? posInput.value.trim() : "";
+            const charVal = charInput ? charInput.value.trim() : "";
+            if (posVal && charVal) customRules.push({ type: 'position', pos: parseInt(posVal), char: charVal });
+        }
+    });
+
+    // 💡 新增：讀取交集/聯集選單的值
+    const logicSelect = groupDiv.querySelector('.code-logic-select');
+    const logicVal = logicSelect ? logicSelect.value : 'or';
+
+    // 💡 將 logic 包進狀態裡
+    const ruleState = { logic: logicVal, quick: quickChecked, custom: customRules };
+
+    if (quickChecked.length > 0 || customRules.length > 0) {
+        activeFilters[zoneType]['station-code-rule'] = ruleState;
+    } else {
+        delete activeFilters[zoneType]['station-code-rule'];
+    }
+
+    calculateStations();
+}
+
+// ==========================================================================
+// 🗑️ 批量剔除功能
+// ==========================================================================
+function initBatchDelete() {
+    const batchDeleteBtn = document.getElementById('batch-delete-btn');
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    
+    // 1. 處理「全選/全不選」連動
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            document.querySelectorAll('.row-checkbox').forEach(cb => {
+                cb.checked = isChecked;
+            });
+        });
+    }
+
+    // 2. 處理「批量剔除」按鈕點擊
+    if (batchDeleteBtn) {
+        batchDeleteBtn.addEventListener('click', () => {
+            const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+            if (checkedBoxes.length === 0) {
+                alert("請先在表格前方勾選要剔除的測站！");
+                return;
+            }
+
+            if (confirm(`確定要將選取的 ${checkedBoxes.length} 個測站從本次篩選中剔除嗎？\n(若要恢復，請點擊「清空條件」重置)`)) {
+                // 將所有勾選的測站加入黑名單
+                checkedBoxes.forEach(cb => {
+                    const sid = cb.getAttribute('data-sid');
+                    if (!manualExcludedSids.includes(sid)) {
+                        manualExcludedSids.push(sid);
+                    }
+                });
+                
+                calculateStations(); // 重新運算與渲染表格
+                
+                // 如果地圖目前是開啟的，同步更新地圖
+                const mapModal = document.getElementById('map-modal');
+                if (mapModal && mapModal.classList.contains('active')) {
+                    renderMap();
+                }
+            }
+        });
+    }
+}
+
+// ==========================================================================
+// ↕️ 過濾池上下拉伸調整功能
+// ==========================================================================
+function initZoneResizer() {
+    const resizer = document.getElementById('zone-resizer');
+    const includeZone = document.querySelector('.include-zone');
+    const excludeZone = document.querySelector('.exclude-zone');
+    const workspace = document.querySelector('.filter-workspace');
+
+    if (!resizer || !includeZone || !excludeZone || !workspace) return;
+
+    // 確保父容器具備 Flex 垂直排列能力，讓佈局更穩固
+    workspace.style.display = 'flex';
+    workspace.style.flexDirection = 'column';
+
+    resizer.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        resizer.classList.add('resizing'); // 💡 修正：改用 CSS class 來控制發光
+
+        const startY = e.clientY;
+        const startHeight = includeZone.offsetHeight;
+
+        const onMouseMove = (moveEvent) => {
+            const deltaY = moveEvent.clientY - startY;
+            const newHeight = startHeight + deltaY;
+
+            if (newHeight >= 120 && newHeight <= workspace.offsetHeight - 150) {
+                includeZone.style.flex = 'none'; 
+                includeZone.style.height = `${newHeight}px`;
+            }
+        };
+
+        const onMouseUp = () => {
+            resizer.classList.remove('resizing'); // 💡 修正：優雅地移除 class，不再隱形！
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    });
 }

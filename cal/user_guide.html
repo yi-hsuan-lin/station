@@ -34,20 +34,25 @@
             <li><strong>同卡片內【勾選多個 = 或 (OR)】：</strong> 如果您在「縣市選擇」內同時勾選了「臺北市」與「新北市」，系統會抓出屬於臺北市<strong>或</strong>新北市的所有測站。</li>
             <li><strong>跨卡片之間【複合疊加 = 且 (AND)】：</strong> 如果您同時拉出了「縣市選擇（臺北市）」與「傳輸方式（4G）」，系統只會留下同時符合這兩項條件的測站。</li>
             <li><strong>包含與排除【扣除邏輯】：</strong> 系統會以「🟢 包含池」留下的測站為基準，強力扣除任何符合「🔴 排除池」條件的測站。</li>
+            <li><strong>自由分配空間：</strong> 包含池與排除池中間有一條深色的拉伸線，當條件卡片太多時，您可以上下拖曳它，自由調整兩個池子的顯示空間。</li>
             <li><strong>一鍵清空：</strong> 點擊過濾池右上角的「🗑️ 清空條件」按鈕，即可瞬間還原所有篩選狀態，方便重新查詢。</li>
         </ul>
 
-        <h2>📋 12種分類方法快速對照</h2>
+        <h2>📋 13種分類方法快速對照</h2>
         <div class="logic-grid">
-            <div class="logic-item"><div class="logic-title">1. 所屬單位</div><div class="logic-details">篩選中央署屬站、民航局、環境部、高公局或台北市政府等不同管轄權責。</div></div>
-            <div class="logic-item"><div class="logic-title">2. 傳輸方式</div><div class="logic-details">區分為 4G、無線電、實體網路、外單位雨量資料交換。</div></div>
-            <div class="logic-item"><div class="logic-title">3. 縣市與鄉鎮</div><div class="logic-details">選取特定的縣市與鄉鎮市區。縣市列表已依台灣地理「由北到南」貼心排序，且鄉鎮會隨縣市選擇自動連動過濾。</div></div>
-            <div class="logic-item"><div class="logic-title">4. 資料頻率 (氣象/雨量)</div><div class="logic-details">區分為 1分鐘、10分鐘傳輸，或純雨量站（不接受氣象篩選）。</div></div>
-            <div class="logic-item"><div class="logic-title">5. 維護廠商</div><div class="logic-details">篩選負責該站維護合約的民間廠商，或各分署管轄區域。</div></div>
-            <div class="logic-item"><div class="logic-title">6. 對外供應狀態</div><div class="logic-details">滿足「資料產品目錄」檢索需求。您可以勾選「O-A0002」，地圖就會把全台灣有在上架開源雨量資料產品的站點用特定顏色高亮標示出來！</div></div>
-            <div class="logic-item"><div class="logic-title">7. 測站類型與區域站歸屬</div><div class="logic-details">篩選常規氣象站、雨量站、單/雙中繼站、區域中心，或 12 大管理中心轄區。</div></div>
-            <div class="logic-item"><div class="logic-title">8. 上架狀態</div><div class="logic-details">區分正式上架與未上架。系統預設排除未上架測站，若將其加入清單，地圖上會貼心顯示專屬的「暫不上架原因」警告！</div></div>
-            <div class="logic-item"><div class="logic-title">9. 海拔高度</div><div class="logic-details">直接在輸入框填入最低與最高公尺數，即可精準留存該高度區間內的測站。</div></div>
+            <div class="logic-item">
+                <div class="logic-title">1. 站碼規則篩選 (彈性與多重條件)</div>
+                <div class="logic-details">可依據站碼特徵（如46開頭、第2碼為2）進行篩選。支援新增多組自訂規則（指定開頭或特定位置的字元，大小寫不拘），並可自由切換「符合任一 (聯集)」或「符合全部 (交集)」的複合邏輯！</div>
+            </div>
+            <div class="logic-item"><div class="logic-title">2. 所屬單位</div><div class="logic-details">篩選中央署屬站、民航局、環境部、高公局或台北市政府等不同管轄權責。</div></div>
+            <div class="logic-item"><div class="logic-title">3. 傳輸方式</div><div class="logic-details">區分為 4G、無線電、實體網路、外單位雨量資料交換。</div></div>
+            <div class="logic-item"><div class="logic-title">4. 縣市與鄉鎮</div><div class="logic-details">選取特定的縣市與鄉鎮市區。縣市列表已依台灣地理「由北到南」貼心排序，且鄉鎮會隨縣市選擇自動連動過濾。</div></div>
+            <div class="logic-item"><div class="logic-title">5. 資料頻率 (氣象/雨量)</div><div class="logic-details">區分為 1分鐘、10分鐘傳輸，或純雨量站（不接受氣象篩選）。</div></div>
+            <div class="logic-item"><div class="logic-title">6. 維護廠商</div><div class="logic-details">篩選負責該站維護合約的民間廠商，或各分署管轄區域。</div></div>
+            <div class="logic-item"><div class="logic-title">7. 對外供應狀態</div><div class="logic-details">滿足「資料產品目錄」檢索需求。您可以勾選「O-A0002」，地圖就會把全台灣有在上架開源雨量資料產品的站點用特定顏色高亮標示出來！</div></div>
+            <div class="logic-item"><div class="logic-title">8. 測站類型與區域站歸屬</div><div class="logic-details">篩選常規氣象站、雨量站、單/雙中繼站、區域中心，或 12 大管理中心轄區。</div></div>
+            <div class="logic-item"><div class="logic-title">9. 上架狀態</div><div class="logic-details">區分正式上架與未上架。系統預設排除未上架測站，若將其加入清單，地圖上會貼心顯示專屬的「暫不上架原因」警告！</div></div>
+            <div class="logic-item"><div class="logic-title">10. 海拔高度</div><div class="logic-details">直接在輸入框填入最低與最高公尺數，即可精準留存該高度區間內的測站。</div></div>
         </div>
 
         <h2>🔍 智慧搜尋與資料表互動</h2>
@@ -60,9 +65,15 @@
                 </div>
             </div>
             <div class="logic-item">
+                <div class="logic-title">✨ 勾選與批量剔除 (Batch Delete)</div>
+                <div class="logic-details">
+                    <p>若發現過濾結果中有幾個不想要參與分析的測站，只需勾選表格最前方的核取方塊（支援全選），接著點擊右上角的「🗑️ 批量剔除」，即可將它們從本次結果中完美隱藏（匯出 CSV 及分布圖也會同步將其排除）。</p>
+                </div>
+            </div>
+            <div class="logic-item">
                 <div class="logic-title">✨ 表格點擊排序 (Sorting)</div>
                 <div class="logic-details">
-                    <p>右下角的測站詳細清單，現在具備試算表般的排序功能。只需滑鼠點擊表格上方的標題欄位（如 <strong>站名、縣市、高度</strong>），表格就會自動幫您升降冪排序，並顯示 🔼/🔽 箭頭提示，讓您快速找出最高海拔或特定縣市的測站。</p>
+                    <p>只需滑鼠點擊表格上方的標題欄位（如 <strong>站名、縣市、高度</strong>），表格就會自動幫您升降冪排序，並顯示 🔼/🔽 箭頭提示，讓您快速找出最高海拔的測站。</p>
                 </div>
             </div>
             <div class="logic-item">
@@ -78,22 +89,13 @@
             <div class="logic-item">
                 <div class="logic-title">📌 資訊滿載的詳細圖卡 (Popup)</div>
                 <div class="logic-details">
-                    <p>在地圖上點選任何一個點點，跳出的圖卡資訊極其豐富。除了基本歸屬路徑與供應狀態外，現在還貼心加入了<strong>📍 縣市鄉鎮標示</strong>以及<strong>🌐 精確到小數點後四位的經緯度座標</strong>。若該站為未上架狀態，卡片中央會以紅框醒目提示未上架原因，一目瞭然。</p>
+                    <p>在地圖上點選任何一個點點，跳出的圖卡資訊極其豐富。除了基本歸屬路徑與供應狀態外，現在還貼心加入了<strong>氣象/雨量傳輸頻率、📍 縣市鄉鎮標示</strong>以及<strong>🌐 精確到小數點後四位的經緯度座標</strong>。若該站為未上架狀態，卡片中央會以紅框醒目提示未上架原因，一目瞭然。</p>
                 </div>
             </div>
             <div class="logic-item">
                 <div class="logic-title">📌 動態顏色分類與圖例同步</div>
                 <div class="logic-details">
                     <p>當您在包含池中「同時勾選兩個（含）以上的項目」（如：同時勾選 4G 和 無線電），地圖就會自動幫站點著上不同的鮮艷顏色！右下角的「地圖圖例」也會立刻變身，自動列出每個顏色代表的項目名稱。</p>
-                </div>
-            </div>
-            <div class="logic-item">
-                <div class="logic-title">📌 自由縮放、拉伸視窗與完美離島視角</div>
-                <div class="logic-details">
-                    <ul>
-                        <li><strong>智慧縮放</strong>：地圖開啟時，會自動計算最完美的比例，將台灣本島與澎湖、金門、馬祖同時收錄在畫面正中央。點點大小也會隨著您的滑鼠滾輪動態放大縮小。</li>
-                        <li><strong>拉大視窗</strong>：您可以隨時按住地圖視窗的<strong>右下角角落</strong>，像桌面軟體一樣自由拉大或拉高整張地圖視窗，獲得更寬廣的視野。</li>
-                    </ul>
                 </div>
             </div>
             <div class="logic-item">

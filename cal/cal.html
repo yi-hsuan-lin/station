@@ -31,6 +31,7 @@
             </div>
             <div class="filter-library-container">
                 <div class="filter-card-list">
+                    <div class="filter-card" draggable="true" data-filter="station-code-rule" title="依據站碼特殊編碼規則（如46開頭、第2碼為2）進行智慧彈性過濾">站碼規則篩選</div>
                     <div class="filter-card" draggable="true" data-filter="unit">所屬單位</div>
                     <div class="filter-card" draggable="true" data-filter="station_type" title="氣象站、雨量站、農業站、區域站、中繼站...等">測站類型</div>
                     <div class="filter-card" draggable="true" data-filter="transport" title="無線電、4G、實體網路、外單位交換">傳輸方式</div>
@@ -58,15 +59,19 @@
             </div>
             <p class="hint">可將左側維度拖至下方兩大池，同池內為「或(OR)」，跨維度為「且(AND)」</p>
             
-            <div class="drop-zone include-zone" data-zone="include">
+            <div class="drop-zone include-zone" data-zone="include" style="overflow-y: auto; min-height: 120px;">
                 <h3>🟢 包含池 (Include Zone)</h3>
                 <p class="zone-hint">符合此處條件的測站將被【留下】</p>
             </div>
 
-            <div class="drop-zone exclude-zone" data-zone="exclude">
+            <div id="zone-resizer" title="上下拖曳調整空間"></div>
+
+            <div class="drop-zone exclude-zone" data-zone="exclude" style="overflow-y: auto; flex: 1; min-height: 120px;">
                 <h3>🔴 排除池 (Exclude Zone)</h3>
                 <p class="zone-hint">符合此處條件的測站將被【扣除】</p>
             </div>
+
+
         </main>
 
         <div id="main-panel-resizer"></div>
@@ -85,18 +90,24 @@
             <div class="station-list-container">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <h3>📋 測站詳細清單</h3>
-                    <button id="show-map-btn" class="mini-map-btn">
+                    <div style="display: flex; gap: 8px;">
+                        <button id="batch-delete-btn" class="mini-export-btn" style="background: #64748b; border-color: #475569; color: white; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#475569'" onmouseout="this.style.backgroundColor='#64748b'">
+                            🗑️ 批量剔除
+                        </button>
+                        <button id="show-map-btn" class="mini-map-btn">
                             🗺️ 分布圖
                         </button>
-                    <button id="export-csv-btn" class="mini-export-btn">
-                        📥 匯出 CSV
-                    </button>
+                        <button id="export-csv-btn" class="mini-export-btn">
+                            📥 匯出 CSV
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="table-responsive">
                     <table id="station-table">
                         <thead>
                             <tr>
+                                <th style="width: 40px; text-align: center;"><input type="checkbox" id="select-all-checkbox" style="cursor: pointer; transform: scale(1.2);" title="全選/全不選"></th>
                                 <th data-sort="cwbid" style="cursor: pointer; user-select: none;" title="點擊排序">CWBID <span class="sort-icon" style="font-size: 0.8rem; color: #38bdf8;"></span></th>
                                 <th data-sort="name" style="cursor: pointer; user-select: none;" title="點擊排序">站名 <span class="sort-icon" style="font-size: 0.8rem; color: #38bdf8;"></span></th>
                                 <th data-sort="city" style="cursor: pointer; user-select: none;" title="點擊排序">縣市 <span class="sort-icon" style="font-size: 0.8rem; color: #38bdf8;"></span></th>
