@@ -4,6 +4,7 @@
 let rawData = null;           /* 儲存原始 JSON 完整資料 */
 let stationsArray = [];       /* 儲存前處理過、貼好標籤的完整測站陣列 */
 let currentFilteredList = []; /* 儲存目前被篩選出來的測站陣列，供 CSV 匯出使用 */
+let currentSort = { column: null, direction: 'asc' }; /* 記錄表格目前的排序狀態 */
 
 let taiwanGeoData = null;     /* 儲存台灣縣市邊界資料 */
 let mapInstance = null;       /* Leaflet 地圖實體 */
@@ -141,6 +142,8 @@ document.addEventListener("DOMContentLoaded", () => {
     initSubPanelResizer();  
     initModalResizer();  
     initSearchEngine(); 
+    initResetButton(); // 👈 加入這行啟動重置按鈕功能
+    initTableSorting();// 👈 加入這行啟動表格排序
 });
 
 // ==========================================================================
@@ -240,6 +243,9 @@ function getRainFreq(sub) {
     return [10, 11, 12, 13, 14, 15, "10", "11", "12", "13", "14", "15"].includes(sub) ? "10分鐘" : "1分鐘";
 }
 
+// ==========================================================================
+// 📝 生成地圖測站資訊卡 (Popup)
+// ==========================================================================
 function generateStationPopupHtml(s) {
     try {
         const unit = s._derivedUnit || "未知單位";
@@ -250,44 +256,66 @@ function generateStationPopupHtml(s) {
         const alt = (s.alt !== undefined && s.alt !== null) ? `${s.alt}m` : "無高度資料";
         const status = s._derivedStatus || "未知狀態";
         
+        const cityName = (rawData.mappings.city && rawData.mappings.city[s.city]) ? rawData.mappings.city[s.city] : "未知縣市";
+        const townName = (rawData.mappings.town && rawData.mappings.town[s.town]) ? rawData.mappings.town[s.town] : "";
+
+        // 💡 新增：擷取經緯度並四捨五入到小數點後 4 位，若無資料則顯示無
+        const latDisplay = (s.lat !== undefined && s.lat !== null) ? parseFloat(s.lat).toFixed(4) : "無資料";
+        const lonDisplay = (s.lon !== undefined && s.lon !== null) ? parseFloat(s.lon).toFixed(4) : "無資料";
+
+        // 處理資料供應狀態標籤
         let supplyTagsHtml = "";
         if (s.supply_channels && s.supply_channels.length > 0) {
-            supplyTagsHtml = s.supply_channels.map(c => `<span class="s-tag supply-tag">${c}</span>`).join('');
+            supplyTagsHtml = s.supply_channels.map(c => `<span style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; padding:3px 8px; border-radius:4px; font-size:0.75rem; white-space:nowrap;">${c}</span>`).join('');
         } else {
-            supplyTagsHtml = `<span class="s-tag" style="background:#f1f5f9; color:#64748b; border-color:#e2e8f0;">無對外供應</span>`;
+            supplyTagsHtml = `<span style="background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; padding:3px 8px; border-radius:4px; font-size:0.75rem;">無對外供應</span>`;
         }
 
+        // 處理未上架警告區塊
         let warningHtml = "";
         if (status === "未上架" && s.publish_reason) {
-            warningHtml = `<div style="margin-top:6px; color:#ef4444; font-size:0.75rem; font-weight:bold;">🚧 暫不上架：${s.publish_reason}</div>`;
+            warningHtml = `
+                <div style="margin: 10px 0; background:#fef2f2; color:#ef4444; border:1px solid #fecaca; padding:8px; border-radius:6px; font-size:0.85rem; font-weight:bold; text-align:left;">
+                    🚧 未上架原因：<span style="font-weight:normal;">${s.publish_reason}</span>
+                </div>`;
         }
 
         return `
-            <div style="text-align:center; min-width: 240px; padding: 4px;">
-                <strong style="font-size:1.2rem; color:#0f172a;">${s.n}</strong>
-                <span style="color:#64748b; font-size:0.85rem; margin-left:4px;">(${s.cwbid || s.sid})</span>
-                ${warningHtml}
-                
-                <div class="station-path-box">
-                    <strong style="color:#1e293b;">📍 管理與通訊路徑：</strong><br>
-                    <div style="margin-top:6px; font-weight:500; color:#334155; display:flex; align-items:center; flex-wrap:wrap;">
-                        🏢 ${unit} <span class="path-arrow">▶</span> 
-                        📡 ${regName} <span class="path-arrow">▶</span> 
-                        🌧️ ${typeName} <span class="path-arrow">▶</span> 
-                        📶 ${transport}
+            <div style="min-width: 260px; padding: 4px; font-family: inherit;">
+                <div style="text-align:center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 10px;">
+                    <strong style="font-size:1.3rem; color:#0f172a;">${s.n}</strong>
+                    <span style="color:#64748b; font-size:0.9rem; margin-left:4px;">(${s.cwbid || s.sid})</span>
+                    <div style="color:#0284c7; font-size:0.9rem; margin-top:6px; font-weight:bold; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                        <span>📍</span> ${cityName} ${townName}
                     </div>
                 </div>
 
-                <div style="font-size: 0.75rem; color: #64748b; margin-top: 8px; text-align: left; font-weight:bold;">🏷️ 測站符合條件：</div>
-                <div class="station-tags">
-                    <span class="s-tag">⛰️ 海拔 ${alt}</span>
-                    <span class="s-tag">🛠️ ${vendor}</span>
-                    <span class="s-tag ${status === '未上架' ? 'warning-tag' : ''}">${status === '正式上架' ? '✅ 正式上架' : '❌ 未上架'}</span>
+                ${warningHtml}
+                
+                <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:10px; margin-bottom:12px;">
+                    <strong style="color:#1e293b; font-size:0.85rem;">🏢 管理與通訊路徑：</strong><br>
+                    <div style="margin-top:8px; font-weight:500; color:#334155; font-size:0.85rem; line-height: 1.6; display: flex; flex-wrap: wrap; align-items: center; gap: 4px;">
+                        <span style="background: white; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">${unit}</span>
+                        <span style="color:#94a3b8; font-size:0.7rem;">▶</span> 
+                        <span style="background: white; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">${regName}</span>
+                        <span style="color:#94a3b8; font-size:0.7rem;">▶</span> 
+                        <span style="background: white; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">${typeName}</span>
+                        <span style="color:#94a3b8; font-size:0.7rem;">▶</span> 
+                        <span style="background: white; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">${transport}</span>
+                    </div>
+                </div>
+
+                <div style="font-size: 0.8rem; color: #1e293b; margin-bottom: 6px; font-weight:bold;">🏷️ 測站屬性：</div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;">
+                    <span style="background:#f1f5f9; border:1px solid #cbd5e1; padding:3px 8px; border-radius:4px; font-size:0.75rem; color:#475569;">⛰️ 海拔 ${alt}</span>
+                    <span style="background:#f1f5f9; border:1px solid #cbd5e1; padding:3px 8px; border-radius:4px; font-size:0.75rem; color:#475569;">🌐 經緯度 ${latDisplay}, ${lonDisplay}</span>
+                    <span style="background:#f1f5f9; border:1px solid #cbd5e1; padding:3px 8px; border-radius:4px; font-size:0.75rem; color:#475569;">🛠️ ${vendor}</span>
+                    <span style="background:${status === '正式上架' ? '#dcfce7' : '#fee2e2'}; border:1px solid ${status === '正式上架' ? '#bbf7d0' : '#fecaca'}; padding:3px 8px; border-radius:4px; font-size:0.75rem; color:${status === '正式上架' ? '#16a34a' : '#ef4444'}; font-weight:bold;">${status === '正式上架' ? '✅ 正式上架' : '❌ 未上架'}</span>
                 </div>
                 
-                <div style="margin-top: 12px; border-top: 1px dashed #cbd5e1; padding-top: 8px;">
-                    <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 4px; text-align: left; font-weight:bold;">📦 資料供應狀態：</div>
-                    <div class="station-tags">
+                <div style="border-top: 1px dashed #cbd5e1; padding-top: 12px;">
+                    <div style="font-size: 0.8rem; color: #1e293b; margin-bottom: 8px; font-weight:bold;">📦 資料供應狀態：</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px;">
                         ${supplyTagsHtml}
                     </div>
                 </div>
@@ -295,71 +323,141 @@ function generateStationPopupHtml(s) {
         `;
     } catch (e) {
         console.error("生成履歷發生錯誤:", e);
-        return `<div style="text-align:center; color:#ef4444;">資料解析發生錯誤</div>`;
+        return `<div style="text-align:center; color:#ef4444; padding: 10px;">資料解析發生錯誤</div>`;
     }
 }
 
 function initSearchEngine() {
     const searchInput = document.getElementById('station-search-input');
     const searchBtn = document.getElementById('station-search-btn');
-    
+    const suggestionsBox = document.getElementById('search-suggestions');
+    const clearBtn = document.getElementById('clearBtn');
+
     if (!searchInput || !searchBtn) return;
 
+    // 🚀 執行定位的共用動作
+    const executeSearch = (targetStation) => {
+        if (!targetStation) return;
+        
+        // 點擊後，把完整的站名填回輸入框，並隱藏下拉選單
+        searchInput.value = `${targetStation.n} (${targetStation.cwbid || targetStation.sid})`;
+        if (suggestionsBox) suggestionsBox.style.display = 'none';
+
+        // 💡 修正：直接呼叫剛剛做好的全域定位函數
+        focusStationOnMap(targetStation);
+    };
+
+    // 🚀 監聽打字動作，即時產生下拉選單
+    searchInput.addEventListener('input', () => {
+        const rawQuery = searchInput.value.trim();
+        
+        if (rawQuery === '') {
+            isSearchMode = false;
+            searchTargetStation = null;
+            if (clearBtn) clearBtn.style.display = 'none';
+            if (suggestionsBox) suggestionsBox.style.display = 'none';
+            return;
+        }
+
+        if (clearBtn) clearBtn.style.display = 'inline-block';
+        if (stationsArray.length === 0) return;
+
+        // 模糊搜尋比對邏輯
+        const normalizedQuery = rawQuery.toLowerCase().replace(/台/g, '臺');
+        const keywords = normalizedQuery.split(/\s+/).filter(k => k.length > 0);
+
+        // 使用 .filter() 找出所有符合的測站，並限制最多顯示 15 筆
+        const matchedStations = stationsArray.filter(s => {
+            const cityName = rawData.mappings.city[s.city] || "";
+            const townName = rawData.mappings.town[s.town] || "";
+            const stationName = String(s.n || "").replace(/台/g, '臺');
+            const sid = String(s.sid || "").toLowerCase();
+            const cwbid = String(s.cwbid || "").toLowerCase();
+            const combinedText = `${sid} ${cwbid} ${stationName} ${cityName} ${townName}`.toLowerCase();
+            return keywords.every(kw => combinedText.includes(kw));
+        }).slice(0, 15);
+
+        // 渲染下拉選單內容
+        if (matchedStations.length > 0) {
+            suggestionsBox.innerHTML = matchedStations.map(s => {
+                const cityName = rawData.mappings.city[s.city] || "";
+                const townName = rawData.mappings.town[s.town] || "";
+                return `
+                    <li class="suggestion-item" data-sid="${s.sid}" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; color: #334155; font-size: 0.9rem; display: flex; justify-content: space-between; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#f8fafc'" onmouseout="this.style.backgroundColor='transparent'">
+                        <span><strong style="color: #0f172a;">${s.n}</strong> <span style="color:#64748b; font-size:0.8rem; margin-left: 4px;">(${s.cwbid || s.sid})</span></span>
+                        <span style="font-size:0.8rem; color:#94a3b8;">${cityName}${townName}</span>
+                    </li>
+                `;
+            }).join('');
+            suggestionsBox.style.display = 'block';
+
+            // 為每個選項綁定點擊事件
+            suggestionsBox.querySelectorAll('.suggestion-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    const sid = e.currentTarget.getAttribute('data-sid');
+                    const target = stationsArray.find(s => String(s.sid) === String(sid));
+                    executeSearch(target);
+                });
+            });
+        } else {
+            // 找不到資料時的提示
+            suggestionsBox.innerHTML = `<li style="padding: 12px; color: #94a3b8; font-size: 0.9rem; text-align: center;">找不到符合「${rawQuery}」的測站</li>`;
+            suggestionsBox.style.display = 'block';
+        }
+    });
+
+    // 🚀 按下定位按鈕或 Enter 時，預設觸發名單中的第一筆
     const performSearch = () => {
         const rawQuery = searchInput.value.trim();
         if (!rawQuery) {
             alert("請先輸入站名或代碼！");
             return;
         }
-
-        if (stationsArray.length === 0) {
-            alert("資料尚未載入完成，請稍候再試。");
-            return;
-        }
-
-        const query = rawQuery.toLowerCase();
-        const queryTai = query.replace(/台/g, '臺');
-
-        const target = stationsArray.find(s => {
-            const sid = String(s.sid || "").toLowerCase();
-            const cwbid = String(s.cwbid || "").toLowerCase();
-            const name = String(s.n || "");
-            
-            return sid === query || cwbid === query || name.includes(query) || name.includes(queryTai);
-        });
-
-        if (target) {
-            if (!target.lat || !target.lon) {
-                alert(`測站 [${target.n}] 無座標資料無法定位！`);
-                return;
-            }
-
-            isSearchMode = true;
-            searchTargetStation = target;
-
-            const mapModal = document.getElementById('map-modal');
-            if (!mapModal.classList.contains('active')) {
-                mapModal.classList.add('active');
-            }
-            
-            renderMap(); 
-
+        const firstMatchItem = suggestionsBox.querySelector('.suggestion-item');
+        if (firstMatchItem) {
+            firstMatchItem.click();
+        } else if (suggestionsBox.style.display === 'none' && searchTargetStation) {
+             executeSearch(searchTargetStation); // 如果已經選好目標，直接定位
         } else {
-            alert(`找不到包含「${rawQuery}」的測站代碼或名稱，請更換關鍵字再試！`);
+            alert(`找不到包含「${rawQuery}」的測站，請更換關鍵字再試！`);
         }
     };
 
     searchBtn.addEventListener('click', performSearch);
     searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') performSearch();
-    });
-
-    searchInput.addEventListener('input', () => {
-        if (searchInput.value.trim() === '') {
-            isSearchMode = false;
-            searchTargetStation = null;
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            performSearch();
         }
     });
+
+    // 🚀 點擊畫面空白處時，自動收合下拉選單
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+            suggestionsBox.style.display = 'none';
+        }
+    });
+}
+
+// ==========================================================================
+// 🧹 清除搜尋與重置狀態
+// ==========================================================================
+function clearSearch() {
+    const searchInput = document.getElementById('station-search-input');
+    const clearBtn = document.getElementById('clearBtn');
+    const suggestionsBox = document.getElementById('search-suggestions'); // 取得下拉選單
+
+    if (searchInput) searchInput.value = "";
+    if (clearBtn) clearBtn.style.display = "none";
+    if (suggestionsBox) suggestionsBox.style.display = "none"; // 點擊叉叉時隱藏選單
+
+    isSearchMode = false;
+    searchTargetStation = null;
+
+    const mapModal = document.getElementById('map-modal');
+    if (mapModal && mapModal.classList.contains('active')) {
+        renderMap();
+    }
 }
 
 // ==========================================================================
@@ -469,7 +567,16 @@ function renderFilterOptions(zone, zoneType, filterId) {
     }
 
     groupDiv.innerHTML = checkboxesHtml;
-    zone.appendChild(groupDiv);
+    
+    // 💡 核心修正：尋找該過濾池中目前有沒有「第一張卡片」
+    const firstGroup = zone.querySelector('.active-filter-group');
+    if (firstGroup) {
+        // 如果有，就把新卡片插到第一張卡片的前面（變成最新的在最上面）
+        zone.insertBefore(groupDiv, firstGroup);
+    } else {
+        // 如果池子目前是空的，就直接加進去
+        zone.appendChild(groupDiv);
+    }
 
     if (filterId === 'town') handleTownSelect連動(zoneType);
 }
@@ -530,13 +637,13 @@ function getOptionsByFilterId(id) {
     if (id === 'public') {
         return [
             {value: '官網', text: '🌐 官網展示'},
-            {value: 'PDS', text: '🗄️ PDS 系統(建置中)'},
-            {value: '申購', text: '💰 資料申購'},
-            {value: 'O-A0001', text: ' └ O-A0001 (逐時氣象)'},
-            {value: 'O-A0002', text: ' └ O-A0002 (雨量)'},
-            {value: 'O-A0003', text: ' └ O-A0003 (10分鐘綜觀)'},
-            {value: 'O-A0005', text: ' └ O-A0005 (每日最大紫外線)'},
-            {value: 'O-A0091', text: ' └ O-A0091 (日射量)'}
+            {value: 'PDS', text: 'PDS 系統(建置中)'},
+            {value: '申購', text: '💰 資料申購(CODiS)'},
+            {value: 'O-A0001', text: ' O-A0001 (逐時氣象)'},
+            {value: 'O-A0002', text: ' O-A0002 (雨量)'},
+            {value: 'O-A0003', text: ' O-A0003 (10分鐘綜觀)'},
+            {value: 'O-A0005', text: ' O-A0005 (每日最大紫外線)'},
+            {value: 'O-A0091', text: ' O-A0091 (日射量)'}
         ];
     }
     return [];
@@ -715,6 +822,10 @@ function calculateStations() {
         });
     });
 
+    // 重置排序狀態 UI
+    currentSort = { column: null, direction: 'asc' };
+    document.querySelectorAll('#station-table th .sort-icon').forEach(icon => icon.innerHTML = "");
+
     currentFilteredList = filteredResults;
 
     const totalElement = document.getElementById('total-stations');
@@ -743,9 +854,30 @@ function renderTable(list) {
             : `<strong>${s.cwbid}</strong>`;
 
         const displayAlt = (s.alt !== undefined && s.alt !== null) ? `${s.alt} 公尺` : "-";
-        html += `<tr><td>${displayCwbid}</td><td>${s.n}</td><td>${cityName}</td><td>${townName}</td><td><span style="font-size:0.8rem; background:#334155; padding:2px 6px; border-radius:4px; color:#38bdf8;">${displayAlt}</span></td></tr>`;
+        
+        // 💡 修正：每一行 <tr> 加上 clickable-row 類別與 data-sid 屬性，並將游標改為手勢
+        html += `
+            <tr class="clickable-row" data-sid="${s.sid}" style="cursor: pointer;" title="點擊在地圖上定位此測站">
+                <td>${displayCwbid}</td>
+                <td>${s.n}</td>
+                <td>${cityName}</td>
+                <td>${townName}</td>
+                <td><span style="font-size:0.8rem; background:#334155; padding:2px 6px; border-radius:4px; color:#38bdf8;">${displayAlt}</span></td>
+            </tr>`;
     });
     tbody.innerHTML = html;
+
+    // 💡 新增：表格渲染完後，抓取所有行並綁定點擊事件
+    tbody.querySelectorAll('.clickable-row').forEach(row => {
+        row.addEventListener('click', () => {
+            const sid = row.getAttribute('data-sid');
+            // 從完整陣列中找出被點擊的那筆測站資料
+            const target = stationsArray.find(s => String(s.sid) === String(sid));
+            if (target) {
+                focusStationOnMap(target); // 🚀 觸發全域定位
+            }
+        });
+    });
 }
 
 function exportToCSV() {
@@ -1003,7 +1135,9 @@ function renderMap() {
                         else if (colorKey === 'station_type') stationValue = String(s.station_type || "");
                         else if (colorKey === 'regional-center') stationValue = String(s.reg || "");
                         else if (colorKey === 'public') {
-                            stationValue = chosenValues.find(v => (s.supply_channels || []).includes(v)) || "";
+                            // 💡 修正：直接從 activeFilters 中取得 public 的篩選陣列，避免找不到變數的錯誤
+                            const publicFilters = activeFilters.include['public'] || [];
+                            stationValue = publicFilters.find(v => (s.supply_channels || []).includes(v)) || "";
                         }
 
                         if (colorKey === 'city') matchValueName = rawData.mappings.city[s.city] || s.city;
@@ -1094,4 +1228,127 @@ function renderMap() {
             mapInstance.setView([23.7, 120.9], 7);
         }
     }, 360); 
+}
+
+// ==========================================================================
+// 🧹 總控：一鍵重置所有篩選條件
+// ==========================================================================
+function initResetButton() {
+    const resetBtn = document.getElementById('reset-filters-btn');
+    if (!resetBtn) return;
+
+    resetBtn.addEventListener('click', () => {
+        if (!confirm("確定要清空目前所有的篩選條件嗎？")) return;
+
+        // 1. 清空背後的資料物件
+        activeFilters.include = {};
+        activeFilters.exclude = {};
+
+        // 2. 清除畫面上所有已經拖曳過去的條件卡片
+        document.querySelectorAll('.active-filter-group').forEach(el => el.remove());
+
+        // 3. 恢復系統預設條件 (例如：預設將未上架放入排除池)
+        initDefaultFilters();
+
+        // 4. 重新計算表格並更新總數
+        calculateStations();
+
+        // 5. 如果地圖正開著，順便重繪地圖
+        const mapModal = document.getElementById('map-modal');
+        if (mapModal && mapModal.classList.contains('active')) {
+            renderMap();
+        }
+    });
+}
+
+// ==========================================================================
+// 🔃 表格點擊排序功能
+// ==========================================================================
+function initTableSorting() {
+    const headers = document.querySelectorAll('#station-table th[data-sort]');
+    
+    headers.forEach(header => {
+        header.addEventListener('click', () => {
+            const column = header.getAttribute('data-sort');
+            if (currentFilteredList.length === 0) return;
+
+            // 1. 切換排序方向 (如果點擊同一欄，就反轉方向；點擊新欄位，則預設升冪)
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+            }
+
+            // 2. 執行陣列排序
+            currentFilteredList.sort((a, b) => {
+                let valA, valB;
+
+                // 根據點選的欄位，抓取對應的資料
+                if (column === 'cwbid') {
+                    valA = a.cwbid || a.sid || "";
+                    valB = b.cwbid || b.sid || "";
+                } else if (column === 'name') {
+                    valA = a.n || "";
+                    valB = b.n || "";
+                } else if (column === 'city') {
+                    valA = rawData.mappings.city[a.city] || "";
+                    valB = rawData.mappings.city[b.city] || "";
+                } else if (column === 'town') {
+                    valA = rawData.mappings.town[a.town] || a.town || "";
+                    valB = rawData.mappings.town[b.town] || b.town || "";
+                } else if (column === 'alt') {
+                    valA = a.alt !== undefined && a.alt !== null ? parseFloat(a.alt) : -Infinity;
+                    valB = b.alt !== undefined && b.alt !== null ? parseFloat(b.alt) : -Infinity;
+                }
+
+                // 高度使用數字比大小，其餘文字使用中文語系字母順序比對
+                if (column === 'alt') {
+                    return currentSort.direction === 'asc' ? valA - valB : valB - valA;
+                } else {
+                    return currentSort.direction === 'asc' 
+                        ? String(valA).localeCompare(String(valB), 'zh-Hant')
+                        : String(valB).localeCompare(String(valA), 'zh-Hant');
+                }
+            });
+
+            // 3. 更新標題的箭頭 UI
+            document.querySelectorAll('#station-table th .sort-icon').forEach(icon => {
+                icon.innerHTML = ""; // 先清空所有箭頭
+            });
+            const activeHeaderIcon = document.querySelector(`#station-table th[data-sort="${column}"] .sort-icon`);
+            if (activeHeaderIcon) {
+                activeHeaderIcon.innerHTML = currentSort.direction === 'asc' ? ' 🔼' : ' 🔽';
+            }
+
+            // 4. 重新渲染排序後的表格
+            renderTable(currentFilteredList);
+        });
+    });
+}
+
+// ==========================================================================
+// 🎯 共用功能：將地圖核心聚焦到指定測站並打開卡片
+// ==========================================================================
+function focusStationOnMap(targetStation) {
+    if (!targetStation) return;
+    
+    // 安全防護：如果沒座標就跳出提示
+    if (!targetStation.lat || !targetStation.lon) {
+        alert(`測站 [${targetStation.n}] 無座標資料無法定位！`);
+        return;
+    }
+
+    // 1. 啟動搜尋定位模式，鎖定目標測站
+    isSearchMode = true;
+    searchTargetStation = targetStation;
+
+    // 2. 如果地圖彈窗目前是關閉的，自動幫使用者打開
+    const mapModal = document.getElementById('map-modal');
+    if (mapModal && !mapModal.classList.contains('active')) {
+        mapModal.classList.add('active');
+    }
+    
+    // 3. 呼夾地圖重繪（這時地圖會依據 isSearchMode 飛過去並打開 Popup）
+    renderMap(); 
 }
