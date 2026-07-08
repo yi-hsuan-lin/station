@@ -39,6 +39,7 @@
                     <div class="filter-card" draggable="true" data-filter="town">鄉鎮選擇</div>
                     <div class="filter-card" draggable="true" data-filter="altitude">海拔高度</div>
                     <div class="filter-card" draggable="true" data-filter="regional-center">區域站歸屬</div>
+                    <div class="filter-card" draggable="true" data-filter="relay-station" title="可與區域站進行連動過濾">中繼站選擇</div>
                     <div class="filter-card" draggable="true" data-filter="weather-freq" title="1分鐘、10分鐘">氣象資料頻率</div>
                     <div class="filter-card" draggable="true" data-filter="rain-freq" title="1分鐘、10分鐘">雨量資料頻率</div>
                     <div class="filter-card" draggable="true" data-filter="vendor">維護廠商</div>
@@ -101,6 +102,9 @@
                             📥 匯出 CSV
                         </button>
                     </div>
+                </div>
+                <div id="active-filters-summary" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; padding: 8px; background: #0f172a; border-radius: 6px; border: 1px dashed #475569;">
+                    <span style="color: #64748b; font-size: 0.85rem; font-style: italic;">目前無任何篩選條件，顯示全臺測站</span>
                 </div>
                 
                 <div class="table-responsive">

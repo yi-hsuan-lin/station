@@ -210,6 +210,31 @@ function initStationData() {
             });
         }
     });
+
+    // 💡 建立神級巢狀族譜：解譯 treeData 並貼回 stationsArray 身上
+    // 💡 建立中繼站的巢狀族譜 (利用 JSON 裡的 repid 屬性)
+    stationsArray.forEach(station => {
+        station._upstream_relay_names = []; // 準備一個陣列來放它所有的「長輩中繼站」名字
+        
+        let currentRepid = station.repid;
+        let safeCounter = 0; // 防呆機制，避免無窮迴圈
+        
+        // 只要這個測站有 repid，我們就一路往上找它的父親、爺爺...
+        while (currentRepid && safeCounter < 20) {
+            // 利用 sid 去找它的上層測站
+            let parentStation = stationsArray.find(s => s.sid === currentRepid);
+            
+            if (parentStation) {
+                // 將找到的長輩名字加入族譜中
+                station._upstream_relay_names.push(parentStation.n);
+                // 把指標換成長輩的 repid，準備下一次迴圈繼續往上找
+                currentRepid = parentStation.repid;
+            } else {
+                break; // 如果斷線找不到，就停止
+            }
+            safeCounter++;
+        }
+    });
 }
 
 function getDerivedUnitString(station) {
@@ -377,7 +402,8 @@ function initSearchEngine() {
         const keywords = normalizedQuery.split(/\s+/).filter(k => k.length > 0);
 
         // 使用 .filter() 找出所有符合的測站，並限制最多顯示 15 筆
-        const matchedStations = stationsArray.filter(s => {
+        // 1. 先篩選出所有符合條件的測站 (此時先不要切斷，保留全部名單)
+        let matchedStations = stationsArray.filter(s => {
             const cityName = rawData.mappings.city[s.city] || "";
             const townName = rawData.mappings.town[s.town] || "";
             const stationName = String(s.n || "").replace(/台/g, '臺');
@@ -385,7 +411,46 @@ function initSearchEngine() {
             const cwbid = String(s.cwbid || "").toLowerCase();
             const combinedText = `${sid} ${cwbid} ${stationName} ${cityName} ${townName}`.toLowerCase();
             return keywords.every(kw => combinedText.includes(kw));
-        }).slice(0, 15);
+        });
+
+        // 💡 2. 新增：替搜尋結果加上「權重計分大腦」，優先顯示站名吻合的測站
+        matchedStations.sort((a, b) => {
+            const nameA = String(a.n || "").replace(/台/g, '臺');
+            const nameB = String(b.n || "").replace(/台/g, '臺');
+            const idA = String(a.cwbid || a.sid || "").toLowerCase();
+            const idB = String(b.cwbid || b.sid || "").toLowerCase();
+
+            const getScore = (name, id) => {
+                let score = 0;
+                // 🏆 優先級一：完全命中站名或代碼 (給予最高 100 分)
+                if (name === normalizedQuery || id === normalizedQuery) score += 100;
+                // 🥈 優先級二：站名開頭剛好是關鍵字 (給予 80 分)
+                else if (name.startsWith(normalizedQuery)) score += 80;
+                // 🥉 優先級三：站名內部包含關鍵字 (給予 50 分)
+                else if (name.includes(normalizedQuery)) score += 50;
+                // 🏅 優先級四：代碼包含關鍵字 (給予 30 分)
+                else if (id.includes(normalizedQuery)) score += 30;
+
+                // 若是複合關鍵字(如"秀林 國小")，只要站名有命中其中一個字就加分，讓它贏過只有地址命中的
+                keywords.forEach(kw => {
+                    if (name.includes(kw)) score += 10;
+                });
+                return score;
+            };
+
+            const scoreA = getScore(nameA, idA);
+            const scoreB = getScore(nameB, idB);
+
+            // 分數高的排在前面
+            if (scoreA !== scoreB) {
+                return scoreB - scoreA;
+            }
+            // 如果分數一樣，就依照筆畫/拼音順序排
+            return nameA.localeCompare(nameB, 'zh-Hant');
+        });
+
+        // 3. 排序完成後，再切出最高分的前 15 筆顯示在畫面上
+        matchedStations = matchedStations.slice(0, 15);
 
         // 渲染下拉選單內容
         if (matchedStations.length > 0) {
@@ -623,6 +688,7 @@ function renderFilterOptions(zone, zoneType, filterId) {
     }
 
     if (filterId === 'town') handleTownSelect連動(zoneType);
+    if (filterId === 'relay-station') handleRelaySelect連動(zoneType);
 }
 
 function getOptionsByFilterId(id) {
@@ -666,6 +732,18 @@ function getOptionsByFilterId(id) {
     if (id === 'regional-center') {
         return [8,9,10,11,12,13,14,15,16,17,18,19].map(k => ({value: k, text: rawData.mappings.reg[k]}));
     }
+    // 💡 新增這段：自動抓取所有中繼站
+    if (id === 'relay-station') {
+        const hubs = stationsArray.filter(s => s.is_hub === true);
+        // 依照所屬的區域站進行排序，再排站名
+        hubs.sort((a, b) => {
+            const regA = parseInt(a.reg || 0);
+            const regB = parseInt(b.reg || 0);
+            if (regA !== regB) return regA - regB;
+            return String(a.n).localeCompare(String(b.n), 'zh-Hant');
+        });
+        return hubs.map(h => ({ value: h.n, text: h.n }));
+    }
     if (id === 'unit') return [...new Set(stationsArray.map(s => s._derivedUnit))].map(v => ({value: v, text: v}));
     if (id === 'transport') return ['無線電', '4G', '實體網路', '外單位雨量資料交換'].map(v => ({value: v, text: v}));
     if (id === 'weather-freq') return ['1分鐘', '10分鐘'].map(v => ({value: v, text: v}));
@@ -694,7 +772,16 @@ function getOptionsByFilterId(id) {
 }
 
 function getTitleByFilterId(id) {
-    const titles = { unit: '所屬單位', transport: '傳輸方式', city: '縣市', town: '鄉鎮市區', 'weather-freq': '氣象頻率', 'rain-freq': '雨量頻率', vendor: '維護廠商', public: '對外供應狀態', station_type: '測站類型', 'regional-center': '區域站歸屬', status: '上架狀態', altitude: '海拔高度','station-code-rule': '站碼規則'};
+    const titles = { 
+        unit: '所屬單位', transport: '傳輸方式', city: '縣市', town: '鄉鎮市區', 
+        'weather-freq': '氣象頻率', 'rain-freq': '雨量頻率', vendor: '維護廠商', 
+        public: '對外供應狀態', station_type: '測站類型', 
+        'regional-center': '區域站歸屬', 
+        'relay-station': '中繼站選擇', // 💡 新增這行
+        status: '上架狀態', 
+        altitude: '海拔高度',
+        'station-code-rule': '站碼規則'
+    };
     return titles[id] || id;
 }
 
@@ -709,6 +796,7 @@ function onCheckboxChange(zoneType, filterId) {
     }
 
     if (filterId === 'city') handleTownSelect連動(zoneType);
+    if (filterId === 'regional-center') handleRelaySelect連動(zoneType); // 💡 新增這行，當區域站改變時觸發
     calculateStations();
 }
 
@@ -761,6 +849,7 @@ function removeFilterGroup(zoneType, filterId) {
     if (el) el.remove();
     delete activeFilters[zoneType][filterId];
     if (filterId === 'city') handleTownSelect連動(zoneType);
+    if (filterId === 'regional-center') handleRelaySelect連動(zoneType); // 💡 新增這行
     calculateStations();
 }
 
@@ -803,9 +892,54 @@ function handleTownSelect連動(zoneType) {
     }
 }
 
+// ==========================================================================
+// 🧠 中繼站與區域站的二級連動邏輯
+// ==========================================================================
+function handleRelaySelect連動(zoneType) {
+    const relayContainer = document.getElementById(`${zoneType}-options-relay-station`);
+    if (!relayContainer) return;
+
+    // 取得目前勾選了哪些區域站
+    const selectedRegs = activeFilters[zoneType]['regional-center'] || [];
+    const labels = relayContainer.querySelectorAll('label');
+    let needUpdate = false;
+
+    labels.forEach(label => {
+        const checkbox = label.querySelector('input');
+        const relayName = checkbox.value;
+        // 回頭去陣列找這個中繼站所屬的 reg 代碼
+        const relayStation = stationsArray.find(s => s.n === relayName && s.is_hub === true);
+        
+        if (selectedRegs.length === 0) {
+            label.style.display = 'flex'; // 沒選區域站時，全部顯示
+        } else {
+            // 如果這個中繼站的 reg 有包含在被勾選的區域站陣列裡，就顯示
+            if (relayStation && selectedRegs.includes(String(relayStation.reg || ""))) {
+                label.style.display = 'flex';
+            } else {
+                label.style.display = 'none'; // 否則隱藏
+                if (checkbox.checked) {
+                    checkbox.checked = false; // 如果被隱藏的項目剛好是勾選狀態，強制取消勾選
+                    needUpdate = true;
+                }
+            }
+        }
+    });
+
+    if (needUpdate) {
+        const checkedValues = Array.from(relayContainer.querySelectorAll('input[type="checkbox"]:checked')).map(input => input.value);
+        if (checkedValues.length > 0) {
+            activeFilters[zoneType]['relay-station'] = checkedValues;
+        } else {
+            delete activeFilters[zoneType]['relay-station'];
+        }
+    }
+}
+
 function calculateStations() {
     if (!stationsArray.length) return;
 
+    // 💡 修正：把 relay-station 拿掉，這樣系統一開始就會先把所有中繼站 (包含中間節點) 剔除，只留下自動站
     const hasTypeInInclude = activeFilters.include['station_type'] !== undefined;
     const hasTypeInExclude = activeFilters.exclude['station_type'] !== undefined;
 
@@ -862,7 +996,14 @@ function calculateStations() {
             if (filterId === 'city') return values.includes(String(station.city || ""));
             if (filterId === 'town') return values.includes(String(station.town || ""));
             if (filterId === 'station_type') return values.includes(String(station.station_type || ""));
-            if (filterId === 'regional-center') return values.includes(String(station.reg || ""));
+            if (filterId === 'regional-center') {
+                // 如果是區域中心本人，或是被貼了該區域標籤的子子孫孫，通通放行
+                return values.includes(String(station.reg || "")) || values.some(v => String(rawData.mappings.reg[v]) === station._my_regional_boss);
+            }
+            if (filterId === 'relay-station') {
+                // 💡 剔除本人：只檢查該測站的「族譜」，不檢查它自己的站名
+                return values.some(v => (station._upstream_relay_names || []).includes(v)); 
+            }
             if (filterId === 'unit') return values.includes(station._derivedUnit || "");
             if (filterId === 'transport') return values.includes(station._derivedTransport || "");
             if (filterId === 'weather-freq') return values.includes(station._derivedWeatherFreq || "");
@@ -924,7 +1065,12 @@ function calculateStations() {
             else if (filterId === 'city') matchExclude = values.includes(String(station.city || ""));
             else if (filterId === 'town') matchExclude = values.includes(String(station.town || ""));
             else if (filterId === 'station_type') matchExclude = values.includes(String(station.station_type || ""));
-            else if (filterId === 'regional-center') matchExclude = values.includes(String(station.reg || ""));
+            else if (filterId === 'regional-center') {
+                matchExclude = values.includes(String(station.reg || "")) || values.some(v => String(rawData.mappings.reg[v]) === station._my_regional_boss);
+            }
+            else if (filterId === 'relay-station') {
+                matchExclude = values.some(v => (station._upstream_relay_names || []).includes(v));
+            }
             else if (filterId === 'unit') matchExclude = values.includes(station._derivedUnit || "");
             else if (filterId === 'transport') matchExclude = values.includes(station._derivedTransport || "");
             else if (filterId === 'weather-freq') matchExclude = values.includes(station._derivedWeatherFreq || "");
@@ -956,6 +1102,7 @@ function calculateStations() {
     if (totalElement) totalElement.innerText = filteredResults.length;
 
     renderTable(filteredResults);
+    updateActiveFiltersSummary(); // 💡 新增這行：表格渲染完後，同步更新條件標籤！
 }
 
 function renderTable(list) {
@@ -1045,9 +1192,17 @@ function initSubPanelResizer() {
         const onMouseMove = (moveEvent) => {
             const deltaY = moveEvent.clientY - startY;
             const newHeight = startHeight + deltaY;
-            if (newHeight >= 100 && newHeight <= 300) {
+            
+            // 💡 修正：放寬極限值，最小可以縮到 70px，最大限制在 200px 即可
+            if (newHeight >= 70 && newHeight <= 200) {
                 counterCard.style.height = `${newHeight}px`;
-                counterCard.style.padding = newHeight < 130 ? '10px 24px' : '20px 24px';
+                
+                // 動態調整內距與數字大小，讓它在極扁的時候也不會破版
+                counterCard.style.padding = newHeight < 90 ? '8px 24px' : '12px 24px';
+                const numEl = counterCard.querySelector('.counter-number');
+                if (numEl) {
+                    numEl.style.fontSize = newHeight < 90 ? '2rem' : '2.5rem';
+                }
             }
         };
 
@@ -1689,4 +1844,74 @@ function initZoneResizer() {
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
     });
+}
+
+// ==========================================================================
+// 🏷️ 更新目前篩選條件標籤總覽 (Active Filters Summary)
+// ==========================================================================
+function updateActiveFiltersSummary() {
+    const container = document.getElementById('active-filters-summary');
+    if (!container) return;
+
+    let html = '';
+
+    // 產生美觀小標籤的模板函數
+    const createTag = (zoneStr, title, valStr, color) => {
+        return `<span style="background: ${color}1a; border: 1px solid ${color}40; color: ${color}; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                    <strong style="opacity: 0.8;">${zoneStr} ${title}:</strong> ${valStr}
+                </span>`;
+    };
+
+    // 把資料庫代碼翻譯回中文的函數
+    const formatValues = (filterId, values) => {
+        if (filterId === 'altitude') {
+            return values.map(r => `${r[0] === -Infinity ? '0' : r[0]}~${r[1] === Infinity ? '以上' : r[1]}m`).join('、');
+        }
+        if (filterId === 'station-code-rule') {
+            let rules = [];
+            if (values.quick && values.quick.includes('46start')) rules.push('46開頭');
+            if (values.quick && values.quick.includes('2nd_2')) rules.push('第2碼為2');
+            if (values.custom) {
+                values.custom.forEach(c => {
+                    if(c.type === 'prefix') rules.push(`開頭為${c.value}`);
+                    if(c.type === 'position') rules.push(`第${c.pos}碼為${c.char}`);
+                });
+            }
+            return rules.join(values.logic === 'and' ? ' 且 ' : ' 或 ');
+        }
+        
+        return values.map(v => {
+            if (filterId === 'city') return rawData.mappings.city[v] || v;
+            if (filterId === 'town') return rawData.mappings.town[v] || v;
+            if (filterId === 'station_type') return rawData.mappings.station_type[v] || v;
+            if (filterId === 'regional-center') return rawData.mappings.reg[v] || v;
+            if (filterId === 'public') {
+                const opt = getOptionsByFilterId('public').find(o => String(o.value) === String(v));
+                return opt ? opt.text.replace(/🌐|💰| |└/g, '') : v; // 把多餘的圖示清掉讓畫面乾淨
+            }
+            return v;
+        }).join('、');
+    };
+
+    // 1. 產生包含池標籤 (綠色)
+    Object.entries(activeFilters.include).forEach(([filterId, values]) => {
+        html += createTag('🟢 包含', getTitleByFilterId(filterId), formatValues(filterId, values), '#10b981');
+    });
+
+    // 2. 產生排除池標籤 (紅色)
+    Object.entries(activeFilters.exclude).forEach(([filterId, values]) => {
+        html += createTag('🔴 排除', getTitleByFilterId(filterId), formatValues(filterId, values), '#ef4444');
+    });
+
+    // 3. 產生手動剔除標籤 (灰色)
+    if (manualExcludedSids.length > 0) {
+        html += createTag('🗑️ 手動剔除', '自訂', `共隱藏 ${manualExcludedSids.length} 站`, '#94a3b8');
+    }
+
+    // 渲染到畫面上
+    if (html === '') {
+        container.innerHTML = '<span style="color: #64748b; font-size: 0.85rem; font-style: italic;">目前無任何篩選條件，顯示全臺測站</span>';
+    } else {
+        container.innerHTML = html;
+    }
 }

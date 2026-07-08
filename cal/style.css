@@ -420,27 +420,29 @@ h2 {
 /* 數字計數器大卡片 */
 .counter-card {
     background: linear-gradient(135deg, #0284c7, #0369a1); 
-    padding: 20px 24px;      
+    padding: 12px 24px;      /* 💡 縮小內距 */
     border-radius: 8px;
     text-align: center;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-    margin-bottom: 0;        /* 🚀 移除 margin，因為間距改由拉伸條的 margin 控制 */
+    margin-bottom: 0;        
     
-    /* 🚀 解鎖核心：允許 JavaScript 自由改寫實體高度 */
-    height: 140px;           /* 預設初始高度 */
-    flex-shrink: 0;          /* 防止被下方列表擠壓變小 */
+    height: 90px;            /* 💡 核心修改：預設高度從 140px 大幅縮減為 90px */
+    flex-shrink: 0;          
     box-sizing: border-box;
+    display: flex;           /* 💡 加入 Flexbox 讓內容在變矮時自動垂直置中 */
+    flex-direction: column;
+    justify-content: center;
 }
 
 .counter-title {
     display: block;
-    font-size: 0.9rem;
+    font-size: 0.85rem;      /* 💡 字體微調小一點 */
     color: #e0f2fe;
     margin-bottom: 4px;
 }
 
 .counter-number {
-    font-size: 3.5rem;       
+    font-size: 2.5rem;       /* 💡 數字從 3.5rem 縮小，依然保持焦點但不佔空間 */
     font-weight: bold;
     color: #ffffff;
     font-family: 'Courier New', Courier, monospace; 
