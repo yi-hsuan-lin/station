@@ -768,7 +768,10 @@
                 if (Array.isArray(data)) {
                     // 若為陣列，代表底下都是測站
                     data.forEach(id => {
-                        if (allStations[id] && !allStations[id].repid) {
+                        const st = allStations[id];
+                        // 🚀 關鍵修改：除了排除有轉播站(repid)的站點外，也排除區域中心本身(is_reg_center)
+                        // 這樣區域中心就不會再次出現在清單內偽裝成自動站
+                        if (st && !st.repid && !st.is_reg_center) {
                             det.appendChild(createRecursiveHTML(id));
                         }
                     });
