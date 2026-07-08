@@ -143,10 +143,10 @@ document.addEventListener("DOMContentLoaded", () => {
     initSubPanelResizer();  
     initModalResizer();  
     initSearchEngine(); 
-    initResetButton(); // 👈 加入這行啟動重置按鈕功能
-    initTableSorting();// 👈 加入這行啟動表格排序
-    initBatchDelete(); // 💡 確保有這行！這是賦予按鈕靈魂的關鍵！
-    initZoneResizer(); // 👈 加入這行啟動上下拉伸功能
+    initResetButton(); 
+    initTableSorting();
+    initBatchDelete(); 
+    initZoneResizer(); 
 });
 
 // ==========================================================================
@@ -211,30 +211,47 @@ function initStationData() {
         }
     });
 
-    // 💡 建立神級巢狀族譜：解譯 treeData 並貼回 stationsArray 身上
     // 💡 建立中繼站的巢狀族譜 (利用 JSON 裡的 repid 屬性)
     stationsArray.forEach(station => {
-        station._upstream_relay_names = []; // 準備一個陣列來放它所有的「長輩中繼站」名字
+        station._upstream_relay_names = []; 
         
         let currentRepid = station.repid;
-        let safeCounter = 0; // 防呆機制，避免無窮迴圈
+        let safeCounter = 0; 
         
-        // 只要這個測站有 repid，我們就一路往上找它的父親、爺爺...
         while (currentRepid && safeCounter < 20) {
-            // 利用 sid 去找它的上層測站
             let parentStation = stationsArray.find(s => s.sid === currentRepid);
-            
             if (parentStation) {
-                // 將找到的長輩名字加入族譜中
                 station._upstream_relay_names.push(parentStation.n);
-                // 把指標換成長輩的 repid，準備下一次迴圈繼續往上找
                 currentRepid = parentStation.repid;
             } else {
-                break; // 如果斷線找不到，就停止
+                break; 
             }
             safeCounter++;
         }
     });
+
+    // 💡 建立動態區域站歸屬長輩標籤
+    if (rawData.treeData && rawData.treeData["署屬站"] && rawData.treeData["署屬站"]["區域站"]) {
+        const regCenters = rawData.treeData["署屬站"]["區域站"];
+        Object.entries(regCenters).forEach(([regName, regNode]) => {
+            const extractIds = (node) => {
+                if (Array.isArray(node)) return node;
+                if (typeof node === 'object' && node !== null) {
+                    let res = [];
+                    Object.values(node).forEach(child => { res = res.concat(extractIds(child)); });
+                    return res;
+                }
+                return [];
+            };
+            const allChildrenIds = extractIds(regNode);
+            allChildrenIds.forEach(childId => {
+                const targetStation = stationsArray.find(s => s.sid === childId || s.cwbid === childId);
+                if (targetStation) {
+                    targetStation._my_regional_boss = regName;
+                }
+            });
+        });
+    }
 }
 
 function getDerivedUnitString(station) {
@@ -272,7 +289,7 @@ function getRainFreq(sub) {
 }
 
 // ==========================================================================
-// 📝 生成地圖測站資訊卡 (Popup)
+// 2.2 生成地圖測站資訊卡 (Popup)
 // ==========================================================================
 function generateStationPopupHtml(s) {
     try {
@@ -290,11 +307,9 @@ function generateStationPopupHtml(s) {
         const latDisplay = (s.lat !== undefined && s.lat !== null) ? parseFloat(s.lat).toFixed(4) : "無資料";
         const lonDisplay = (s.lon !== undefined && s.lon !== null) ? parseFloat(s.lon).toFixed(4) : "無資料";
 
-        // 💡 新增：提取氣象與雨量頻率屬性
         const weatherFreq = s._derivedWeatherFreq || "未知";
         const rainFreq = s._derivedRainFreq || "未知";
 
-        // 處理資料供應狀態標籤
         let supplyTagsHtml = "";
         if (s.supply_channels && s.supply_channels.length > 0) {
             supplyTagsHtml = s.supply_channels.map(c => `<span style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; padding:3px 8px; border-radius:4px; font-size:0.75rem; white-space:nowrap;">${c}</span>`).join('');
@@ -302,7 +317,6 @@ function generateStationPopupHtml(s) {
             supplyTagsHtml = `<span style="background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; padding:3px 8px; border-radius:4px; font-size:0.75rem;">無對外供應</span>`;
         }
 
-        // 處理未上架警告區塊
         let warningHtml = "";
         if (status === "未上架" && s.publish_reason) {
             warningHtml = `
@@ -357,7 +371,6 @@ function generateStationPopupHtml(s) {
             </div>
         `;
     } catch (e) {
-        console.error("生成履歷發生錯誤:", e);
         return `<div style="text-align:center; color:#ef4444; padding: 10px;">資料解析發生錯誤</div>`;
     }
 }
@@ -370,19 +383,13 @@ function initSearchEngine() {
 
     if (!searchInput || !searchBtn) return;
 
-    // 🚀 執行定位的共用動作
     const executeSearch = (targetStation) => {
         if (!targetStation) return;
-        
-        // 點擊後，把完整的站名填回輸入框，並隱藏下拉選單
         searchInput.value = `${targetStation.n} (${targetStation.cwbid || targetStation.sid})`;
         if (suggestionsBox) suggestionsBox.style.display = 'none';
-
-        // 💡 修正：直接呼叫剛剛做好的全域定位函數
         focusStationOnMap(targetStation);
     };
 
-    // 🚀 監聽打字動作，即時產生下拉選單
     searchInput.addEventListener('input', () => {
         const rawQuery = searchInput.value.trim();
         
@@ -397,12 +404,9 @@ function initSearchEngine() {
         if (clearBtn) clearBtn.style.display = 'inline-block';
         if (stationsArray.length === 0) return;
 
-        // 模糊搜尋比對邏輯
         const normalizedQuery = rawQuery.toLowerCase().replace(/台/g, '臺');
         const keywords = normalizedQuery.split(/\s+/).filter(k => k.length > 0);
 
-        // 使用 .filter() 找出所有符合的測站，並限制最多顯示 15 筆
-        // 1. 先篩選出所有符合條件的測站 (此時先不要切斷，保留全部名單)
         let matchedStations = stationsArray.filter(s => {
             const cityName = rawData.mappings.city[s.city] || "";
             const townName = rawData.mappings.town[s.town] || "";
@@ -413,7 +417,6 @@ function initSearchEngine() {
             return keywords.every(kw => combinedText.includes(kw));
         });
 
-        // 💡 2. 新增：替搜尋結果加上「權重計分大腦」，優先顯示站名吻合的測站
         matchedStations.sort((a, b) => {
             const nameA = String(a.n || "").replace(/台/g, '臺');
             const nameB = String(b.n || "").replace(/台/g, '臺');
@@ -422,37 +425,24 @@ function initSearchEngine() {
 
             const getScore = (name, id) => {
                 let score = 0;
-                // 🏆 優先級一：完全命中站名或代碼 (給予最高 100 分)
                 if (name === normalizedQuery || id === normalizedQuery) score += 100;
-                // 🥈 優先級二：站名開頭剛好是關鍵字 (給予 80 分)
                 else if (name.startsWith(normalizedQuery)) score += 80;
-                // 🥉 優先級三：站名內部包含關鍵字 (給予 50 分)
                 else if (name.includes(normalizedQuery)) score += 50;
-                // 🏅 優先級四：代碼包含關鍵字 (給予 30 分)
                 else if (id.includes(normalizedQuery)) score += 30;
 
-                // 若是複合關鍵字(如"秀林 國小")，只要站名有命中其中一個字就加分，讓它贏過只有地址命中的
-                keywords.forEach(kw => {
-                    if (name.includes(kw)) score += 10;
-                });
+                keywords.forEach(kw => { if (name.includes(kw)) score += 10; });
                 return score;
             };
 
             const scoreA = getScore(nameA, idA);
             const scoreB = getScore(nameB, idB);
 
-            // 分數高的排在前面
-            if (scoreA !== scoreB) {
-                return scoreB - scoreA;
-            }
-            // 如果分數一樣，就依照筆畫/拼音順序排
+            if (scoreA !== scoreB) return scoreB - scoreA;
             return nameA.localeCompare(nameB, 'zh-Hant');
         });
 
-        // 3. 排序完成後，再切出最高分的前 15 筆顯示在畫面上
         matchedStations = matchedStations.slice(0, 15);
 
-        // 渲染下拉選單內容
         if (matchedStations.length > 0) {
             suggestionsBox.innerHTML = matchedStations.map(s => {
                 const cityName = rawData.mappings.city[s.city] || "";
@@ -466,7 +456,6 @@ function initSearchEngine() {
             }).join('');
             suggestionsBox.style.display = 'block';
 
-            // 為每個選項綁定點擊事件
             suggestionsBox.querySelectorAll('.suggestion-item').forEach(item => {
                 item.addEventListener('click', (e) => {
                     const sid = e.currentTarget.getAttribute('data-sid');
@@ -475,13 +464,11 @@ function initSearchEngine() {
                 });
             });
         } else {
-            // 找不到資料時的提示
             suggestionsBox.innerHTML = `<li style="padding: 12px; color: #94a3b8; font-size: 0.9rem; text-align: center;">找不到符合「${rawQuery}」的測站</li>`;
             suggestionsBox.style.display = 'block';
         }
     });
 
-    // 🚀 按下定位按鈕或 Enter 時，預設觸發名單中的第一筆
     const performSearch = () => {
         const rawQuery = searchInput.value.trim();
         if (!rawQuery) {
@@ -492,7 +479,7 @@ function initSearchEngine() {
         if (firstMatchItem) {
             firstMatchItem.click();
         } else if (suggestionsBox.style.display === 'none' && searchTargetStation) {
-             executeSearch(searchTargetStation); // 如果已經選好目標，直接定位
+             executeSearch(searchTargetStation);
         } else {
             alert(`找不到包含「${rawQuery}」的測站，請更換關鍵字再試！`);
         }
@@ -506,7 +493,6 @@ function initSearchEngine() {
         }
     });
 
-    // 🚀 點擊畫面空白處時，自動收合下拉選單
     document.addEventListener('click', (e) => {
         if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
             suggestionsBox.style.display = 'none';
@@ -514,17 +500,14 @@ function initSearchEngine() {
     });
 }
 
-// ==========================================================================
-// 🧹 清除搜尋與重置狀態
-// ==========================================================================
 function clearSearch() {
     const searchInput = document.getElementById('station-search-input');
     const clearBtn = document.getElementById('clearBtn');
-    const suggestionsBox = document.getElementById('search-suggestions'); // 取得下拉選單
+    const suggestionsBox = document.getElementById('search-suggestions');
 
     if (searchInput) searchInput.value = "";
     if (clearBtn) clearBtn.style.display = "none";
-    if (suggestionsBox) suggestionsBox.style.display = "none"; // 點擊叉叉時隱藏選單
+    if (suggestionsBox) suggestionsBox.style.display = "none";
 
     isSearchMode = false;
     searchTargetStation = null;
@@ -624,12 +607,9 @@ function renderFilterOptions(zone, zoneType, filterId) {
             </button>
         `;
     } 
-    // 💡 核心新增：站碼規則專屬的彈性輸入介面
-    // 💡 升級：站碼規則支援「多選/多組列」輸入介面
     else if (filterId === 'station-code-rule') {
         checkboxesHtml += `
             <div style="display:flex; flex-direction:column; gap:10px; padding:8px 0;">
-                
                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #475569; padding-bottom:8px; margin-bottom:4px;">
                     <span style="font-size:0.85rem; color:#94a3b8;">多重條件邏輯：</span>
                     <select class="code-logic-select" onchange="onCodeRuleInputChange('${zoneType}')" style="background:#1e293b; border: 1px solid #475569; border-radius: 4px; color:white; font-size:0.8rem; padding:2px 6px; outline:none;">
@@ -647,8 +627,7 @@ function renderFilterOptions(zone, zoneType, filterId) {
                     </label>
                 </div>
                 
-                <div id="${zoneType}-code-rule-rows" style="display:flex; flex-direction:column; gap:6px;">
-                    </div>
+                <div id="${zoneType}-code-rule-rows" style="display:flex; flex-direction:column; gap:6px;"></div>
                 
                 <button type="button" onclick="addStationCodeRuleRow('${zoneType}')" 
                         style="margin-top:4px; background:#334155; border:1px dashed #475569; color:#67e8f9; padding:5px; border-radius:6px; font-size:0.75rem; cursor:pointer; width:100%; transition: background 0.2s;">
@@ -677,13 +656,10 @@ function renderFilterOptions(zone, zoneType, filterId) {
 
     groupDiv.innerHTML = checkboxesHtml;
     
-    // 💡 核心修正：尋找該過濾池中目前有沒有「第一張卡片」
     const firstGroup = zone.querySelector('.active-filter-group');
     if (firstGroup) {
-        // 如果有，就把新卡片插到第一張卡片的前面（變成最新的在最上面）
         zone.insertBefore(groupDiv, firstGroup);
     } else {
-        // 如果池子目前是空的，就直接加進去
         zone.appendChild(groupDiv);
     }
 
@@ -732,10 +708,8 @@ function getOptionsByFilterId(id) {
     if (id === 'regional-center') {
         return [8,9,10,11,12,13,14,15,16,17,18,19].map(k => ({value: k, text: rawData.mappings.reg[k]}));
     }
-    // 💡 新增這段：自動抓取所有中繼站
     if (id === 'relay-station') {
         const hubs = stationsArray.filter(s => s.is_hub === true);
-        // 依照所屬的區域站進行排序，再排站名
         hubs.sort((a, b) => {
             const regA = parseInt(a.reg || 0);
             const regB = parseInt(b.reg || 0);
@@ -748,7 +722,7 @@ function getOptionsByFilterId(id) {
     if (id === 'transport') return ['無線電', '4G', '實體網路', '外單位雨量資料交換'].map(v => ({value: v, text: v}));
     if (id === 'weather-freq') return ['1分鐘', '10分鐘'].map(v => ({value: v, text: v}));
     if (id === 'rain-freq') return ['1分鐘', '10分鐘'].map(v => ({value: v, text: v}));
-    if (id === 'vendor') return [...new Set(stationsArray.map(s => s._derivedVendor))].map(v => ({value: v, text: v}));
+    if (id === 'vendor') return [...new Set(stationsArray.map(s => s._derivedVendor))].filter(v => v !== "未知").map(v => ({value: v, text: v}));
     
     if (id === 'status') {
         return [
@@ -777,7 +751,7 @@ function getTitleByFilterId(id) {
         'weather-freq': '氣象頻率', 'rain-freq': '雨量頻率', vendor: '維護廠商', 
         public: '對外供應狀態', station_type: '測站類型', 
         'regional-center': '區域站歸屬', 
-        'relay-station': '中繼站選擇', // 💡 新增這行
+        'relay-station': '中繼站選擇', 
         status: '上架狀態', 
         altitude: '海拔高度',
         'station-code-rule': '站碼規則'
@@ -796,7 +770,7 @@ function onCheckboxChange(zoneType, filterId) {
     }
 
     if (filterId === 'city') handleTownSelect連動(zoneType);
-    if (filterId === 'regional-center') handleRelaySelect連動(zoneType); // 💡 新增這行，當區域站改變時觸發
+    if (filterId === 'regional-center') handleRelaySelect連動(zoneType); 
     calculateStations();
 }
 
@@ -849,7 +823,7 @@ function removeFilterGroup(zoneType, filterId) {
     if (el) el.remove();
     delete activeFilters[zoneType][filterId];
     if (filterId === 'city') handleTownSelect連動(zoneType);
-    if (filterId === 'regional-center') handleRelaySelect連動(zoneType); // 💡 新增這行
+    if (filterId === 'regional-center') handleRelaySelect連動(zoneType); 
     calculateStations();
 }
 
@@ -892,14 +866,10 @@ function handleTownSelect連動(zoneType) {
     }
 }
 
-// ==========================================================================
-// 🧠 中繼站與區域站的二級連動邏輯
-// ==========================================================================
 function handleRelaySelect連動(zoneType) {
     const relayContainer = document.getElementById(`${zoneType}-options-relay-station`);
     if (!relayContainer) return;
 
-    // 取得目前勾選了哪些區域站
     const selectedRegs = activeFilters[zoneType]['regional-center'] || [];
     const labels = relayContainer.querySelectorAll('label');
     let needUpdate = false;
@@ -907,19 +877,17 @@ function handleRelaySelect連動(zoneType) {
     labels.forEach(label => {
         const checkbox = label.querySelector('input');
         const relayName = checkbox.value;
-        // 回頭去陣列找這個中繼站所屬的 reg 代碼
         const relayStation = stationsArray.find(s => s.n === relayName && s.is_hub === true);
         
         if (selectedRegs.length === 0) {
-            label.style.display = 'flex'; // 沒選區域站時，全部顯示
+            label.style.display = 'flex'; 
         } else {
-            // 如果這個中繼站的 reg 有包含在被勾選的區域站陣列裡，就顯示
             if (relayStation && selectedRegs.includes(String(relayStation.reg || ""))) {
                 label.style.display = 'flex';
             } else {
-                label.style.display = 'none'; // 否則隱藏
+                label.style.display = 'none'; 
                 if (checkbox.checked) {
-                    checkbox.checked = false; // 如果被隱藏的項目剛好是勾選狀態，強制取消勾選
+                    checkbox.checked = false; 
                     needUpdate = true;
                 }
             }
@@ -939,7 +907,6 @@ function handleRelaySelect連動(zoneType) {
 function calculateStations() {
     if (!stationsArray.length) return;
 
-    // 💡 修正：把 relay-station 拿掉，這樣系統一開始就會先把所有中繼站 (包含中間節點) 剔除，只留下自動站
     const hasTypeInInclude = activeFilters.include['station_type'] !== undefined;
     const hasTypeInExclude = activeFilters.exclude['station_type'] !== undefined;
 
@@ -954,9 +921,7 @@ function calculateStations() {
                 const stationAlt = station.alt !== undefined && station.alt !== null ? parseFloat(station.alt) : 0;
                 return values.some(range => stationAlt >= range[0] && stationAlt <= range[1]);
             }
-            // 💡 新增這段：包含池的字串拆解比對
             if (filterId === 'station-code-rule') {
-                // 💡 升級：將測站代碼統一轉成大寫，消除大小寫差異
                 const idStr = String(station.cwbid || station.sid || "").toUpperCase();
                 let cardPassed = false;
                 let hasActiveCondition = false;
@@ -965,26 +930,21 @@ function calculateStations() {
                     hasActiveCondition = true;
                     let results = []; 
 
-                    // 檢查快速規則
                     if (values.quick && values.quick.length > 0) {
                         if (values.quick.includes('46start')) results.push(idStr.startsWith('46'));
                         if (values.quick.includes('2nd_2')) results.push(idStr.charAt(1) === '2');
                     }
 
-                    // 檢查自訂規則
                     if (values.custom && values.custom.length > 0) {
                         values.custom.forEach(rule => {
                             if (rule.type === 'prefix') {
-                                // 💡 升級：將使用者輸入的字串也轉成大寫再比對
                                 results.push(idStr.startsWith(String(rule.value).toUpperCase()));
                             } else if (rule.type === 'position') {
-                                // 💡 升級：將使用者輸入的字元也轉成大寫再比對
                                 results.push(idStr.charAt(rule.pos - 1) === String(rule.char).toUpperCase());
                             }
                         });
                     }
 
-                    // 根據交集/聯集決定最終結果
                     if (values.logic === 'and') {
                         cardPassed = results.every(r => r === true); 
                     } else {
@@ -997,11 +957,9 @@ function calculateStations() {
             if (filterId === 'town') return values.includes(String(station.town || ""));
             if (filterId === 'station_type') return values.includes(String(station.station_type || ""));
             if (filterId === 'regional-center') {
-                // 如果是區域中心本人，或是被貼了該區域標籤的子子孫孫，通通放行
                 return values.includes(String(station.reg || "")) || values.some(v => String(rawData.mappings.reg[v]) === station._my_regional_boss);
             }
             if (filterId === 'relay-station') {
-                // 💡 剔除本人：只檢查該測站的「族譜」，不檢查它自己的站名
                 return values.some(v => (station._upstream_relay_names || []).includes(v)); 
             }
             if (filterId === 'unit') return values.includes(station._derivedUnit || "");
@@ -1026,9 +984,7 @@ function calculateStations() {
                 const stationAlt = station.alt !== undefined && station.alt !== null ? parseFloat(station.alt) : 0;
                 matchExclude = values.some(range => stationAlt >= range[0] && stationAlt <= range[1]);
             }
-            // 💡 新增這段：排除池的字串拆解比對
             else if (filterId === 'station-code-rule') {
-                // 💡 升級：將測站代碼統一轉成大寫
                 const idStr = String(station.cwbid || station.sid || "").toUpperCase();
                 let cardPassed = false;
                 let hasActiveCondition = false;
@@ -1045,10 +1001,8 @@ function calculateStations() {
                     if (values.custom && values.custom.length > 0) {
                         values.custom.forEach(rule => {
                             if (rule.type === 'prefix') {
-                                // 💡 升級：將使用者輸入的字串也轉成大寫再比對
                                 results.push(idStr.startsWith(String(rule.value).toUpperCase()));
                             } else if (rule.type === 'position') {
-                                // 💡 升級：將使用者輸入的字元也轉成大寫再比對
                                 results.push(idStr.charAt(rule.pos - 1) === String(rule.char).toUpperCase());
                             }
                         });
@@ -1087,12 +1041,10 @@ function calculateStations() {
         });
     });
 
-    // 💡 新增這段：過濾掉使用者手動按下垃圾桶剔除的測站
     if (manualExcludedSids.length > 0) {
         filteredResults = filteredResults.filter(s => !manualExcludedSids.includes(s.sid));
     }
 
-    // 重置排序狀態 UI
     currentSort = { column: null, direction: 'asc' };
     document.querySelectorAll('#station-table th .sort-icon').forEach(icon => icon.innerHTML = "");
 
@@ -1102,14 +1054,13 @@ function calculateStations() {
     if (totalElement) totalElement.innerText = filteredResults.length;
 
     renderTable(filteredResults);
-    updateActiveFiltersSummary(); // 💡 新增這行：表格渲染完後，同步更新條件標籤！
+    updateActiveFiltersSummary(); 
 }
 
 function renderTable(list) {
     const tbody = document.getElementById('station-table-body');
     if (!tbody) return;
 
-    // 每次重新渲染表格時，把全選框恢復為未勾選狀態
     const selectAllCheckbox = document.getElementById('select-all-checkbox');
     if (selectAllCheckbox) selectAllCheckbox.checked = false;
 
@@ -1130,7 +1081,6 @@ function renderTable(list) {
 
         const displayAlt = (s.alt !== undefined && s.alt !== null) ? `${s.alt} 公尺` : "-";
         
-        // 💡 修正：在第一欄放入 checkbox，並加上 event.stopPropagation() 防止點擊時觸發地圖彈窗
         html += `
             <tr class="clickable-row" data-sid="${s.sid}" style="cursor: pointer;" title="點擊在地圖上定位此測站">
                 <td style="text-align: center;" onclick="event.stopPropagation();">
@@ -1145,7 +1095,6 @@ function renderTable(list) {
     });
     tbody.innerHTML = html;
 
-    // 綁定點擊行 -> 打開地圖事件
     tbody.querySelectorAll('.clickable-row').forEach(row => {
         row.addEventListener('click', () => {
             const sid = row.getAttribute('data-sid');
@@ -1193,11 +1142,8 @@ function initSubPanelResizer() {
             const deltaY = moveEvent.clientY - startY;
             const newHeight = startHeight + deltaY;
             
-            // 💡 修正：放寬極限值，最小可以縮到 70px，最大限制在 200px 即可
             if (newHeight >= 70 && newHeight <= 200) {
                 counterCard.style.height = `${newHeight}px`;
-                
-                // 動態調整內距與數字大小，讓它在極扁的時候也不會破版
                 counterCard.style.padding = newHeight < 90 ? '8px 24px' : '12px 24px';
                 const numEl = counterCard.querySelector('.counter-number');
                 if (numEl) {
@@ -1270,7 +1216,7 @@ function initModalResizer() {
 }
 
 // ==========================================================================
-// 🗺️ 渲染測站分布地圖
+// 🗺️ 渲染測站分布地圖 (方案 B：多維度複合著色 - 邏輯修正完全體)
 // ==========================================================================
 function renderMap() {
     const mapContainer = document.getElementById('map-container');
@@ -1292,51 +1238,128 @@ function renderMap() {
         { stroke: "#9333ea", fill: "#c084fc" }, 
         { stroke: "#e11d48", fill: "#fb7185" }, 
         { stroke: "#0d9488", fill: "#2dd4bf" }, 
-        { stroke: "#ea580c", fill: "#ffedd5" }  
+        { stroke: "#ea580c", fill: "#ffedd5" },
+        { stroke: "#6366f1", fill: "#a5b4fc" }, 
+        { stroke: "#ec4899", fill: "#f9a8d4" },
+        { stroke: "#f43f5e", fill: "#fda4af" }
     ];
 
     const activeIncludeKeys = Object.keys(activeFilters.include);
-    let colorKey = null;
     let valueColorMap = {};
     let legendItems = []; 
+    let compositeMode = "none"; 
+    let primaryKey = null; 
 
-    if (activeIncludeKeys.length > 0) {
-        colorKey = activeIncludeKeys[0]; 
-        const chosenValues = activeFilters.include[colorKey];
-        const labelTitle = getTitleByFilterId(colorKey);
-        
-        if (colorKey === 'altitude') {
-            chosenValues.forEach((range, index) => {
+    let targetValues = [];
+    let legendTitle = "觀測站點";
+
+    if (activeIncludeKeys.includes('city') && activeIncludeKeys.includes('town')) {
+        compositeMode = "geo";
+        legendTitle = "縣市-鄉鎮";
+        const selectedTowns = activeFilters.include['town'] || [];
+        selectedTowns.forEach(tCode => {
+            const cityName = rawData.mappings.city[stationsArray.find(s => String(s.town) === String(tCode))?.city] || "未知";
+            const townName = rawData.mappings.town[tCode] || tCode;
+            targetValues.push(`${cityName}-${townName}`);
+        });
+    } else if (activeIncludeKeys.includes('regional-center') && activeIncludeKeys.includes('relay-station')) {
+        compositeMode = "relay";
+        legendTitle = "區域-中繼";
+        const selectedRelays = activeFilters.include['relay-station'] || [];
+        selectedRelays.forEach(rName => {
+            const regCode = stationsArray.find(s => s.n === rName && (s.is_hub === true || String(s.is_hub) === "1"))?.reg;
+            const regName = rawData.mappings.reg[regCode] || "未知中心";
+            targetValues.push(`${regName}-${rName}`);
+        });
+    } else if (activeIncludeKeys.length > 0) {
+        compositeMode = "single";
+        primaryKey = activeIncludeKeys[0];
+        legendTitle = getTitleByFilterId(primaryKey);
+        targetValues = activeFilters.include[primaryKey] || [];
+    }
+
+    if (compositeMode !== "none" && primaryKey !== 'altitude') {
+        try {
+            const uniqueValues = [...new Set(targetValues)];
+            uniqueValues.forEach((val, index) => {
                 const colorObj = colorPalette[index % colorPalette.length];
-                const minTxt = range[0] === -Infinity ? "0" : range[0];
-                const displayTxt = range[1] === Infinity ? `${minTxt} m 以上` : `${minTxt} ~ ${range[1]} m`;
-                legendItems.push({ color: colorObj.stroke, label: `${labelTitle}：${displayTxt}` });
-            });
-        } else {
-            // 🚀 防護一：保護圖例生成陣列，避免特殊字串引發崩潰
-            try {
-                chosenValues.forEach((val, index) => {
-                    const colorObj = colorPalette[index % colorPalette.length];
-                    valueColorMap[val] = colorObj;
-                    
-                    let displayTxt = val;
-                    if (colorKey === 'city') displayTxt = rawData.mappings.city[val] || val;
-                    else if (colorKey === 'town') displayTxt = rawData.mappings.town[val] || val;
-                    else if (colorKey === 'station_type') displayTxt = rawData.mappings.station_type[val] || val;
-                    else if (colorKey === 'regional-center') displayTxt = rawData.mappings.reg[val] || val;
-                    else if (colorKey === 'public') {
-                        const opt = getOptionsByFilterId('public').find(o => o.value === val);
-                        displayTxt = opt ? opt.text.replace(' └ ', '') : val; 
+                valueColorMap[val] = colorObj;
+
+                let displayTxt = val;
+                if (compositeMode === "single") {
+                    if (primaryKey === 'city') displayTxt = rawData.mappings.city[val] || val;
+                    else if (primaryKey === 'town') displayTxt = rawData.mappings.town[val] || val;
+                    else if (primaryKey === 'station_type') displayTxt = rawData.mappings.station_type[val] || val;
+                    else if (primaryKey === 'regional-center') displayTxt = rawData.mappings.reg[val] || val;
+                    else if (primaryKey === 'public') {
+                        const opt = getOptionsByFilterId('public').find(o => String(o.value) === String(val));
+                        displayTxt = opt ? opt.text.replace(/🌐|💰| |└/g, '') : val;
                     }
-                    
-                    legendItems.push({ color: colorObj.stroke, label: `${labelTitle}：${displayTxt}` });
-                });
-            } catch (e) {
-                console.error("圖例生成發生錯誤", e);
-            }
+                }
+                legendItems.push({ color: colorObj.stroke, label: `${legendTitle}：${displayTxt}` });
+            });
+        } catch (e) {
+            console.error("圖例生成失敗:", e);
         }
+    } else if (primaryKey === 'altitude') {
+        const ranges = activeFilters.include['altitude'] || [];
+        ranges.forEach((range, index) => {
+            const colorObj = colorPalette[index % colorPalette.length];
+            const minTxt = range[0] === -Infinity ? "0" : range[0];
+            const displayTxt = range[1] === Infinity ? `${minTxt} m 以上` : `${minTxt} ~ ${range[1]} m`;
+            legendItems.push({ color: colorObj.stroke, label: `海拔高度：${displayTxt}` });
+        });
     } else {
         legendItems.push({ color: "#0284c7", label: "觀測站點" });
+    }
+
+    function getStationColorKey(s) {
+        if (compositeMode === "geo") {
+            const cName = rawData.mappings.city[s.city] || "未知";
+            const tName = rawData.mappings.town[s.town] || "未知";
+            return `${cName}-${tName}`;
+        }
+        if (compositeMode === "relay") {
+            const selectedRelays = activeFilters.include['relay-station'] || [];
+            const activeParent = (s._upstream_relay_names || []).find(name => selectedRelays.includes(name));
+            if (activeParent) {
+                const regName = rawData.mappings.reg[s.reg] || "未知中心";
+                return `${regName}-${activeParent}`;
+            }
+            return "unknown";
+        }
+        if (compositeMode === "single") {
+            if (primaryKey === 'unit') return s._derivedUnit || "";
+            if (primaryKey === 'transport') return s._derivedTransport || "";
+            if (primaryKey === 'city') return String(s.city || "");
+            if (primaryKey === 'town') return String(s.town || "");
+            if (primaryKey === 'weather-freq') return s._derivedWeatherFreq || "";
+            if (primaryKey === 'rain-freq') return s._derivedRainFreq || "";
+            if (primaryKey === 'vendor') return s._derivedVendor || "";
+            if (primaryKey === 'status') return s._derivedStatus || "";
+            if (primaryKey === 'station_type') return String(s.station_type || "");
+            if (primaryKey === 'regional-center') return String(s.reg || "");
+            if (primaryKey === 'public') {
+                const publicFilters = activeFilters.include['public'] || [];
+                return publicFilters.find(v => (s.supply_channels || []).includes(v)) || "";
+            }
+        }
+        return "none";
+    }
+
+    function getMatchValueChineseName(s, rawVal) {
+        if (compositeMode === "geo" || compositeMode === "relay") return rawVal; 
+        if (compositeMode === "single") {
+            if (primaryKey === 'city') return rawData.mappings.city[rawVal] || rawVal;
+            if (primaryKey === 'town') return rawData.mappings.town[rawVal] || rawVal;
+            if (primaryKey === 'station_type') return rawData.mappings.station_type[rawVal] || rawVal;
+            if (primaryKey === 'regional-center') return rawData.mappings.reg[rawVal] || rawVal;
+            if (primaryKey === 'public') {
+                const opt = getOptionsByFilterId('public').find(o => String(o.value) === String(rawVal));
+                return opt ? opt.text.replace(/🌐|💰| |└/g, '') : rawVal;
+            }
+        }
+        return rawVal;
     }
 
     if (!mapInstance) {
@@ -1384,14 +1407,14 @@ function renderMap() {
 
     const listToRender = (isSearchMode && searchTargetStation) ? [searchTargetStation] : currentFilteredList;
 
-    // 🚀 防護二：在每顆點點的渲染過程加上 try-catch，防止單一壞點帶崩整張圖
     listToRender.forEach(s => {
         try {
             if (s.lat && s.lon) {
                 let dotColor = "#0284c7"; let fillColor = "#38bdf8"; let matchValueName = "";
 
-                if (colorKey) {
-                    if (colorKey === 'altitude') {
+                if (activeIncludeKeys.length > 0) {
+                    const checkKey = compositeMode === "single" ? primaryKey : activeIncludeKeys[0];
+                    if (checkKey === 'altitude') {
                         const stationAlt = s.alt !== undefined && s.alt !== null ? parseFloat(s.alt) : 0;
                         const chosenRanges = activeFilters.include['altitude'] || [];
                         const matchedIdx = chosenRanges.findIndex(r => stationAlt >= r[0] && stationAlt <= r[1]);
@@ -1406,34 +1429,15 @@ function renderMap() {
                             dotColor = "#64748b"; fillColor = "#cbd5e1";
                         }
                     } else {
-                        let stationValue = "";
-                        if (colorKey === 'unit') stationValue = s._derivedUnit || "";
-                        else if (colorKey === 'transport') stationValue = s._derivedTransport || "";
-                        else if (colorKey === 'city') stationValue = String(s.city || "");
-                        else if (colorKey === 'town') stationValue = String(s.town || "");
-                        else if (colorKey === 'weather-freq') stationValue = s._derivedWeatherFreq || "";
-                        else if (colorKey === 'rain-freq') stationValue = s._derivedRainFreq || "";
-                        else if (colorKey === 'vendor') stationValue = s._derivedVendor || "";
-                        else if (colorKey === 'status') stationValue = s._derivedStatus || "";
-                        else if (colorKey === 'station_type') stationValue = String(s.station_type || "");
-                        else if (colorKey === 'regional-center') stationValue = String(s.reg || "");
-                        else if (colorKey === 'public') {
-                            // 💡 修正：直接從 activeFilters 中取得 public 的篩選陣列，避免找不到變數的錯誤
-                            const publicFilters = activeFilters.include['public'] || [];
-                            stationValue = publicFilters.find(v => (s.supply_channels || []).includes(v)) || "";
-                        }
-
-                        if (colorKey === 'city') matchValueName = rawData.mappings.city[s.city] || s.city;
-                        else if (colorKey === 'town') matchValueName = rawData.mappings.town[s.town] || s.town;
-                        else if (colorKey === 'station_type') matchValueName = rawData.mappings.station_type[s.station_type] || s.station_type;
-                        else if (colorKey === 'regional-center') matchValueName = rawData.mappings.reg[s.reg] || s.reg;
-                        else if (colorKey === 'public') matchValueName = stationValue; 
-                        else matchValueName = stationValue;
+                        let stationValue = getStationColorKey(s);
+                        matchValueName = getMatchValueChineseName(s, stationValue); 
 
                         if (valueColorMap[stationValue]) {
-                            dotColor = valueColorMap[stationValue].stroke; fillColor = valueColorMap[stationValue].fill;
+                            dotColor = valueColorMap[stationValue].stroke; 
+                            fillColor = valueColorMap[stationValue].fill;
                         } else {
-                            dotColor = "#64748b"; fillColor = "#cbd5e1";
+                            dotColor = "#64748b"; 
+                            fillColor = "#cbd5e1";
                         }
                     }
                 }
@@ -1441,8 +1445,8 @@ function renderMap() {
                 const marker = L.circleMarker([s.lat, s.lon], { radius: initRadius, color: dotColor, weight: 1.5, fillColor: fillColor, fillOpacity: 0.85 });
 
                 let badgeHtml = "";
-                if (colorKey && matchValueName) {
-                    const labelTitle = getTitleByFilterId(colorKey);
+                if (activeIncludeKeys.length > 0 && matchValueName) {
+                    const labelTitle = legendTitle;
                     badgeHtml = `<div style="margin-top: 4px; font-size: 0.75rem; background: ${dotColor}1a; color: ${dotColor}; border: 1px solid ${dotColor}40; padding: 1px 6px; border-radius: 4px; display: inline-block;">${labelTitle}：${matchValueName}</div>`;
                 }
 
@@ -1465,7 +1469,6 @@ function renderMap() {
         }
     });
 
-    // 🚀 防護三：捕捉零面積邊界死機問題，並全面容錯地圖視角移動
     setTimeout(() => {
         if (!mapInstance) return;
         try {
@@ -1487,7 +1490,6 @@ function renderMap() {
                     
                     if (boundsPoints.length > 0) {
                         const bounds = L.latLngBounds(boundsPoints);
-                        // 零面積防彈：如果矩形的東北角和西南角一模一樣（代表只有一個點或完全重疊），強制改用 setView
                         if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
                             mapInstance.setView(boundsPoints[0], 12);
                         } else {
@@ -1507,7 +1509,6 @@ function renderMap() {
             }
         } catch (err) {
             console.error("地圖視角校正發生錯誤:", err);
-            // 發生最糟狀況的最後防線：回到全台灣預設視角
             mapInstance.setView([23.7, 120.9], 7);
         }
     }, 360); 
@@ -1523,21 +1524,14 @@ function initResetButton() {
     resetBtn.addEventListener('click', () => {
         if (!confirm("確定要清空目前所有的篩選條件嗎？")) return;
 
-        // 1. 清空背後的資料物件
         activeFilters.include = {};
         activeFilters.exclude = {};
-        manualExcludedSids = []; // 💡 新增：同時清空手動剔除的黑名單
+        manualExcludedSids = []; 
 
-        // 2. 清除畫面上所有已經拖曳過去的條件卡片
         document.querySelectorAll('.active-filter-group').forEach(el => el.remove());
-
-        // 3. 恢復系統預設條件 (例如：預設將未上架放入排除池)
         initDefaultFilters();
-
-        // 4. 重新計算表格並更新總數
         calculateStations();
 
-        // 5. 如果地圖正開著，順便重繪地圖
         const mapModal = document.getElementById('map-modal');
         if (mapModal && mapModal.classList.contains('active')) {
             renderMap();
@@ -1556,7 +1550,6 @@ function initTableSorting() {
             const column = header.getAttribute('data-sort');
             if (currentFilteredList.length === 0) return;
 
-            // 1. 切換排序方向 (如果點擊同一欄，就反轉方向；點擊新欄位，則預設升冪)
             if (currentSort.column === column) {
                 currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
             } else {
@@ -1564,11 +1557,9 @@ function initTableSorting() {
                 currentSort.direction = 'asc';
             }
 
-            // 2. 執行陣列排序
             currentFilteredList.sort((a, b) => {
                 let valA, valB;
 
-                // 根據點選的欄位，抓取對應的資料
                 if (column === 'cwbid') {
                     valA = a.cwbid || a.sid || "";
                     valB = b.cwbid || b.sid || "";
@@ -1586,7 +1577,6 @@ function initTableSorting() {
                     valB = b.alt !== undefined && b.alt !== null ? parseFloat(b.alt) : -Infinity;
                 }
 
-                // 高度使用數字比大小，其餘文字使用中文語系字母順序比對
                 if (column === 'alt') {
                     return currentSort.direction === 'asc' ? valA - valB : valB - valA;
                 } else {
@@ -1596,16 +1586,14 @@ function initTableSorting() {
                 }
             });
 
-            // 3. 更新標題的箭頭 UI
             document.querySelectorAll('#station-table th .sort-icon').forEach(icon => {
-                icon.innerHTML = ""; // 先清空所有箭頭
+                icon.innerHTML = ""; 
             });
             const activeHeaderIcon = document.querySelector(`#station-table th[data-sort="${column}"] .sort-icon`);
             if (activeHeaderIcon) {
                 activeHeaderIcon.innerHTML = currentSort.direction === 'asc' ? ' 🔼' : ' 🔽';
             }
 
-            // 4. 重新渲染排序後的表格
             renderTable(currentFilteredList);
         });
     });
@@ -1617,55 +1605,20 @@ function initTableSorting() {
 function focusStationOnMap(targetStation) {
     if (!targetStation) return;
     
-    // 安全防護：如果沒座標就跳出提示
     if (!targetStation.lat || !targetStation.lon) {
         alert(`測站 [${targetStation.n}] 無座標資料無法定位！`);
         return;
     }
 
-    // 1. 啟動搜尋定位模式，鎖定目標測站
     isSearchMode = true;
     searchTargetStation = targetStation;
 
-    // 2. 如果地圖彈窗目前是關閉的，自動幫使用者打開
     const mapModal = document.getElementById('map-modal');
     if (mapModal && !mapModal.classList.contains('active')) {
         mapModal.classList.add('active');
     }
     
-    // 3. 呼夾地圖重繪（這時地圖會依據 isSearchMode 飛過去並打開 Popup）
     renderMap(); 
-}
-
-// ==========================================================================
-// 🧠 監聽站碼彈性規則輸入
-// ==========================================================================
-function onCodeRuleInputChange(zoneType) {
-    const groupDiv = document.getElementById(`${zoneType}-group-station-code-rule`);
-    if (!groupDiv) return;
-
-    // 1. 收集勾選與輸入的資料
-    const quickChecked = Array.from(groupDiv.querySelectorAll('.quick-rule:checked')).map(el => el.value);
-    const prefixVal = groupDiv.querySelector('.code-prefix').value.trim();
-    const posNumVal = groupDiv.querySelector('.code-pos').value.trim();
-    const posCharVal = groupDiv.querySelector('.code-char').value.trim();
-
-    const ruleState = {
-        quick: quickChecked,
-        prefix: prefixVal,
-        posNum: posNumVal ? parseInt(posNumVal) : null,
-        posChar: posCharVal
-    };
-
-    // 2. 判斷是否有任何一項條件被啟動了
-    if (quickChecked.length > 0 || prefixVal !== "" || (posNumVal !== "" && posCharVal !== "")) {
-        activeFilters[zoneType]['station-code-rule'] = ruleState;
-    } else {
-        delete activeFilters[zoneType]['station-code-rule']; // 沒條件就刪除，不影響篩選
-    }
-
-    // 3. 重新計算表格與地圖
-    calculateStations();
 }
 
 // ==========================================================================
@@ -1679,7 +1632,6 @@ function addStationCodeRuleRow(zoneType) {
     row.className = 'code-rule-row';
     row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '6px'; row.style.marginTop = '4px';
 
-    // 內建下拉選單，讓使用者自由切換這列要比對什麼規則
     row.innerHTML = `
         <select class="rule-type" onchange="toggleRuleInputs(this, '${zoneType}')" style="padding: 4px 6px; background:#1e293b; border: 1px solid #475569; border-radius: 6px; color:white; font-size:0.85rem; outline:none;">
             <option value="prefix">開頭為</option>
@@ -1694,7 +1646,6 @@ function addStationCodeRuleRow(zoneType) {
     onCodeRuleInputChange(zoneType);
 }
 
-// 切換選單時，動態改變輸入框的 HTML 結構
 function toggleRuleInputs(selectEl, zoneType) {
     const container = selectEl.parentElement.querySelector('.rule-inputs-container');
     if (!container) return;
@@ -1714,17 +1665,14 @@ function toggleRuleInputs(selectEl, zoneType) {
     onCodeRuleInputChange(zoneType);
 }
 
-// 收集全數動態列的資料並打包進全域變數
 function onCodeRuleInputChange(zoneType) {
     const groupDiv = document.getElementById(`${zoneType}-group-station-code-rule`);
     if (!groupDiv) return;
 
     const quickChecked = Array.from(groupDiv.querySelectorAll('.quick-rule:checked')).map(el => el.value);
-    
     const rows = groupDiv.querySelectorAll('.code-rule-row');
     const customRules = [];
 
-    // 迴圈遍歷使用者建立的所有規則列
     rows.forEach(row => {
         const type = row.querySelector('.rule-type').value;
         if (type === 'prefix') {
@@ -1740,11 +1688,9 @@ function onCodeRuleInputChange(zoneType) {
         }
     });
 
-    // 💡 新增：讀取交集/聯集選單的值
     const logicSelect = groupDiv.querySelector('.code-logic-select');
     const logicVal = logicSelect ? logicSelect.value : 'or';
 
-    // 💡 將 logic 包進狀態裡
     const ruleState = { logic: logicVal, quick: quickChecked, custom: customRules };
 
     if (quickChecked.length > 0 || customRules.length > 0) {
@@ -1763,7 +1709,6 @@ function initBatchDelete() {
     const batchDeleteBtn = document.getElementById('batch-delete-btn');
     const selectAllCheckbox = document.getElementById('select-all-checkbox');
     
-    // 1. 處理「全選/全不選」連動
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', (e) => {
             const isChecked = e.target.checked;
@@ -1773,7 +1718,6 @@ function initBatchDelete() {
         });
     }
 
-    // 2. 處理「批量剔除」按鈕點擊
     if (batchDeleteBtn) {
         batchDeleteBtn.addEventListener('click', () => {
             const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
@@ -1783,7 +1727,6 @@ function initBatchDelete() {
             }
 
             if (confirm(`確定要將選取的 ${checkedBoxes.length} 個測站從本次篩選中剔除嗎？\n(若要恢復，請點擊「清空條件」重置)`)) {
-                // 將所有勾選的測站加入黑名單
                 checkedBoxes.forEach(cb => {
                     const sid = cb.getAttribute('data-sid');
                     if (!manualExcludedSids.includes(sid)) {
@@ -1791,9 +1734,8 @@ function initBatchDelete() {
                     }
                 });
                 
-                calculateStations(); // 重新運算與渲染表格
+                calculateStations(); 
                 
-                // 如果地圖目前是開啟的，同步更新地圖
                 const mapModal = document.getElementById('map-modal');
                 if (mapModal && mapModal.classList.contains('active')) {
                     renderMap();
@@ -1814,13 +1756,12 @@ function initZoneResizer() {
 
     if (!resizer || !includeZone || !excludeZone || !workspace) return;
 
-    // 確保父容器具備 Flex 垂直排列能力，讓佈局更穩固
     workspace.style.display = 'flex';
     workspace.style.flexDirection = 'column';
 
     resizer.addEventListener('mousedown', (e) => {
         e.preventDefault();
-        resizer.classList.add('resizing'); // 💡 修正：改用 CSS class 來控制發光
+        resizer.classList.add('resizing'); 
 
         const startY = e.clientY;
         const startHeight = includeZone.offsetHeight;
@@ -1836,7 +1777,7 @@ function initZoneResizer() {
         };
 
         const onMouseUp = () => {
-            resizer.classList.remove('resizing'); // 💡 修正：優雅地移除 class，不再隱形！
+            resizer.classList.remove('resizing'); 
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
         };
@@ -1855,14 +1796,12 @@ function updateActiveFiltersSummary() {
 
     let html = '';
 
-    // 產生美觀小標籤的模板函數
     const createTag = (zoneStr, title, valStr, color) => {
         return `<span style="background: ${color}1a; border: 1px solid ${color}40; color: ${color}; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                     <strong style="opacity: 0.8;">${zoneStr} ${title}:</strong> ${valStr}
                 </span>`;
     };
 
-    // 把資料庫代碼翻譯回中文的函數
     const formatValues = (filterId, values) => {
         if (filterId === 'altitude') {
             return values.map(r => `${r[0] === -Infinity ? '0' : r[0]}~${r[1] === Infinity ? '以上' : r[1]}m`).join('、');
@@ -1887,28 +1826,24 @@ function updateActiveFiltersSummary() {
             if (filterId === 'regional-center') return rawData.mappings.reg[v] || v;
             if (filterId === 'public') {
                 const opt = getOptionsByFilterId('public').find(o => String(o.value) === String(v));
-                return opt ? opt.text.replace(/🌐|💰| |└/g, '') : v; // 把多餘的圖示清掉讓畫面乾淨
+                return opt ? opt.text.replace(/🌐|💰| |└/g, '') : v; 
             }
             return v;
         }).join('、');
     };
 
-    // 1. 產生包含池標籤 (綠色)
     Object.entries(activeFilters.include).forEach(([filterId, values]) => {
         html += createTag('🟢 包含', getTitleByFilterId(filterId), formatValues(filterId, values), '#10b981');
     });
 
-    // 2. 產生排除池標籤 (紅色)
     Object.entries(activeFilters.exclude).forEach(([filterId, values]) => {
         html += createTag('🔴 排除', getTitleByFilterId(filterId), formatValues(filterId, values), '#ef4444');
     });
 
-    // 3. 產生手動剔除標籤 (灰色)
     if (manualExcludedSids.length > 0) {
         html += createTag('🗑️ 手動剔除', '自訂', `共隱藏 ${manualExcludedSids.length} 站`, '#94a3b8');
     }
 
-    // 渲染到畫面上
     if (html === '') {
         container.innerHTML = '<span style="color: #64748b; font-size: 0.85rem; font-style: italic;">目前無任何篩選條件，顯示全臺測站</span>';
     } else {
