@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測站空間圈選系統</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+
+    <style>
+        /* ✨ 淺色科技感主題配置 */
+        :root {
+            --bg-color: #f1f5f9;       /* 網頁底色：極淺灰藍 */
+            --panel-bg: #ffffff;       /* 面板底色：純白 */
+            --text-main: #1e293b;      /* 主要文字：深灰藍 */
+            --text-muted: #64748b;     /* 提示文字：次級灰藍 */
+            --accent-blue: #0284c7;    /* 強調色：明亮藍 */
+            --border-color: #cbd5e1;   /* 邊框顏色 */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 15px 20px;
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            z-index: 100;
+        }
+
+        .header h1 { margin: 0; font-size: 1.4rem; color: var(--accent-blue); }
+        .header-hint { color: var(--text-muted); font-size: 0.9rem; }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* 左側地圖區 */
+        #map-container {
+            flex: 2;
+            position: relative;
+            border-right: 1px solid var(--border-color);
+        }
+        #map { width: 100%; height: 100%; background-color: #eaf2f8; }
+
+        /* 右側結果區 */
+        #sidebar {
+            flex: 1;
+            min-width: 400px;
+            max-width: 550px;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        .dashboard-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        button.btn {
+            background-color: #0ea5e9;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button.btn:hover { background-color: #0284c7; }
+        button.btn-danger { background-color: #ef4444; }
+        button.btn-danger:hover { background-color: #dc2626; }
+
+        .table-responsive {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--panel-bg);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background-color: #f8fafc; color: #334155; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid var(--border-color); }
+        tr:hover { background-color: #f1f5f9; }
+
+        /* 滾動條美化 (明亮版) */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🗺️ 測站空間圈選系統</h1>
+        <span class="header-hint">使用左側工具在地圖上畫出範圍，或<strong>直接點擊縣市邊界</strong>進行篩選。</span>
+    </div>
+
+    <div class="main-content">
+        <div id="map-container">
+            <div id="map"></div>
+        </div>
+        
+        <div id="sidebar">
+            <div class="dashboard-controls">
+                <h3 style="margin: 0; color: #0f172a;">圈選結果 (<span id="result-count">0</span> 站)</h3>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-danger" onclick="clearDrawings()">🗑️ 清除圈選</button>
+                    <button class="btn" onclick="exportCSV()">📥 匯出 CSV</button>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th data-sort="cwbid" style="cursor: pointer; user-select: none;" title="點擊排序">站碼 <span class="sort-icon" style="color: #0ea5e9;"></span></th>
+                            <th data-sort="name" style="cursor: pointer; user-select: none;" title="點擊排序">站名 <span class="sort-icon" style="color: #0ea5e9;"></span></th>
+                            <th data-sort="city" style="cursor: pointer; user-select: none;" title="點擊排序">位置 (縣市/鄉鎮) <span class="sort-icon" style="color: #0ea5e9;"></span></th>
+                            <th data-sort="alt" style="cursor: pointer; user-select: none;" title="點擊排序">海拔(m) <span class="sort-icon" style="color: #0ea5e9;"></span></th>
+                            <th data-sort="unit" style="cursor: pointer; user-select: none;" title="點擊排序">所屬單位 <span class="sort-icon" style="color: #0ea5e9;"></span></th>
+                            <th data-sort="transport" style="cursor: pointer; user-select: none;" title="點擊排序">傳輸方式 <span class="sort-icon" style="color: #0ea5e9;"></span></th>
+                            <th data-sort="status" style="cursor: pointer; user-select: none; text-align: center;" title="點擊排序">狀態 <span class="sort-icon" style="color: #0ea5e9;"></span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="result-tbody">
+                        <tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">請在地圖上圈選或點擊縣市範圍...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+    <script>
+        // === 🌟 全域變數宣告區 ===
+        let map, drawControl, drawnItems, countyLayer;
+        let allStations = [];
+        let stationMarkers = [];
+        let currentSelectedStations = [];
+        let rawMappings = {};
+        let currentSort = { column: null, direction: 'asc' };
+        let focusedStationMarker = null; // 追蹤目前從表格點擊的測站標記
+
+        // === 取得動態縮放半徑 ===
+        function getRadiusByZoom(zoom) {
+            if (zoom <= 7) return 1.5; 
+            if (zoom === 8) return 4;
+            if (zoom === 9) return 5;
+            if (zoom === 10) return 6;
+            if (zoom === 11) return 8;
+            return 10;
+        }
+
+        // === 取得傳輸方式轉換 ===
+        function getTransportType(sub) {
+            if (sub == 8) return "無線電";
+            if ([3, 5, 6, 9, "3", "5", "6", "9"].includes(sub)) return "4G";
+            if ([1, 2, "1", "2"].includes(sub)) return "實體網路";
+            if ([10, 11, 12, 13, 14, 15, "10", "11", "12", "13", "14", "15"].includes(sub)) return "外單位交換";
+            return "未分類";
+        }
+
+        // === 產生資訊卡片 (Popup) ===
+        function generateStationPopupHtml(s) {
+            const cityName = rawMappings.city[s.city] || "未知縣市";
+            const townName = rawMappings.town[s.town] || "";
+            let unitName = rawMappings.main[s.main_cat] || "未知單位";
+            if (s.main_cat == 7) unitName = rawMappings.sub[s.sub_cat] || "外單位";
+            
+            const typeName = rawMappings.station_type[s.station_type] || "未知類型";
+            const transport = getTransportType(s.sub_cat);
+            const alt = (s.alt !== undefined && s.alt !== null) ? `${s.alt} m` : "無資料";
+            const isPublished = (Number(s.station_publish) === 1);
+            const statusText = isPublished ? '✅ 正式上架' : '❌ 未上架';
+            const statusColor = isPublished ? '#16a34a' : '#ef4444';
+            const statusBg = isPublished ? '#dcfce7' : '#fee2e2';
+            const statusBorder = isPublished ? '#bbf7d0' : '#fecaca';
+
+            return `
+                <div style="min-width: 220px; padding: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
+                    <div style="text-align:center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 10px;">
+                        <strong style="font-size:1.2rem; color:#0f172a;">${s.n}</strong>
+                        <span style="color:#64748b; font-size:0.9rem; margin-left:4px;">(${s.cwbid || s.sid})</span>
+                        <div style="color:#0ea5e9; font-size:0.9rem; margin-top:6px; font-weight:bold;">
+                            📍 ${cityName}${townName}
+                        </div>
+                    </div>
+                    
+                    <div style="font-size: 0.85rem; color: #334155; line-height: 1.6;">
+                        <div><strong>🏢 單位：</strong>${unitName}</div>
+                        <div><strong>🏷️ 類型：</strong>${typeName}</div>
+                        <div><strong>📡 傳輸：</strong>${transport}</div>
+                        <div><strong>⛰️ 海拔：</strong>${alt}</div>
+                    </div>
+                    
+                    <div style="margin-top: 10px; text-align: center;">
+                        <span style="background:${statusBg}; border:1px solid ${statusBorder}; padding:3px 8px; border-radius:4px; font-size:0.75rem; color:${statusColor}; font-weight:bold;" title="${s.publish_reason || ''}">
+                            ${statusText}
+                        </span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // === 1. 初始化地圖 ===
+        function initMap() {
+            map = L.map('map').setView([23.7, 120.9], 7);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap &copy; CARTO'
+            }).addTo(map);
+
+            drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+
+            drawControl = new L.Control.Draw({
+                draw: { polyline: false, polygon: true, rectangle: true, circle: false, marker: false, circlemarker: false },
+                edit: { featureGroup: drawnItems, remove: true }
+            });
+            map.addControl(drawControl);
+
+            // 繪圖事件綁定
+            map.on(L.Draw.Event.CREATED, function (event) {
+                drawnItems.addLayer(event.layer);
+                analyzeIntersection();
+            });
+            map.on(L.Draw.Event.EDITED, analyzeIntersection);
+            map.on(L.Draw.Event.DELETED, analyzeIntersection);
+
+            // 縮放事件：動態更新點點大小
+            map.on('zoomend', function() {
+                const currentZoom = map.getZoom();
+                const baseRadius = getRadiusByZoom(currentZoom);
+                
+                stationMarkers.forEach(marker => {
+                    const isSelected = currentSelectedStations.some(s => s.sid === marker.stationData.sid);
+                    const isFocused = focusedStationMarker && marker.stationData.sid === focusedStationMarker.stationData.sid;
+                    
+                    if (isFocused) {
+                        marker.setRadius(baseRadius + 4);
+                    } else {
+                        marker.setRadius(isSelected ? baseRadius + 2 : baseRadius);
+                    }
+                });
+            });
+
+            // 載入台灣縣市 GeoJSON
+            fetch('TW_City.json')
+                .then(res => res.json())
+                .then(data => {
+                    countyLayer = L.geoJSON(data, {
+                        style: {
+                            color: "#94a3b8", weight: 1, opacity: 0.8, fillOpacity: 0.05, fillColor: "#cbd5e1"
+                        },
+                        onEachFeature: function (feature, layer) {
+                            if (feature.properties && feature.properties.COUNTYNAME) {
+                                layer.bindTooltip(feature.properties.COUNTYNAME);
+                            }
+                            layer.on('click', function(e) {
+                                L.DomEvent.stopPropagation(e);
+                                const latlngs = layer.getLatLngs();
+                                const isMultiPolygon = Array.isArray(latlngs[0]) && Array.isArray(latlngs[0][0]);
+                                const selectionGroup = L.featureGroup();
+                                const drawStyle = { color: '#0284c7', weight: 2, opacity: 1, fill: true, fillColor: '#0284c7', fillOpacity: 0.15 };
+
+                                if (isMultiPolygon) {
+                                    latlngs.forEach(poly => L.polygon(poly, drawStyle).addTo(selectionGroup));
+                                } else {
+                                    L.polygon(latlngs, drawStyle).addTo(selectionGroup);
+                                }
+                                drawnItems.addLayer(selectionGroup);
+                                analyzeIntersection();
+                            });
+                        }
+                    }).addTo(map);
+                })
+                .catch(err => console.warn("縣市 GeoJSON 載入失敗", err));
+        }
+
+        // === 2. 載入測站資料 ===
+        function loadData() {
+            fetch('stationData.json?v=' + new Date().getTime())
+                .then(res => res.json())
+                .then(data => {
+                    allStations = Object.values(data.allStations);
+                    rawMappings = data.mappings;
+                    plotAllStations();
+                })
+                .catch(err => console.error("資料載入失敗", err));
+        }
+
+        // === 3. 繪製所有測站 ===
+        function plotAllStations() {
+            const initRadius = getRadiusByZoom(map.getZoom());
+
+            allStations.forEach(s => {
+                if (s.lat && s.lon) {
+                    const marker = L.circleMarker([s.lat, s.lon], {
+                        radius: initRadius,
+                        color: "#1e293b",
+                        weight: 1,
+                        fillColor: "#64748b",
+                        fillOpacity: 0.6
+                    }).bindTooltip(`${s.n} (${s.cwbid || s.sid})`)
+                      .bindPopup(generateStationPopupHtml(s));
+                    
+                    marker.stationData = s;
+                    marker.addTo(map);
+                    stationMarkers.push(marker);
+                }
+            });
+        }
+
+        // === 4. 表格互動：排序與點擊連動地圖 ===
+        function initTableInteractions() {
+            // 排序功能
+            const headers = document.querySelectorAll('th[data-sort]');
+            headers.forEach(header => {
+                header.addEventListener('click', () => {
+                    const column = header.getAttribute('data-sort');
+                    if (currentSelectedStations.length === 0) return;
+
+                    if (currentSort.column === column) {
+                        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        currentSort.column = column;
+                        currentSort.direction = 'asc';
+                    }
+
+                    document.querySelectorAll('th .sort-icon').forEach(icon => icon.innerHTML = "");
+                    header.querySelector('.sort-icon').innerHTML = currentSort.direction === 'asc' ? ' 🔼' : ' 🔽';
+                    updateTable();
+                });
+            });
+
+            // 🌟 使用事件代理綁定點擊事件 (確保動態生成的 HTML 也能觸發)
+            const tbody = document.getElementById('result-tbody');
+            tbody.addEventListener('click', function(e) {
+                const row = e.target.closest('.station-row');
+                if (!row) return;
+                const sid = row.getAttribute('data-sid');
+                focusStationFromTable(sid);
+            });
+        }
+
+        // === 5. 判斷點是否在多邊形內 (射線法) ===
+        function isPointInRing(lat, lon, ring) {
+            let inside = false;
+            for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+                const xi = ring[i].lng, yi = ring[i].lat;
+                const xj = ring[j].lng, yj = ring[j].lat;
+                const intersect = ((yi > lat) !== (yj > lat)) &&
+                    (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        // === 6. 判斷圈選範圍 ===
+        function analyzeIntersection() {
+            currentSelectedStations = [];
+            focusedStationMarker = null; // 重新圈選時，清除焦點追蹤
+            
+            const currentZoom = map.getZoom();
+            const baseRadius = getRadiusByZoom(currentZoom);
+            const layers = drawnItems.getLayers();
+            
+            if (layers.length === 0) {
+                stationMarkers.forEach(m => {
+                    m.setStyle({ fillColor: "#64748b", fillOpacity: 0.6, color: "#1e293b", weight: 1, radius: baseRadius });
+                });
+                updateTable();
+                return;
+            }
+
+            stationMarkers.forEach(marker => {
+                const s = marker.stationData;
+                let isInside = false;
+
+                layers.forEach(layer => {
+                    if (layer instanceof L.FeatureGroup) {
+                        layer.eachLayer(subLayer => {
+                            const latlngs = subLayer.getLatLngs();
+                            const rings = Array.isArray(latlngs[0]) ? latlngs : [latlngs];
+                            rings.forEach(ring => { if (isPointInRing(s.lat, s.lon, ring)) isInside = true; });
+                        });
+                    } else {
+                        const latlngs = layer.getLatLngs();
+                        const rings = Array.isArray(latlngs[0]) ? latlngs : [latlngs];
+                        rings.forEach(ring => { if (isPointInRing(s.lat, s.lon, ring)) isInside = true; });
+                    }
+                });
+
+                if (isInside) {
+                    currentSelectedStations.push(s);
+                    marker.setStyle({ fillColor: "#0ea5e9", fillOpacity: 1, color: "#ffffff", weight: 1.5, radius: baseRadius + 2 });
+                    marker.bringToFront();
+                } else {
+                    marker.setStyle({ fillColor: "#cbd5e1", fillOpacity: 0.15, color: "transparent", weight: 0, radius: baseRadius });
+                }
+            });
+
+            updateTable();
+        }
+
+        // === 7. 更新右側表格 ===
+        function updateTable() {
+            const tbody = document.getElementById('result-tbody');
+            const countSpan = document.getElementById('result-count');
+            countSpan.textContent = currentSelectedStations.length;
+
+            if (currentSelectedStations.length === 0) {
+                const text = drawnItems.getLayers().length > 0 ? "此範圍內無測站" : "請在地圖上圈選或點擊縣市範圍...";
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">${text}</td></tr>`;
+                return;
+            }
+
+            currentSelectedStations.sort((a, b) => {
+                const col = currentSort.column;
+                if (!col) {
+                    if (a.city !== b.city) return (a.city || 0) - (b.city || 0);
+                    if (a.town !== b.town) return (a.town || 0) - (b.town || 0);
+                    return (a.n || "").localeCompare(b.n || "", 'zh-Hant');
+                }
+
+                let valA, valB;
+                if (col === 'cwbid') { valA = a.cwbid || a.sid || ""; valB = b.cwbid || b.sid || ""; } 
+                else if (col === 'name') { valA = a.n || ""; valB = b.n || ""; } 
+                else if (col === 'city') { valA = rawMappings.city[a.city] || ""; valB = rawMappings.city[b.city] || ""; } 
+                else if (col === 'alt') { valA = a.alt !== undefined && a.alt !== null ? parseFloat(a.alt) : -Infinity; valB = b.alt !== undefined && b.alt !== null ? parseFloat(b.alt) : -Infinity; } 
+                else if (col === 'unit') { valA = a.main_cat == 7 ? (rawMappings.sub[a.sub_cat] || "") : (rawMappings.main[a.main_cat] || ""); valB = b.main_cat == 7 ? (rawMappings.sub[b.sub_cat] || "") : (rawMappings.main[b.main_cat] || ""); } 
+                else if (col === 'transport') { valA = getTransportType(a.sub_cat); valB = getTransportType(b.sub_cat); }
+                else if (col === 'status') { valA = Number(a.station_publish) || 0; valB = Number(b.station_publish) || 0; }
+
+                if (col === 'alt' || col === 'status') {
+                    return currentSort.direction === 'asc' ? valA - valB : valB - valA;
+                } else {
+                    return currentSort.direction === 'asc' ? String(valA).localeCompare(String(valB), 'zh-Hant') : String(valB).localeCompare(String(valA), 'zh-Hant');
+                }
+            });
+
+            let html = "";
+            currentSelectedStations.forEach(s => {
+                const cityName = rawMappings.city[s.city] || "未知";
+                const townName = rawMappings.town[s.town] || "";
+                let unitName = rawMappings.main[s.main_cat] || "未知單位";
+                if (s.main_cat == 7) unitName = rawMappings.sub[s.sub_cat] || "外單位";
+                const transportStr = getTransportType(s.sub_cat);
+                const altDisplay = (s.alt !== undefined && s.alt !== null) ? s.alt : "-";
+                
+                const isPublished = (Number(s.station_publish) === 1);
+                const statusHtml = isPublished ? "" : `<span style="color:#ef4444; font-size:0.9rem;" title="未上架原因：${s.publish_reason || '無'}">❌</span>`;
+                
+                html += `
+                    <tr data-sid="${s.sid}" class="station-row" style="cursor: pointer;" title="點擊在地圖上定位此測站">
+                        <td style="color: #475569;">${s.cwbid || s.sid}</td>
+                        <td><strong>${s.n}</strong></td>
+                        <td>${cityName}${townName}</td>
+                        <td>${altDisplay}</td>
+                        <td><span style="background:#e0f2fe; color:#0284c7; padding:2px 6px; border-radius:4px; font-size:0.75rem; border:1px solid #bae6fd;">${unitName}</span></td>
+                        <td>${transportStr}</td>
+                        <td style="text-align: center;">${statusHtml}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // === 8. 表格點擊後地圖連動 ===
+        function focusStationFromTable(sid) {
+            const currentZoom = map.getZoom();
+            const baseRadius = getRadiusByZoom(currentZoom);
+
+            // 恢復上一個焦點測站的顏色
+            if (focusedStationMarker) {
+                const isInside = currentSelectedStations.some(s => String(s.sid) === String(focusedStationMarker.stationData.sid));
+                if (isInside) {
+                    focusedStationMarker.setStyle({ fillColor: "#0ea5e9", fillOpacity: 1, color: "#ffffff", weight: 1.5, radius: baseRadius + 2 });
+                } else {
+                    focusedStationMarker.setStyle({ fillColor: "#cbd5e1", fillOpacity: 0.15, color: "transparent", weight: 0, radius: baseRadius });
+                }
+            }
+
+            // 🌟 嚴格型別比對，確保找到對應的標記
+            const targetMarker = stationMarkers.find(m => String(m.stationData.sid) === String(sid));
+            if (!targetMarker) return;
+
+            // 變身亮橘黃色並放大
+            targetMarker.setStyle({ fillColor: "#f59e0b", fillOpacity: 1, color: "#ffffff", weight: 2, radius: baseRadius + 4 });
+            targetMarker.bringToFront();
+            focusedStationMarker = targetMarker;
+
+            // 讓地圖飛過去 (使用 flyTo 會有平滑飛行的動畫)
+            map.flyTo([targetMarker.stationData.lat, targetMarker.stationData.lon], 12, { animate: true, duration: 0.8 });
+            
+            // 延遲打開 Popup，避免動畫過程被卡掉
+            setTimeout(() => {
+                targetMarker.openPopup();
+            }, 800);
+        }
+
+        // === 9. 清除所有繪圖 ===
+        function clearDrawings() {
+            drawnItems.clearLayers();
+            analyzeIntersection();
+        }
+
+        // === 10. 匯出 CSV ===
+        function exportCSV() {
+            if (currentSelectedStations.length === 0) {
+                alert("目前沒有圈選任何測站可以匯出！");
+                return;
+            }
+            const headers = ["原始站碼(sid)", "正式代碼(cwbid)", "站名", "縣市", "鄉鎮", "經度", "緯度", "海拔高度(m)", "所屬單位", "測站類型", "傳輸方式", "狀態", "未上架原因"];
+            const rows = currentSelectedStations.map(s => {
+                const cityName = rawMappings.city[s.city] || "";
+                const townName = rawMappings.town[s.town] || "";
+                let unitName = rawMappings.main[s.main_cat] || "";
+                if (s.main_cat == 7) unitName = rawMappings.sub[s.sub_cat] || "";
+                const typeName = rawMappings.station_type[s.station_type] || "";
+                const transportStr = getTransportType(s.sub_cat);
+                const status = (Number(s.station_publish) === 1) ? "上架" : "未上架";
+                const reason = s.publish_reason || "";
+
+                return [
+                    s.sid, s.cwbid || "", s.n, cityName, townName, s.lon, s.lat, 
+                    s.alt !== undefined ? s.alt : "", unitName, typeName, transportStr, status, reason
+                ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",");
+            });
+            
+            const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `空間圈選測站結果_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+        }
+
+        // 啟動程式
+        initMap();
+        initTableInteractions();
+        loadData();
+    </script>
+</body>
+</html>
