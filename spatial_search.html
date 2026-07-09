@@ -272,36 +272,30 @@
             });
 
             // 載入台灣縣市 GeoJSON
-            fetch('TW_City.json')
+            fetch('taiwan.json')
                 .then(res => res.json())
                 .then(data => {
                     countyLayer = L.geoJSON(data, {
-                        style: {
-                            color: "#94a3b8", weight: 1, opacity: 0.8, fillOpacity: 0.05, fillColor: "#cbd5e1"
-                        },
+                        style: { color: "#94a3b8", weight: 1, opacity: 0.8, fillOpacity: 0.05, fillColor: "#cbd5e1" },
                         onEachFeature: function (feature, layer) {
                             if (feature.properties && feature.properties.COUNTYNAME) {
                                 layer.bindTooltip(feature.properties.COUNTYNAME);
                             }
                             layer.on('click', function(e) {
                                 L.DomEvent.stopPropagation(e);
-                                const latlngs = layer.getLatLngs();
-                                const isMultiPolygon = Array.isArray(latlngs[0]) && Array.isArray(latlngs[0][0]);
-                                const selectionGroup = L.featureGroup();
-                                const drawStyle = { color: '#0284c7', weight: 2, opacity: 1, fill: true, fillColor: '#0284c7', fillOpacity: 0.15 };
-
-                                if (isMultiPolygon) {
-                                    latlngs.forEach(poly => L.polygon(poly, drawStyle).addTo(selectionGroup));
-                                } else {
-                                    L.polygon(latlngs, drawStyle).addTo(selectionGroup);
-                                }
+                                
+                                // 🌟 終極防呆法：直接利用原始的 feature 建立新圖層，不手動拆解陣列
+                                const selectionGroup = L.geoJSON(feature, {
+                                    style: { color: '#0284c7', weight: 2, opacity: 1, fill: true, fillColor: '#0284c7', fillOpacity: 0.15 }
+                                });
+                                
                                 drawnItems.addLayer(selectionGroup);
                                 analyzeIntersection();
                             });
                         }
                     }).addTo(map);
                 })
-                .catch(err => console.warn("縣市 GeoJSON 載入失敗", err));
+                .catch(err => console.warn("縣市 GeoJSON 載入失敗，請確認 TW_City.json 檔案是否存在", err));
         }
 
         // === 2. 載入測站資料 ===
@@ -384,6 +378,24 @@
         }
 
         // === 6. 判斷圈選範圍 ===
+        // 🌟 終極防呆法：遞迴提取所有邊界環，不管陣列包了幾層深
+        function extractSafeRings(latlngs) {
+            let rings = [];
+            function traverse(arr) {
+                if (!Array.isArray(arr) || arr.length === 0) return;
+                // 如果陣列的第一個元素是經緯度物件，代表這是一個環
+                if (arr[0].lat !== undefined && arr[0].lng !== undefined) {
+                    rings.push(arr);
+                } else {
+                    // 否則繼續往下剝開
+                    arr.forEach(traverse);
+                }
+            }
+            traverse(latlngs);
+            return rings;
+        }
+
+        // === 6. 判斷圈選範圍 ===
         function analyzeIntersection() {
             currentSelectedStations = [];
             focusedStationMarker = null; // 重新圈選時，清除焦點追蹤
@@ -405,16 +417,20 @@
                 let isInside = false;
 
                 layers.forEach(layer => {
-                    if (layer instanceof L.FeatureGroup) {
-                        layer.eachLayer(subLayer => {
-                            const latlngs = subLayer.getLatLngs();
-                            const rings = Array.isArray(latlngs[0]) ? latlngs : [latlngs];
+                    // 檢查層的內部函數
+                    const checkLayer = (l) => {
+                        if (l.getLatLngs) {
+                            const rings = extractSafeRings(l.getLatLngs());
                             rings.forEach(ring => { if (isPointInRing(s.lat, s.lon, ring)) isInside = true; });
-                        });
+                        }
+                    };
+
+                    if (layer instanceof L.FeatureGroup) {
+                        // 處理點擊縣市產生的群組
+                        layer.eachLayer(subLayer => checkLayer(subLayer));
                     } else {
-                        const latlngs = layer.getLatLngs();
-                        const rings = Array.isArray(latlngs[0]) ? latlngs : [latlngs];
-                        rings.forEach(ring => { if (isPointInRing(s.lat, s.lon, ring)) isInside = true; });
+                        // 處理手動繪製的多邊形
+                        checkLayer(layer);
                     }
                 });
 
