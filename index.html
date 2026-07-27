@@ -68,14 +68,35 @@
         .map-controls summary::after { content: '⚙️'; font-size: 14px; }
         .map-controls[open] summary { border-bottom: 2px solid #edf2f7; }
 
-        .map-controls .content { padding: 12px; }
+        /* 🚀 修改：為控制盒內容區加上最大高度與滾動軸 */
+        .map-controls .content { 
+            padding: 12px; 
+            max-height: calc(100vh - 120px); /* 限制最高不超過視窗高度，避免超出畫面 */
+            overflow-y: auto;                /* 超出高度時自動顯示垂直滾軸 */
+        }
+
+        /* 🚀 新增：優化滾動軸樣式（讓滾軸更輕薄美觀，不貼邊遮擋文字） */
+        .map-controls .content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .map-controls .content::-webkit-scrollbar-thumb {
+            background-color: #cbd5e0;
+            border-radius: 4px;
+        }
+        .map-controls .content::-webkit-scrollbar-track {
+            background: transparent;
+        }
         .map-controls input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--active-blue); }
 
         @media (max-width: 768px) { 
-            :root { --sidebar-width: 85%; } 
-            #sidebar { position: absolute; } 
-            .map-controls { top: 85px; right: 10px; width: 150px; } /* 手機版位置微調 */
+        :root { --sidebar-width: 85%; } 
+        #sidebar { position: absolute; } 
+        .map-controls { top: 85px; right: 10px; width: 150px; }
+        /* 🚀 新增：在手機或窄視窗下適度縮小控制區最大高度 */
+        .map-controls .content { 
+            max-height: calc(100vh - 160px); 
         }
+    }
         /* 選單按鈕：置於最頂層 */
         .menu-toggle { position: absolute; top: 20px; left: 20px; z-index: 3001; background: white; padding: 12px 18px; border-radius: 10px; cursor: pointer; font-weight: 700; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1.5px solid #edf2f7; }
         
@@ -196,7 +217,11 @@
                     </div>
 
                     <div id="controlsCategory" style="display: none;">
-                        
+                        <!-- 🚀 新增：全選 / 取消全選按鈕群組 -->
+                        <div style="display: flex; gap: 6px; margin-top: 8px; margin-bottom: 10px;">
+                            <button class="tool-btn" onclick="toggleAllCategories(true)">✓ 全選</button>
+                            <button class="tool-btn" onclick="toggleAllCategories(false)">✕ 取消全選</button>
+                        </div>
                         <div style="margin-bottom: 10px; border-bottom: 1px dashed #edf2f7; padding-bottom: 6px;">
                             <label style="margin-bottom: 4px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
                                 <input type="checkbox" id="parent-cwa" checked onchange="toggleGroup('parent-cwa', 'group-cwa')">
@@ -241,7 +266,7 @@
                         </div>
 
                         <div style="margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px;">
-                            <label><input type="checkbox" class="child-cb" value="農業站|農業站" checked onchange="drawMap()"> <span style="color:#48bb78;">▲</span> <b>農業站</b></label>
+                            <label><input type="checkbox" class="child-cb" value="署屬站|農業站" checked onchange="drawMap()"> <span style="color:#48bb78;">▲</span> <b>農業站</b></label>
                             <label><input type="checkbox" class="child-cb" value="合作站|合作站" checked onchange="drawMap()"> <span style="color:#f56565;">▼</span> <b>合作站</b></label>
                             <label><input type="checkbox" class="child-cb" value="環境部|環境部" checked onchange="drawMap()"> <span style="color:#9ae6b4;">✚</span> <b>環境部</b></label>
                             <label><input type="checkbox" class="child-cb" value="民航局|民航局" checked onchange="drawMap()"> <span style="color:#63b3ed;">★</span> <b>民航局</b></label>
@@ -297,6 +322,7 @@
                 // 將數字轉換回文字
                 Object.values(allStations).forEach(st => {
                     if (st.main_cat && mappings.main && mappings.main[st.main_cat]) st.main_cat = mappings.main[st.main_cat];
+                    if (st.main_cat === "外單位雨量站") st.main_cat = "外單位";
                     if (st.sub_cat && mappings.sub && mappings.sub[st.sub_cat]) st.sub_cat = mappings.sub[st.sub_cat];
                     
                     // 新版 JSON 將 folder 改名為 reg，這裡做向下相容
@@ -852,6 +878,22 @@
             parent.checked = allChecked;
             parent.indeterminate = anyChecked && !allChecked; 
             drawMap(currentFilter); 
+        }
+
+        // 🚀 新增：分類模式「全選 / 取消全選」控制函式
+        function toggleAllCategories(selectAll) {
+            const container = document.getElementById('controlsCategory');
+            if (!container) return;
+            
+            // 取得分類模式下所有的核取方塊
+            const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                cb.checked = selectAll;
+                cb.indeterminate = false; // 清除中間半選狀態
+            });
+            
+            // 重繪地圖
+            drawMap(currentFilter);
         }
 
         function drawMap(filter = null) {
