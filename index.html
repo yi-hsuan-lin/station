@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -202,7 +203,7 @@
                         <button id="btnLinkView" class="view-btn active" onclick="setMode('link')">🔗 關聯模式</button>
                         <button id="btnCatView" class="view-btn" onclick="setMode('category')">🗺️ 分類模式</button>
                     </div>
-                    <button class="tool-btn" onclick="generateSVGExport()" style="width: 100%; margin-top: 8px; background: #fff; border-color: #cbd5e0; color: #4a5568;">
+                    <button class="tool-btn" onclick="generateSVGExport()" style="width: 100%; margin-top: 8px; margin-bottom: 12px;background: #fff; border-color: #cbd5e0; color: #4a5568;">
                          📥 匯出目前視圖 (SVG)
                      </button>
 
@@ -218,7 +219,7 @@
 
                     <div id="controlsCategory" style="display: none;">
                         <!-- 🚀 新增：全選 / 取消全選按鈕群組 -->
-                        <div style="display: flex; gap: 6px; margin-top: 8px; margin-bottom: 10px;">
+                        <div style="display: flex; gap: 6px; margin-top: 1px; margin-bottom: 10px;">
                             <button class="tool-btn" onclick="toggleAllCategories(true)">✓ 全選</button>
                             <button class="tool-btn" onclick="toggleAllCategories(false)">✕ 取消全選</button>
                         </div>
@@ -228,14 +229,32 @@
                                 <b>🏢 署屬站系列</b>
                             </label>
                             <div id="group-cwa" class="legend-sub" style="margin-left: 10px;">
-                                <label><input type="checkbox" class="child-cb" value="署屬站|區域站" checked onchange="onChildChange('parent-cwa', 'group-cwa')"> 區域站(無線電)</label>
-                                <div style="margin-left: 24px; margin-bottom: 8px; font-size: 11px; color: #a0aec0; display: flex; gap: 8px;">
-                                    <span><b style="color:#38a169;">●</b> 區域中心</span>
-                                    <span><b style="color:#e53e3e;">●</b> 中繼站</span>
-                                    <span><b style="color:#4299e1;">●</b> 自動站</span>
-                                </div>
+                                <div style="margin-bottom: 4px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                                <!-- 將純文字替換為獨立的群組勾選框 -->
+                                <label style="cursor: pointer; font-weight: 500; color: #4a5568; display: flex; align-items: center; gap: 6px;">
+                                    <input type="checkbox" id="parent-reg" checked onchange="toggleGroup('parent-reg', 'group-reg'); onChildChange('parent-cwa', 'group-cwa')"> 
+                                    區域站(無線電)
+                                </label>
+                            </div>
+                            
+                            <!-- 為子項目加上 id="group-reg"，並為每個子項目綁定雙重回報事件 -->
+                            <div id="group-reg" style="margin-left: 24px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+                                <label style="margin: 0; font-size: 11px; gap: 4px; cursor: pointer;">
+                                    <input type="checkbox" class="child-cb" value="署屬站|區域站|Center" checked onchange="onChildChange('parent-reg', 'group-reg'); onChildChange('parent-cwa', 'group-cwa')" style="width: 13px; height: 13px; margin: 0;"> 
+                                    <span style="color:#38a169;">●</span> 區域中心
+                                </label>
+                                <label style="margin: 0; font-size: 11px; gap: 4px; cursor: pointer;">
+                                    <input type="checkbox" class="child-cb" value="署屬站|區域站|Hub" checked onchange="onChildChange('parent-reg', 'group-reg'); onChildChange('parent-cwa', 'group-cwa')" style="width: 13px; height: 13px; margin: 0;"> 
+                                    <span style="color:#e53e3e;">●</span> 中繼站
+                                </label>
+                                <label style="margin: 0; font-size: 11px; gap: 4px; cursor: pointer;">
+                                    <input type="checkbox" class="child-cb" value="署屬站|區域站|Auto" checked onchange="onChildChange('parent-reg', 'group-reg'); onChildChange('parent-cwa', 'group-cwa')" style="width: 13px; height: 13px; margin: 0;"> 
+                                    <span style="color:#4299e1;">●</span> 自動站
+                                </label>
+                            </div>
                                 <label><input type="checkbox" class="child-cb" value="署屬站|行動數據" checked onchange="onChildChange('parent-cwa', 'group-cwa')"> <span style="color:#FF79BC;">●</span> 4G行動數據</label>
                                 <label><input type="checkbox" class="child-cb" value="署屬站|署屬有人站" checked onchange="onChildChange('parent-cwa', 'group-cwa')"> <span style="color:#805ad5;">●</span> 署屬有人站</label>
+                                <label><input type="checkbox" class="child-cb" value="署屬站|農業站" checked onchange="onChildChange('parent-cwa', 'group-cwa')"> <span style="color:#48bb78;">▲</span> 農業站</label>
                             </div>
                         </div>
 
@@ -257,7 +276,7 @@
                         <div style="margin-bottom: 10px; border-bottom: 1px dashed #edf2f7; padding-bottom: 6px;">
                             <label style="margin-bottom: 4px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
                                 <input type="checkbox" id="parent-traffic" checked onchange="toggleGroup('parent-traffic', 'group-traffic')">
-                                <b>🛣️ 國快道路系列</b>
+                                <b>🛣️ 國道/快速道路系列</b>
                             </label>
                             <div id="group-traffic" class="legend-sub" style="margin-left: 10px;">
                                 <label><input type="checkbox" class="child-cb" value="高公局|高公局" checked onchange="onChildChange('parent-traffic', 'group-traffic')"> <span style="color:#4a5568;">◆</span> 高公局</label>
@@ -266,7 +285,6 @@
                         </div>
 
                         <div style="margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px;">
-                            <label><input type="checkbox" class="child-cb" value="署屬站|農業站" checked onchange="drawMap()"> <span style="color:#48bb78;">▲</span> <b>農業站</b></label>
                             <label><input type="checkbox" class="child-cb" value="合作站|合作站" checked onchange="drawMap()"> <span style="color:#f56565;">▼</span> <b>合作站</b></label>
                             <label><input type="checkbox" class="child-cb" value="環境部|環境部" checked onchange="drawMap()"> <span style="color:#9ae6b4;">✚</span> <b>環境部</b></label>
                             <label><input type="checkbox" class="child-cb" value="民航局|民航局" checked onchange="drawMap()"> <span style="color:#63b3ed;">★</span> <b>民航局</b></label>
@@ -505,6 +523,24 @@
             document.getElementById('treeView').style.display = "block"; document.getElementById('searchResults').style.display = "none";
         }
 
+        // 🚀 新增：控制側邊欄收合與展開的函數
+        function toggleSidebar(forceOpen = false) {
+            const sidebar = document.getElementById('sidebar');
+            
+            // 如果有強制打開的要求 (例如搜尋時)，就移除 collapsed 類別
+            if (forceOpen) {
+                sidebar.classList.remove('collapsed');
+            } else {
+                // 否則自動切換 (打開變關閉，關閉變打開)
+                sidebar.classList.toggle('collapsed');
+            }
+            
+            // 側邊欄動畫需要一點時間 (0.3秒)，等動畫結束後重新計算地圖大小，避免地圖破圖
+            setTimeout(() => {
+                if (map) map.invalidateSize();
+            }, 300);
+        }
+
         function createRecursiveHTML(nodeId) {
             const st = allStations[nodeId];
             if (!st) return document.createTextNode(''); // 防呆
@@ -595,7 +631,15 @@
                 sortedStations.forEach(st => {
                     if (st.lat === undefined || st.lon === undefined) return;
                     if (!bounds.contains([st.lat, st.lon])) return;
-                    const currentTarget = `${st.main_cat}|${st.sub_cat}`;
+                    let currentTarget = `${st.main_cat}|${st.sub_cat}`;
+                    
+                    // 確保 SVG 匯出時也能識別細分的區域站
+                    if (st.main_cat === '署屬站' && st.sub_cat === '區域站') {
+                        if (st.is_reg_center) currentTarget += '|Center';
+                        else if (st.is_hub) currentTarget += '|Hub';
+                        else currentTarget += '|Auto';
+                    }
+                    
                     if (!activeFilters.includes(currentTarget)) return;
 
                     const inG = isInGroup(st);
@@ -617,6 +661,7 @@
                             else color = '#4299e1';
                         } 
                         else if (st.sub_cat === '行動數據') color = '#FF79BC'; 
+                        else if (st.sub_cat === '農業站') color = '#48bb78';
                         else color = '#805ad5'; 
                     } else if (st.main_cat === '外單位') {
                         if (st.sub_cat === '北市府') color = '#d69e2e'; 
@@ -628,16 +673,21 @@
                         else color = '#718096';
                     } else if (st.main_cat === '高公局') { color = '#4a5568';
                     } else if (st.main_cat === '西濱') { color = '#dd6b20'; 
-                    } else if (st.main_cat === '農業站') { color = '#48bb78'; 
                     } else if (st.main_cat === '合作站') { color = '#f56565'; 
                     } else if (st.main_cat === '環境部') { color = '#9ae6b4'; 
                     } else if (st.main_cat === '民航局') { color = '#63b3ed'; }
 
                     let path = '';
-                    if (st.main_cat === '署屬站') { path = `<circle cx="${half}" cy="${half}" r="${s_size*0.4}" fill="${color}" stroke="${strokeColor}" stroke-width="1.5" />`;
+                    if (st.main_cat === '署屬站') { 
+                        if (st.sub_cat === '農業站') {
+                            // 農業站使用三角形的多邊形 (polygon) 標籤繪製
+                            path = `<polygon points="${half},0 ${s_size},${s_size*0.866} 0,${s_size*0.866}" fill="${color}" stroke="#fff" stroke-width="1.5" />`;
+                        } else {
+                            // 其他署屬站維持使用圓形 (circle) 標籤繪製
+                            path = `<circle cx="${half}" cy="${half}" r="${s_size*0.4}" fill="${color}" stroke="${strokeColor}" stroke-width="1.5" />`;
+                        }
                     } else if (st.main_cat === '外單位') { let offset = s_size * 0.125; path = `<rect x="${offset}" y="${offset}" width="${s_size*0.75}" height="${s_size*0.75}" fill="${color}" stroke="#fff" stroke-width="1.5" rx="2" />`;
                     } else if (st.main_cat === '高公局' || st.main_cat === '西濱') { path = `<polygon points="${half},0 ${s_size},${half} ${half},${s_size} 0,${half}" fill="${color}" stroke="#fff" stroke-width="1.5" />`;
-                    } else if (st.main_cat === '農業站') { path = `<polygon points="${half},0 ${s_size},${s_size*0.866} 0,${s_size*0.866}" fill="${color}" stroke="#fff" stroke-width="1.5" />`;
                     } else if (st.main_cat === '合作站') { path = `<polygon points="0,0 ${s_size},0 ${half},${s_size*0.866}" fill="${color}" stroke="#fff" stroke-width="1.5" />`;
                     } else if (st.main_cat === '環境部') { let t = s_size/3, tt = s_size*2/3; path = `<polygon points="${t},0 ${tt},0 ${tt},${t} ${s_size},${t} ${s_size},${tt} ${tt},${tt} ${tt},${s_size} ${t},${s_size} ${t},${tt} 0,${tt} 0,${t} ${t},${t}" fill="${color}" stroke="#4a5568" stroke-width="1" />`;
                     } else if (st.main_cat === '民航局') { let s = s_size; path = `<polygon points="${s*0.5},0 ${s*0.61},${s*0.35} ${s},${s*0.35} ${s*0.68},${s*0.57} ${s*0.79},${s*0.91} ${s*0.5},${s*0.7} ${s*0.21},${s*0.91} ${s*0.32},${s*0.57} 0,${s*0.35} ${s*0.39},${s*0.35}" fill="${color}" stroke="#fff" stroke-width="1" />`;
@@ -652,9 +702,9 @@
                     if (st.main_cat === '署屬站' && st.is_hub && inG && effHub) printName = true;
                     if (!(st.main_cat === '署屬站' && (st.is_reg_center || st.is_hub)) && inG && effAuto) printName = true; // 移除了 _allowAuto
 
-                    if (printName) {
-                        svg += `<text x="${p.x+8}" y="${p.y+4}" font-family="Arial" font-size="10" font-weight="bold" fill="#1a202c">${st.n}</text>`;
-                    }
+                    // if (printName) {
+                    //     svg += `<text x="${p.x+8}" y="${p.y+4}" font-family="Arial" font-size="10" font-weight="bold" fill="#1a202c">${st.n}</text>`;
+                    // }
                 });
 
             } else {
@@ -879,7 +929,6 @@
             parent.indeterminate = anyChecked && !allChecked; 
             drawMap(currentFilter); 
         }
-
         // 🚀 新增：分類模式「全選 / 取消全選」控制函式
         function toggleAllCategories(selectAll) {
             const container = document.getElementById('controlsCategory');
@@ -1038,7 +1087,15 @@
                 const activeFilters = checkedElements.map(cb => cb.value); 
 
                 listToProcess.forEach(st => {
-                    const currentTarget = `${st.main_cat}|${st.sub_cat}`;
+                    let currentTarget = `${st.main_cat}|${st.sub_cat}`;
+                    
+                    // 如果是區域站，進一步細分目標字串來對應三個新的勾選框
+                    if (st.main_cat === '署屬站' && st.sub_cat === '區域站') {
+                        if (st.is_reg_center) currentTarget += '|Center';
+                        else if (st.is_hub) currentTarget += '|Hub';
+                        else currentTarget += '|Auto';
+                    }
+                    
                     if (!activeFilters.includes(currentTarget)) return;
 
                     const inG = isInGroup(st);
@@ -1230,6 +1287,7 @@
                     else color = '#4299e1'; 
                 } 
                 else if (st.sub_cat === '行動數據') color = '#FF79BC'; 
+                else if (st.sub_cat === '農業站') color = '#48bb78';
                 else color = '#805ad5'; 
             } else if (st.main_cat === '外單位') {
                 if (st.sub_cat === '北市府') color = '#d69e2e'; 
@@ -1241,14 +1299,19 @@
                 else color = '#718096';
             } else if (st.main_cat === '高公局') { color = '#4a5568';
             } else if (st.main_cat === '西濱') { color = '#dd6b20'; 
-            } else if (st.main_cat === '農業站') { color = '#48bb78'; 
             } else if (st.main_cat === '合作站') { color = '#f56565'; 
             } else if (st.main_cat === '環境部') { color = '#9ae6b4'; 
             } else if (st.main_cat === '民航局') { color = '#63b3ed'; }
 
             let path = '';
             if (st.main_cat === '署屬站') { 
-                path = `<circle cx="${half}" cy="${half}" r="${size*0.4}" fill="${color}" stroke="${strokeColor}" stroke-width="1.5" />`;
+                if (st.sub_cat === '農業站') {
+                    // 農業站畫三角形
+                    path = `<polygon points="${half},0 ${size},${size*0.866} 0,${size*0.866}" fill="${color}" stroke="#fff" stroke-width="1.5" />`;
+                } else {
+                    // 其他署屬站維持畫圓形
+                    path = `<circle cx="${half}" cy="${half}" r="${size*0.4}" fill="${color}" stroke="${strokeColor}" stroke-width="1.5" />`;
+                }
             } else if (st.main_cat === '外單位') { 
                 let s = size * 0.75, offset = size * 0.125;
                 path = `<rect x="${offset}" y="${offset}" width="${s}" height="${s}" fill="${color}" stroke="#fff" stroke-width="1.5" rx="2" />`;
