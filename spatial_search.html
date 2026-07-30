@@ -376,7 +376,7 @@
             });
 
             // 🌟 載入台灣縣市 (修正為 taiwan.json)
-            fetch('/static/nas/mogisData/taiwan.json')
+            fetch('taiwan.json')
                 .then(res => res.json())
                 .then(data => {
                     countyLayer = L.geoJSON(data, {
@@ -417,7 +417,7 @@
 
         // === 2. 載入測站資料 ===
         function loadData() {
-            fetch('/static/nas/mogisData/stationData.json?v=' + new Date().getTime())
+            fetch('stationData.json?v=' + new Date().getTime())
                 .then(res => res.json())
                 .then(data => {
                     allStations = Object.values(data.allStations);
