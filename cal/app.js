@@ -1109,15 +1109,48 @@ function exportToCSV() {
         alert("目前沒有符合條件的測站資料可以匯出！");
         return;
     }
-    const headers = ["原始站碼(sid)", "正式代碼(cwbid)", "站名", "縣市", "鄉鎮市區", "高度(alt)", "傳輸方式", "所屬單位", "維護廠商"];
+    const headers = [
+        "原始站碼(sid)", 
+        "正式代碼(cwbid)", 
+        "站名", 
+        "縣市", 
+        "鄉鎮市區", 
+        "經度(lon)", 
+        "緯度(lat)", 
+        "高度(alt)", 
+        "傳輸方式", 
+        "所屬單位", 
+        "維護廠商"
+    ];
     const rows = currentFilteredList.map(s => {
         const cityName = rawData.mappings.city[s.city] || "未知";
         const townName = rawData.mappings.town[s.town] || s.town || "無";
-        return [s.sid, s.cwbid || "", s.n, cityName, townName, s.alt !== undefined ? s.alt : "", s._derivedTransport, s._derivedUnit, s._derivedVendor].map(val => `"${String(val).replace(/"/g, '""')}"`).join(","); 
+        // 處理經緯度：確保資料存在，否則給予空字串
+        const latValue = (s.lat !== undefined && s.lat !== null) ? s.lat : "";
+        const lonValue = (s.lon !== undefined && s.lon !== null) ? s.lon : "";
+        // 將該測站的資料依序放入陣列，順序需與 headers 一致
+        const rowData = [
+            s.sid, 
+            s.cwbid || "", 
+            s.n, 
+            cityName, 
+            townName, 
+            latValue,            // 插入緯度資料
+            lonValue,            // 插入經度資料
+            s.alt !== undefined ? s.alt : "", 
+            s._derivedTransport, 
+            s._derivedUnit, 
+            s._derivedVendor
+        ];
+        // 幫每個欄位加上雙引號，避免資料內的逗號破壞 CSV 格式
+        return rowData.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","); 
     });
+    // 3. 組合標題與內容，並加上 BOM (\uFEFF) 讓 Excel 支援中文 UTF-8
     const csvContent = [headers.join(","), ...rows].join("\r\n");
     const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
+    
+    // 4. 觸發自動下載
     const link = document.createElement("a");
     link.setAttribute("href", url);
     link.setAttribute("download", `測站篩選結果匯出_${new Date().toISOString().slice(0,10)}.csv`);
@@ -1126,6 +1159,7 @@ function exportToCSV() {
     link.click();
     document.body.removeChild(link);
 }
+
 
 function initSubPanelResizer() {
     const resizer = document.getElementById('sub-panel-resizer');
@@ -1343,6 +1377,11 @@ function renderMap() {
                 const publicFilters = activeFilters.include['public'] || [];
                 return publicFilters.find(v => (s.supply_channels || []).includes(v)) || "";
             }
+            // 💡 新增這段：當使用者單純只選「中繼站選擇」卡片時，點點也要能正確依中繼站名稱抓取顏色 Key
+            if (primaryKey === 'relay-station') {
+                const relayFilters = activeFilters.include['relay-station'] || [];
+                return relayFilters.find(v => (s._upstream_relay_names || []).includes(v)) || "none";
+            }
         }
         return "none";
     }
@@ -1357,6 +1396,10 @@ function renderMap() {
             if (primaryKey === 'public') {
                 const opt = getOptionsByFilterId('public').find(o => String(o.value) === String(rawVal));
                 return opt ? opt.text.replace(/🌐|💰| |└/g, '') : rawVal;
+            }
+            // 💡 新增這段：讓單選中繼站時，泡泡提示也能完美秀出中繼站名稱
+            if (primaryKey === 'relay-station') {
+                return rawVal; 
             }
         }
         return rawVal;
