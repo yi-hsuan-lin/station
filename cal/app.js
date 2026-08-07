@@ -25,12 +25,12 @@ const activeFilters = {
 document.addEventListener("DOMContentLoaded", () => {
     const currentTimeStamp = new Date().getTime();
 
-    fetch('taiwan.json')
+    fetch('/static/nas/mogisData/taiwan.json')
         .then(response => response.json())
         .then(data => { taiwanGeoData = data; })
         .catch(err => console.error("台灣地圖載入失敗:", err));
 
-    fetch('stationData.json?v=' + currentTimeStamp)
+    fetch('/static/nas/mogisData/stationData.json?v=' + currentTimeStamp)
         .then(response => response.json())
         .then(data => {
             rawData = data;
@@ -1075,9 +1075,11 @@ function renderTable(list) {
         const townName = rawData.mappings.town[s.town] || s.town || "無";
         
         const reasonAttr = s.publish_reason ? `title="暫不上架原因：${s.publish_reason}"` : "";
+        // 判斷狀態：若為未上架，有 cwbid 則顯示 cwbid(sid)，否則僅顯示 sid，並維持灰色樣式
+        // 判斷狀態：若為未上架，有 cwbid 則顯示 cwbid(sid)；若無 cwbid，則顯示 未知(sid)，皆維持灰色樣式
         const displayCwbid = (s._derivedStatus === "未上架") 
-            ? `<span style="color:#94a3b8; font-style:italic; cursor:help;" ${reasonAttr}>未上架(${s.sid})</span>` 
-            : `<strong>${s.cwbid}</strong>`;
+            ? `<span style="color:#94a3b8; font-style:italic; cursor:help;" ${reasonAttr}>${s.cwbid ? `${s.cwbid} <small>(${s.sid})</small>` : `nan <small>(${s.sid})</small>`}</span>` 
+            : `<strong>${s.cwbid}</strong> <small>(${s.sid})</small>`;
 
         const displayAlt = (s.alt !== undefined && s.alt !== null) ? `${s.alt} 公尺` : "-";
         
@@ -1159,7 +1161,6 @@ function exportToCSV() {
     link.click();
     document.body.removeChild(link);
 }
-
 
 function initSubPanelResizer() {
     const resizer = document.getElementById('sub-panel-resizer');
