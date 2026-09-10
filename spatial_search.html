@@ -147,6 +147,13 @@
                     <button class="btn" onclick="exportCSV()">📥 匯出 CSV</button>
                 </div>
             </div>
+            <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; margin-bottom: 12px; position: relative;">
+                <div style="font-size: 0.95rem; font-weight: bold; color: #0f172a; margin-bottom: 8px;">🔍 搜尋測站</div>
+                <input type="text" id="station-search-input" placeholder="請輸入站碼或站名進行模糊搜尋..." style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.85rem; outline: none; box-sizing: border-box;">
+                
+                <!-- 這是用來顯示搜尋結果的下拉選單 -->
+                <ul id="search-results" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #cbd5e1; border-radius: 4px; max-height: 250px; overflow-y: auto; list-style: none; padding: 0; margin: 4px 0 0 0; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></ul>
+            </div>
             <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; margin-bottom: 12px;">
                 <div style="font-size: 0.95rem; font-weight: bold; color: #0f172a; margin-bottom: 10px;">🖱️ 地圖互動模式</div>
                 <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
@@ -293,7 +300,7 @@
         function initMap() {
             map = L.map('map').setView([23.7, 120.9], 7);
             
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png', {
+             L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_2osw_1_c7a0c0e05b43943486e746b0', {
                 attribution: '&copy; OpenStreetMap &copy; CARTO'
             }).addTo(map);
 
@@ -726,6 +733,68 @@
         initTableInteractions();
         loadData();
         updateClickMode();
+        initSearchBox();  // 👈 加上這一行，啟動搜尋功能
+
+        // === 🌟 新增：模糊搜尋測站功能 ===
+        function initSearchBox() {
+            const searchInput = document.getElementById('station-search-input');
+            const searchResults = document.getElementById('search-results');
+
+            searchInput.addEventListener('input', function() {
+                const keyword = this.value.trim().toLowerCase();
+                searchResults.innerHTML = ''; // 清空先前的結果
+
+                // 如果輸入框是空的，就隱藏結果選單
+                if (keyword === '') {
+                    searchResults.style.display = 'none';
+                    return;
+                }
+
+                // 進行模糊比對：檢查站碼 (cwbid/sid) 或站名 (n) 是否包含關鍵字
+                const matchedStations = allStations.filter(s => {
+                    const sidMatch = (s.sid && String(s.sid).toLowerCase().includes(keyword));
+                    const cwbidMatch = (s.cwbid && String(s.cwbid).toLowerCase().includes(keyword));
+                    const nameMatch = (s.n && s.n.toLowerCase().includes(keyword));
+                    return sidMatch || cwbidMatch || nameMatch;
+                }).slice(0, 30); // 限制最多顯示 30 筆，避免畫面過長
+
+                // 處理找不到測站的情況
+                if (matchedStations.length === 0) {
+                    searchResults.innerHTML = '<li style="padding: 8px 12px; color: #64748b; font-size: 0.85rem;">找不到符合的測站</li>';
+                    searchResults.style.display = 'block';
+                    return;
+                }
+
+                // 產生結果列表
+                matchedStations.forEach(s => {
+                    const li = document.createElement('li');
+                    li.style.cssText = 'padding: 8px 12px; font-size: 0.85rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background 0.2s;';
+                    li.innerHTML = `<strong>${s.n}</strong> <span style="color:#64748b; font-size:0.8rem; margin-left:4px;">(${s.cwbid || s.sid})</span>`;
+                    
+                    // 加入滑鼠懸停的視覺效果
+                    li.onmouseover = () => li.style.background = '#f1f5f9';
+                    li.onmouseout = () => li.style.background = 'white';
+
+                    // 點擊結果的動作
+                    li.onclick = () => {
+                        searchInput.value = `${s.n} (${s.cwbid || s.sid})`; // 將輸入框替換為完整站名
+                        searchResults.style.display = 'none';               // 隱藏選單
+                        focusStationFromTable(s.sid);                       // 🌟 呼叫原始系統的定位函式，飛向該測站！
+                    };
+                    searchResults.appendChild(li);
+                });
+
+                // 顯示下拉選單
+                searchResults.style.display = 'block';
+            });
+
+            // 點擊畫面其他地方時，自動隱藏搜尋結果選單
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                    searchResults.style.display = 'none';
+                }
+            });
+        }
 
         // === 🌟 新增：從左側面板輸入框讀取經緯度畫圓 ===
         function drawCircleFromInput() {
