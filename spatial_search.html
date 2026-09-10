@@ -127,8 +127,23 @@
 <body>
 
     <div class="header">
-        <h1>🗺️ 測站空間圈選系統</h1>
-        <span class="header-hint">使用左側工具在地圖上畫出範圍，或<strong>直接點擊縣市邊界</strong>進行篩選。</span>
+        <!-- 左側：系統標題與提示 -->
+        <div style="display: flex; align-items: baseline; gap: 15px;">
+            <h1>🗺️ 測站空間圈選系統</h1>
+            <span class="header-hint">使用左側工具在地圖上畫出範圍，或<strong>直接點擊縣市邊界</strong>進行篩選。</span>
+        </div>
+        
+        <!-- 右側：搜尋框區塊 -->
+        <div style="position: relative; width: 320px; display: flex; align-items: center;">
+            <!-- 注意這裡的 padding 調整了 (8px 32px 8px 16px)，右邊留出 32px 給叉叉按鈕 -->
+            <input type="text" id="station-search-input" placeholder="🔍 搜尋站碼或站名..." style="width: 100%; padding: 8px 32px 8px 16px; border: 2px solid #e2e8f0; border-radius: 20px; font-size: 0.95rem; outline: none; box-sizing: border-box; transition: border-color 0.2s;" onfocus="this.style.borderColor='#0ea5e9'" onblur="this.style.borderColor='#e2e8f0'">
+            
+            <!-- 🌟 新增的清除按鈕 (預設為隱藏 display: none) -->
+            <span id="clear-search-btn" style="position: absolute; right: 12px; cursor: pointer; color: #94a3b8; font-size: 1.2rem; display: none; user-select: none; transition: color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'" title="清除搜尋">&times;</span>
+            
+            <!-- 搜尋結果下拉選單 -->
+            <ul id="search-results" style="display: none; position: absolute; top: calc(100% + 8px); left: 0; right: 0; background: white; border: 1px solid #cbd5e1; border-radius: 8px; max-height: 400px; overflow-y: auto; list-style: none; padding: 0; margin: 0; z-index: 2000; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></ul>
+        </div>
     </div>
 
     <div class="main-content">
@@ -147,13 +162,7 @@
                     <button class="btn" onclick="exportCSV()">📥 匯出 CSV</button>
                 </div>
             </div>
-            <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; margin-bottom: 12px; position: relative;">
-                <div style="font-size: 0.95rem; font-weight: bold; color: #0f172a; margin-bottom: 8px;">🔍 搜尋測站</div>
-                <input type="text" id="station-search-input" placeholder="請輸入站碼或站名進行模糊搜尋..." style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.85rem; outline: none; box-sizing: border-box;">
-                
-                <!-- 這是用來顯示搜尋結果的下拉選單 -->
-                <ul id="search-results" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #cbd5e1; border-radius: 4px; max-height: 250px; overflow-y: auto; list-style: none; padding: 0; margin: 4px 0 0 0; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></ul>
-            </div>
+        
             <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; margin-bottom: 12px;">
                 <div style="font-size: 0.95rem; font-weight: bold; color: #0f172a; margin-bottom: 10px;">🖱️ 地圖互動模式</div>
                 <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
@@ -735,28 +744,32 @@
         updateClickMode();
         initSearchBox();  // 👈 加上這一行，啟動搜尋功能
 
-        // === 🌟 新增：模糊搜尋測站功能 ===
+        // === 🌟 更新：模糊搜尋測站功能（包含清除按鈕） ===
         function initSearchBox() {
             const searchInput = document.getElementById('station-search-input');
             const searchResults = document.getElementById('search-results');
+            const clearBtn = document.getElementById('clear-search-btn'); // 👈 新增：取得清除按鈕的元素
 
             searchInput.addEventListener('input', function() {
                 const keyword = this.value.trim().toLowerCase();
                 searchResults.innerHTML = ''; // 清空先前的結果
 
-                // 如果輸入框是空的，就隱藏結果選單
+                // 如果輸入框是空的，隱藏結果選單與清除按鈕
                 if (keyword === '') {
                     searchResults.style.display = 'none';
+                    clearBtn.style.display = 'none'; // 👈 隱藏清除按鈕
                     return;
+                } else {
+                    clearBtn.style.display = 'block'; // 👈 有文字時，顯示清除按鈕
                 }
 
-                // 進行模糊比對：檢查站碼 (cwbid/sid) 或站名 (n) 是否包含關鍵字
+                // 進行模糊比對
                 const matchedStations = allStations.filter(s => {
                     const sidMatch = (s.sid && String(s.sid).toLowerCase().includes(keyword));
                     const cwbidMatch = (s.cwbid && String(s.cwbid).toLowerCase().includes(keyword));
                     const nameMatch = (s.n && s.n.toLowerCase().includes(keyword));
                     return sidMatch || cwbidMatch || nameMatch;
-                }).slice(0, 30); // 限制最多顯示 30 筆，避免畫面過長
+                }).slice(0, 30); 
 
                 // 處理找不到測站的情況
                 if (matchedStations.length === 0) {
@@ -771,21 +784,44 @@
                     li.style.cssText = 'padding: 8px 12px; font-size: 0.85rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background 0.2s;';
                     li.innerHTML = `<strong>${s.n}</strong> <span style="color:#64748b; font-size:0.8rem; margin-left:4px;">(${s.cwbid || s.sid})</span>`;
                     
-                    // 加入滑鼠懸停的視覺效果
                     li.onmouseover = () => li.style.background = '#f1f5f9';
                     li.onmouseout = () => li.style.background = 'white';
 
-                    // 點擊結果的動作
                     li.onclick = () => {
-                        searchInput.value = `${s.n} (${s.cwbid || s.sid})`; // 將輸入框替換為完整站名
-                        searchResults.style.display = 'none';               // 隱藏選單
-                        focusStationFromTable(s.sid);                       // 🌟 呼叫原始系統的定位函式，飛向該測站！
+                        searchInput.value = `${s.n} (${s.cwbid || s.sid})`; 
+                        searchResults.style.display = 'none';               
+                        focusStationFromTable(s.sid);                       
                     };
                     searchResults.appendChild(li);
                 });
 
-                // 顯示下拉選單
                 searchResults.style.display = 'block';
+            });
+
+            // 🌟 更新：清除按鈕的點擊事件（加入地圖復原邏輯）
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';                 // 1. 清空輸入框文字
+                searchResults.style.display = 'none';   // 2. 隱藏下拉選單
+                clearBtn.style.display = 'none';        // 3. 隱藏自己(清除按鈕)
+                searchInput.focus();                    // 4. 讓游標自動跳回輸入框，方便再次輸入
+                
+                // --- 👇 新增的地圖復原邏輯 ---
+                if (focusedStationMarker) {
+                    focusedStationMarker.closePopup(); // 關閉打開的資訊卡片
+                    focusedStationMarker = null;       // 清除焦點標記
+                    
+                    analyzeIntersection();             // 重新掃描並恢復所有測站原本的顏色狀態
+                    
+                    // 讓視角優雅地退回原狀
+                    if (drawnItems.getLayers().length > 0) {
+                        // 如果地圖上已經有畫圖圈選，就將視角縮放到剛好能看到所有圈選範圍的大小
+                        map.flyToBounds(drawnItems.getBounds(), { padding: [50, 50], duration: 0.8 });
+                    } else {
+                        // 如果地圖上沒有畫圖，就退回預設的全台灣視角
+                        map.flyTo([23.7, 120.9], 7, { duration: 0.8 }); 
+                    }
+                }
+                // --- 👆 新增完畢 ---
             });
 
             // 點擊畫面其他地方時，自動隱藏搜尋結果選單
