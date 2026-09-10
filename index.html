@@ -380,7 +380,7 @@
                 }, 150); 
             });
 
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© CartoDB' }).addTo(map);
+            L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_2osw_1_c7a0c0e05b43943486e746b0', { attribution: '© CartoDB' }).addTo(map);
             if (geojsonData.type) {
                 L.geoJSON(geojsonData, {
                     // 🚀 關鍵修改：加上 interactive: false，讓滑鼠點擊可以穿透陸地圖層！
