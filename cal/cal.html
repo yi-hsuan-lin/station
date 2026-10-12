@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>測站數量查詢網頁</title>
     <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🗺️</text></svg>'>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20261012-3">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -17,9 +17,9 @@
         <aside class="sidebar-library">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <h2>🛠️ 條件備選庫</h2>
-                <a href="user_guide.html" target="_blank" style="text-decoration: none; font-size: 0.9rem; cursor: pointer; color: var(--accent-blue, #38bdf8); font-weight: bold;" title="查看詳細使用說明">ℹ️ 說明文件</a>
+                <a href="user_guide_station_cal.html" target="_blank" style="text-decoration: none; font-size: 0.9rem; cursor: pointer; color: var(--accent-blue, #38bdf8); font-weight: bold;" title="查看詳細使用說明">ℹ️ 說明文件</a>
             </div>
-            <p class="hint">請將想要的篩選維度拖曳至右側過濾池</p>
+            <p class="hint">請將篩選維度拖曳至右側過濾池，或點一下卡片直接加入包含池</p>
             <div class="search-container" style="position: relative; display: flex; align-items: center; gap: 8px;">
                 <div style="display: flex; align-items: center; flex: 1; background: #1e293b; border: 1px solid #475569; border-radius: 6px; padding: 2px 10px;">
                     <input type="text" id="station-search-input" placeholder="🔍 輸入站名或代碼 (如: 臺北)" autocomplete="off" style="flex: 1; background: transparent; border: none; color: white; padding: 6px 0; outline: none; min-width: 0;">
@@ -49,14 +49,25 @@
                     <div class="filter-card disabled-card" title="後端資料準備中，敬請期待！">建站日期 🚧 (建置中)</div>
                 </div>
             </div>
+            <!-- 🆕 資料健檢 -->
+            <button id="health-btn" type="button" class="health-btn" title="檢查 stationData.json 的資料完整性">🩺 資料健檢</button>
         </aside>
 
         <main class="filter-workspace">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
                 <h2>🎯 動態交互過濾池</h2>
-                <button id="reset-filters-btn" class="mini-export-btn" style="background: #ef4444; border-color: #dc2626;" title="清除所有自訂條件">
-                    🗑️ 清空條件
-                </button>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <!-- 🆕 常用查詢 -->
+                    <div class="preset-wrap">
+                        <button id="preset-btn" type="button" class="mini-export-btn tool-btn-gold" title="套用或儲存常用的查詢條件">⭐ 常用查詢 ▾</button>
+                        <div id="preset-menu" class="preset-menu"></div>
+                    </div>
+                    <!-- 🆕 分享 -->
+                    <button id="share-query-btn" type="button" class="mini-export-btn tool-btn-slate" title="複製含目前查詢條件的網址">🔗 分享</button>
+                    <button id="reset-filters-btn" class="mini-export-btn" style="background: #ef4444; border-color: #dc2626;" title="清除所有自訂條件">
+                        🗑️ 清空條件
+                    </button>
+                </div>
             </div>
             <p class="hint">可將左側維度拖至下方兩大池，同池內為「或(OR)」，跨維度為「且(AND)」</p>
             
@@ -78,7 +89,10 @@
         <div id="main-panel-resizer"></div>
 
         <section class="result-dashboard">
-            <h2>📊 統計結果區</h2>
+            <div class="result-head">
+                <h2>📊 統計結果區</h2>
+                <span id="data-updated" class="data-updated" title="stationData.json 的最後更新時間"></span>
+            </div>
             
             <div class="counter-card" id="top-counter-card">
                 <span class="counter-title">符合條件測站數</span>
@@ -94,6 +108,9 @@
                     <div style="display: flex; gap: 8px;">
                         <button id="batch-delete-btn" class="mini-export-btn" style="background: #64748b; border-color: #475569; color: white; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#475569'" onmouseout="this.style.backgroundColor='#64748b'">
                             🗑️ 批量剔除
+                        </button>
+                        <button id="show-stats-btn" class="mini-map-btn tool-btn-violet" title="依縣市、傳輸方式等分組統計站數">
+                            📊 分組統計
                         </button>
                         <button id="show-map-btn" class="mini-map-btn">
                             🗺️ 分布圖
@@ -121,7 +138,7 @@
                         </thead>
                         <tbody id="station-table-body">
                             <tr>
-                                <td colspan="5" style="text-align: center; color: #888;">請拖曳條件開始篩選...</td>
+                                <td colspan="6" style="text-align: center; color: #888;">請拖曳條件開始篩選...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -147,6 +164,41 @@
             <div id="modal-resizer" class="modal-resizer"></div>
         </div>
     </div>
-    <script src="app.js"></script>
+    <!-- 🆕 分組統計視窗 -->
+    <div id="stats-modal" class="modal-overlay">
+        <div class="modal-content tool-modal">
+            <div class="modal-header">
+                <h3>📊 分組統計</h3>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <button id="stats-export-btn" class="mini-export-btn" style="padding: 6px 14px;">📥 匯出統計 CSV</button>
+                    <button class="close-btn" data-close-modal="stats-modal" title="關閉視窗">✖</button>
+                </div>
+            </div>
+            <div class="tool-body">
+                <div class="stats-controls">
+                    <label>列（分組依據）<select id="stats-row"></select></label>
+                    <label>欄（交叉比較）<select id="stats-col"></select></label>
+                </div>
+                <div id="stats-meta" class="stats-meta"></div>
+                <div id="stats-table-wrap" class="stats-table-wrap"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🆕 資料健檢視窗 -->
+    <div id="health-modal" class="modal-overlay">
+        <div class="modal-content tool-modal">
+            <div class="modal-header">
+                <h3>🩺 資料健檢</h3>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <button id="health-export-btn" class="mini-export-btn" style="padding: 6px 14px;">📥 匯出問題清單</button>
+                    <button class="close-btn" data-close-modal="health-modal" title="關閉視窗">✖</button>
+                </div>
+            </div>
+            <div class="tool-body" id="health-body"></div>
+        </div>
+    </div>
+
+    <script src="app.js?v=20261012-3"></script>
 </body>
 </html>

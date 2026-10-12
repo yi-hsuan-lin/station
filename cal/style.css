@@ -832,3 +832,104 @@ h2 {
     color: #ef4444;
     border-color: #fecaca;
 }
+
+/* ==========================================================================
+   🆕 v2 新增：卡片鍵盤焦點、加入/重複時的閃爍提示、提示訊息
+   ========================================================================== */
+.filter-card:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+
+@keyframes group-flash {
+    0%   { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.0); }
+    30%  { box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.9); }
+    100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.0); }
+}
+.active-filter-group.flash { animation: group-flash 1s ease-out; border-radius: 6px; }
+
+#cal-toast {
+    position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%) translateY(20px);
+    background: #0f172a; color: #e2e8f0; border: 1px solid #475569;
+    padding: 10px 18px; border-radius: 8px; font-size: 0.9rem; z-index: 5000;
+    opacity: 0; transition: all 0.25s; pointer-events: none;
+}
+#cal-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ==========================================================================
+   🆕 v3 新增：常用查詢、分享、資料更新時間、分組統計、資料健檢
+   ========================================================================== */
+.tool-btn-gold { background: #b45309; }
+.tool-btn-gold:hover { background: #92400e; }
+.tool-btn-slate { background: #475569; }
+.tool-btn-slate:hover { background: #334155; }
+.tool-btn-violet { background: #6d28d9; }
+.tool-btn-violet:hover { background: #5b21b6; }
+
+.result-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.data-updated { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+
+/* 常用查詢下拉選單 */
+.preset-wrap { position: relative; }
+.preset-menu {
+    display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 900;
+    width: 300px; max-height: 60vh; overflow-y: auto;
+    background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.35); padding: 6px 0; font-size: 0.85rem;
+}
+.preset-section { padding: 8px 14px 4px; font-size: 0.75rem; font-weight: bold; color: #64748b; }
+.preset-section small { font-weight: normal; }
+.preset-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 14px; cursor: pointer; }
+.preset-item:hover { background: #f1f5f9; }
+.preset-del { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 0.85rem; padding: 0 4px; }
+.preset-del:hover { color: #dc2626; }
+.preset-empty { padding: 6px 14px; color: #94a3b8; font-style: italic; }
+.preset-save { margin-top: 4px; border-top: 1px solid #e2e8f0; padding: 9px 14px; color: #0284c7; font-weight: bold; cursor: pointer; }
+.preset-save:hover { background: #f0f9ff; }
+
+/* 資料健檢按鈕（左側欄底部） */
+.health-btn {
+    margin-top: 12px; width: 100%; padding: 9px; flex-shrink: 0;
+    background: #1e293b; color: #e2e8f0; border: 1px solid #475569; border-radius: 8px;
+    font-size: 0.85rem; font-weight: bold; cursor: pointer; transition: background 0.2s, border-color 0.2s;
+}
+.health-btn:hover { background: #334155; border-color: #38bdf8; }
+
+/* 工具視窗（分組統計、資料健檢）：沿用地圖視窗的白底樣式，寬一些 */
+.modal-content.tool-modal { width: 960px; height: 86vh; min-width: 0; }
+.tool-body { flex: 1; overflow: auto; padding: 16px 20px; color: #0f172a; font-size: 0.9rem; }
+.stats-controls { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
+.stats-controls label { display: flex; align-items: center; gap: 8px; font-weight: bold; color: #334155; font-size: 0.85rem; }
+.stats-controls select { padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; color: #0f172a; background: #fff; }
+.stats-meta { font-size: 0.8rem; color: #64748b; margin-bottom: 12px; line-height: 1.6; }
+.stats-table-wrap { overflow-x: auto; }
+.stats-empty, .stats-hint { color: #64748b; font-size: 0.85rem; margin: 6px 0; }
+
+.stats-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; color: #0f172a; }
+.stats-table th, .stats-table td { border-bottom: 1px solid #e2e8f0; padding: 7px 10px; text-align: left; white-space: nowrap; }
+.stats-table thead th { position: sticky; top: 0; background: #f8fafc; color: #334155; font-weight: bold; border-bottom: 2px solid #cbd5e1; z-index: 1; }
+.stats-table tbody tr:hover td { background-color: #f1f5f9; }
+.stats-table tfoot td { border-top: 2px solid #cbd5e1; font-weight: bold; background: #f8fafc; }
+.stats-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.stats-table .zero { color: #cbd5e1; }
+.stats-table .total { background: #f8fafc; }
+.stats-table .bar-col { width: 40%; }
+.stat-bar { display: block; height: 10px; background: #0284c7; border-radius: 0 4px 4px 0; min-width: 2px; }
+.stats-table.cross .row-head { font-weight: 500; }
+.stats-table.cross .corner { font-size: 0.75rem; color: #64748b; }
+
+/* 資料健檢 */
+.health-summary { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+.hs { padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; border: 1px solid; }
+.hs-meta { font-size: 0.8rem; color: #64748b; margin-left: auto; }
+.lv-error { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+.lv-warn  { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+.lv-info  { color: #1d4ed8; background: #eff6ff; border-color: #bfdbfe; }
+.lv-pass  { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
+.health-item { border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px; background: #fff; }
+.health-item > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+.health-item > summary::-webkit-details-marker { display: none; }
+.health-item > summary:hover { background: #f8fafc; border-radius: 8px; }
+.lv-badge { font-size: 0.75rem; font-weight: bold; padding: 2px 8px; border-radius: 4px; border: 1px solid; white-space: nowrap; }
+.hi-title { font-weight: bold; color: #0f172a; }
+.hi-count { margin-left: auto; color: #64748b; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.hi-body { padding: 0 14px 12px; }
+.hi-body p { color: #475569; font-size: 0.85rem; margin: 0 0 8px; }
+

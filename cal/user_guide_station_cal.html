@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測站數量查詢網頁 - 使用者操作說明文件</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { font-family: "Segoe UI", "Microsoft JhengHei", Helvetica, Arial, sans-serif; line-height: 1.6; color: #2d3748; background-color: #f7fafc; margin: 0; padding: 0; }
+        .container { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+        .card { background: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); padding: 40px; margin-bottom: 30px; }
+        h1 { color: #1a365d; font-size: 26px; border-bottom: 3px solid #3182ce; padding-bottom: 12px; margin-top: 0; margin-bottom: 24px; }
+        h2 { color: #2c5282; font-size: 18px; margin-top: 36px; margin-bottom: 16px; padding-left: 10px; border-left: 4px solid #4299e1; scroll-margin-top: 16px; }
+        p { margin-top: 0; margin-bottom: 16px; color: #4a5568; }
+        .logic-grid { display: flex; flex-direction: column; gap: 16px; margin: 24px 0; }
+        .logic-item { background: #f8fafc; border: 1px solid #edf2f7; border-radius: 8px; padding: 20px; }
+        .logic-title { font-size: 15px; font-weight: 700; color: #2b6cb0; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+        .logic-details { font-size: 14px; color: #4a5568; }
+        .logic-details p:last-child { margin-bottom: 0; }
+        ul, ol { margin: 0; padding-left: 20px; }
+        li { margin-bottom: 6px; }
+        .highlight-box { background-color: #fffaf0; border-left: 4px solid #dd6b20; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; font-size: 14px; color: #4a5568; }
+        .tip-box { background-color: #ebf8ff; border-left: 4px solid #3182ce; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; font-size: 14px; color: #4a5568; }
+        .footer { text-align: center; margin-top: 40px; color: #a0aec0; font-size: 12px; }
+        code { background: #edf2f7; border-radius: 4px; padding: 1px 6px; font-size: 12.5px; font-family: Consolas, "Courier New", monospace; color: #2d3748; white-space: nowrap; }
+        .new { display: inline-block; font-size: 11px; font-weight: 700; color: #b7791f; background: #fefcbf; border: 1px solid #ecc94b; border-radius: 4px; padding: 0 6px; margin-left: 6px; vertical-align: 1px; }
+
+        /* 目錄 */
+        .toc { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; }
+        .toc-title { font-weight: 700; color: #1a365d; margin-bottom: 8px; }
+        .toc ol { columns: 2; column-gap: 32px; }
+        .toc a { color: #2b6cb0; text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+
+        /* 表格 */
+        table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 10px 0 4px; }
+        th, td { border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; vertical-align: top; }
+        th { background: #edf2f7; color: #2d3748; white-space: nowrap; width: 120px; }
+        table.wide th { width: auto; }
+
+        /* 折疊區塊 */
+        details.filter { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px; }
+        details.filter[open] { background: #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+        details.filter > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; align-items: baseline; gap: 10px; }
+        details.filter > summary::-webkit-details-marker { display: none; }
+        details.filter > summary::before { content: '▸'; color: #3182ce; font-size: 14px; transition: transform 0.15s; display: inline-block; }
+        details.filter[open] > summary::before { transform: rotate(90deg); }
+        details.filter > summary:hover { background: #ebf8ff; border-radius: 8px; }
+        .f-name { font-weight: 700; color: #2b6cb0; font-size: 15px; white-space: nowrap; }
+        .f-desc { color: #4a5568; font-size: 14px; }
+        .f-body { padding: 0 16px 14px 36px; font-size: 14px; color: #4a5568; }
+        .f-body ul { margin-top: 4px; }
+        .expand-all { display: flex; gap: 8px; margin: 8px 0 14px; }
+        .expand-all button { font-size: 13px; padding: 5px 12px; border: 1px solid #cbd5e0; background: white; border-radius: 6px; cursor: pointer; color: #4a5568; font-weight: 600; }
+        .expand-all button:hover { background: #edf2f7; }
+
+        .back-top { display: inline-block; margin-top: 8px; font-size: 13px; color: #718096; text-decoration: none; }
+        .back-top:hover { color: #2b6cb0; }
+
+        @media (max-width: 640px) {
+            .card { padding: 24px 16px; }
+            .toc ol { columns: 1; }
+            .f-body { padding-left: 16px; }
+            th { width: 90px; }
+        }
+        @media print {
+            details.filter { break-inside: avoid; }
+            .expand-all { display: none; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card" id="top">
+        <h1>📊 測站數量查詢網頁 - 使用手冊</h1>
+        <p>本系統以「條件卡片」組合篩選全臺測站，即時統計數量、列出清單、匯出 CSV，並可繪製分布圖。本文件前半說明操作方式，後半的「篩選條件對照」與「附錄」詳細記錄每種條件如何從 <code>stationData.json</code> 取值與判斷，供日後維護參考。</p>
+
+        <div class="toc">
+            <div class="toc-title">📑 目錄</div>
+            <ol>
+                <li><a href="#pool">交互過濾池操作規則</a></li>
+                <li><a href="#share">常用查詢與分享連結</a></li>
+                <li><a href="#pipeline">篩選運算流程（通用規則）</a></li>
+                <li><a href="#filters">14 種篩選條件對照</a></li>
+                <li><a href="#table">搜尋、資料表與匯出</a></li>
+                <li><a href="#stats">分組統計</a></li>
+                <li><a href="#map">分布圖與圖片下載</a></li>
+                <li><a href="#health">資料健檢</a></li>
+                <li><a href="#appendix">附錄：JSON 欄位與程式位置速查</a></li>
+            </ol>
+        </div>
+
+        <!-- 1 -->
+        <h2 id="pool">🎯 1. 交互過濾池操作規則</h2>
+        <p>將左側卡片加入過濾池，即可自由組合出複雜的篩選條件：</p>
+        <ul>
+            <li><strong>加入條件：</strong>把卡片<strong>拖曳</strong>到「🟢 包含池」或「🔴 排除池」；也可以<strong>點一下卡片</strong>（或用 Tab 移到卡片後按 Enter），直接加入包含池。<span class="new">NEW</span></li>
+            <li><strong>同一張卡片內【勾選多個 = 或 (OR)】：</strong>在「縣市」同時勾選臺北市與新北市，會抓出屬於臺北市<strong>或</strong>新北市的測站。</li>
+            <li><strong>不同卡片之間【疊加 = 且 (AND)】：</strong>同時放入「縣市（臺北市）」與「傳輸方式（4G）」，只會留下兩者都符合的測站。</li>
+            <li><strong>包含與排除【扣除邏輯】：</strong>以包含池的結果為基準，再扣除符合排除池<strong>任一張</strong>卡片的測站。</li>
+            <li><strong>同一張卡片不能重複放進同一池：</strong>重複加入時，畫面會提示「已在包含池中」，並讓既有的卡片閃爍一下。同一張卡片可以同時出現在包含池與排除池。<span class="new">NEW</span></li>
+            <li><strong>調整空間：</strong>兩池中間的深色拉伸線可上下拖曳。</li>
+            <li><strong>一鍵清空：</strong>右上角「🗑️ 清空條件」會清除所有條件與手動剔除，並恢復預設（排除未上架）。</li>
+        </ul>
+
+        <!-- 2 -->
+        <h2 id="share">⭐ 2. 常用查詢與分享連結 <span class="new">NEW</span></h2>
+        <div class="logic-grid">
+            <div class="logic-item">
+                <div class="logic-title">🔗 分享查詢條件</div>
+                <div class="logic-details">
+                    <p>每次調整條件，瀏覽器網址都會自動加上 <code>?q=…</code>，記錄包含池、排除池與手動剔除的所有設定。點過濾池右上角「🔗 分享」可複製這個網址，同事開啟後會看到<strong>完全相同的條件與結果</strong>。重新整理頁面時條件也不會消失。</p>
+                    <p>預設條件（只排除未上架）時網址不帶參數。若網址中的某個選項在新版資料中已不存在（例如中繼站改名），會略過該選項並提示。</p>
+                </div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">⭐ 常用查詢</div>
+                <div class="logic-details">
+                    <p>點「⭐ 常用查詢 ▾」：</p>
+                    <ul>
+                        <li><strong>內建查詢</strong>：所有人都看得到，例如「署屬站（正式上架）」、「無線電傳輸測站」、「外單位雨量站」、「未上架測站」。</li>
+                        <li><strong>我的常用查詢</strong>：點「＋ 將目前條件存為常用查詢…」並輸入名稱即可儲存，按 ✕ 刪除。只存在<strong>這台電腦的這個瀏覽器</strong>，換電腦或清除瀏覽器資料後就會消失；要長期保存或給同事使用，請用「🔗 分享」連結。</li>
+                    </ul>
+                    <p>點任一查詢即套用，會取代目前所有條件。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3 -->
+        <h2 id="pipeline">🧭 3. 篩選運算流程（通用規則）</h2>
+        <p>每次條件改變，程式（<code>calculateStations()</code>）會依下列順序計算：</p>
+        <ol>
+            <li><strong>起始清單：</strong><code>stationData.json</code> 的 <code>allStations</code> 全部測站（目前 1,601 站）。</li>
+            <li><strong>預設隱藏中繼站與區域中心：</strong>排除 <code>is_hub === true</code>（87 站）與 <code>is_reg_center === true</code>（12 站），因為它們是通訊節點而非一般觀測站。<br>
+                ⚠️ 例外：只要「測站類型」卡片出現在<strong>任一池</strong>，就不做這個預設隱藏，讓你能用測站類型挑出單／雙中繼站、區域站。</li>
+            <li><strong>包含池：</strong>逐張卡片過濾，每張都必須符合（AND）。</li>
+            <li><strong>排除池：</strong>符合任一張卡片的測站被扣除。</li>
+            <li><strong>手動剔除：</strong>扣除在表格中「批量剔除」的測站。</li>
+            <li><strong>排序：</strong>若使用者已點過表格標題排序，結果維持該排序。<span class="new">NEW</span></li>
+        </ol>
+        <div class="tip-box">💡 <strong>預設條件：</strong>開啟網頁時，排除池已自動放入「上架狀態 = 未上架」，所以初始數量（目前 1,373 站）是「一般觀測站中已正式上架者」。</div>
+        <div class="highlight-box">⚠️ <strong>資料前處理：</strong>載入 JSON 後，<code>initStationData()</code> 會先替每一站算好衍生欄位（例如 <code>_derivedUnit</code>、<code>_derivedTransport</code>），篩選時直接比對這些欄位。另外，站碼 <code>cwbid</code> 為文字 <code>"nan"</code> 的測站（目前 16 站，都是未上架的備援站）會被視為沒有站碼。</div>
+
+        <!-- 3 -->
+        <h2 id="filters">📋 4. 14 種篩選條件對照</h2>
+        <p>點擊各條件可展開「選項從哪裡來、比對哪個 JSON 欄位、怎麼判斷」。表中的 <code>mappings.xxx</code> 指 <code>stationData.json</code> 裡的代碼對照表。</p>
+        <div class="expand-all">
+            <button type="button" onclick="document.querySelectorAll('details.filter').forEach(d => d.open = true)">全部展開</button>
+            <button type="button" onclick="document.querySelectorAll('details.filter').forEach(d => d.open = false)">全部收合</button>
+        </div>
+
+        <details class="filter">
+            <summary><span class="f-name">1. 站碼規則篩選</span><span class="f-desc">依站碼的開頭或特定位置字元篩選，可多條規則組合</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>比對對象</th><td><code>cwbid</code>（沒有時改用 <code>sid</code>），一律轉成大寫後比對</td></tr>
+                    <tr><th>快速規則</th><td>「46開頭（有人站）」：站碼以 <code>46</code> 開頭<br>「第2碼為2（農業站）」：站碼第 2 個字元為 <code>2</code></td></tr>
+                    <tr><th>自訂規則</th><td>「開頭為」：站碼以輸入文字開頭（不分大小寫）<br>「特定位置」：第 N 碼等於輸入字元</td></tr>
+                    <tr><th>多規則邏輯</th><td>卡片上方選「符合任一（聯集）」或「符合全部（交集）」，套用於快速規則與自訂規則全部</td></tr>
+                    <tr><th>注意事項</th><td>卡片放進池中但尚未勾選或輸入任何規則時，這張卡片<strong>不影響結果</strong>（不會篩掉、也不會扣除任何站）。</td></tr>
+                    <tr><th>程式位置</th><td><code>matchStationCodeRule()</code>、<code>onCodeRuleInputChange()</code></td></tr>
+                </table>
+            </div>
+        </details>
+
+        <details class="filter">
+            <summary><span class="f-name">2. 所屬單位</span><span class="f-desc">中央署屬站、民航局、高公局、各外單位等管轄單位</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>JSON 欄位</th><td><code>main_cat</code>、<code>sub_cat</code>、<code>vendor</code></td></tr>
+                    <tr><th>衍生欄位</th><td><code>_derivedUnit</code>（<code>getDerivedUnitString()</code>）</td></tr>
+                    <tr><th>判斷邏輯</th><td>
+                        <ul>
+                            <li><code>main_cat ≠ 7</code>：取 <code>mappings.main[main_cat]</code>，例如 署屬站、合作站、民航局、高公局、西濱、環境部</li>
+                            <li><code>main_cat = 7</code>（外單位雨量站）：改取 <code>mappings.sub[sub_cat]</code>，例如 農村水保署、翡翠水庫、石門水庫、第10河川局、水利署</li>
+                            <li>其中 <code>sub_cat = 11</code>（北市府）再依 <code>vendor</code> 細分：5 → 北市府大地工程處、6 → 北市府水利工程處、其他 → 北市府(其他)</li>
+                        </ul>
+                    </td></tr>
+                    <tr><th>選項來源</th><td>全部測站 <code>_derivedUnit</code> 的不重複值，因此 JSON 新增單位時會自動出現</td></tr>
+                </table>
+            </div>
+        </details>
+
+        <details class="filter">
+            <summary><span class="f-name">3. 測站類型</span><span class="f-desc">氣象站、農業氣象站、空品站、區域站、雨量站、單／雙中繼站</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>JSON 欄位</th><td><code>station_type</code></td></tr>
+                    <tr><th>選項來源</th><td><code>mappings.station_type</code> 全部項目（目前 7 種）</td></tr>
+                    <tr><th>判斷邏輯</th><td><code>station_type</code> 是否在勾選的代碼中</td></tr>
+                    <tr><th>特殊行為</th><td>只要這張卡片出現在任一池，就會<strong>取消「預設隱藏中繼站與區域中心」</strong>（見第 3 節）。要統計中繼站數量時，請用這張卡片。</td></tr>
+                </table>
+            </div>
+        </details>
+
+        <details class="filter">
+            <summary><span class="f-name">4. 傳輸方式</span><span class="f-desc">無線電、4G、實體網路、外單位雨量資料交換</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>JSON 欄位</th><td><code>sub_cat</code></td></tr>
+                    <tr><th>衍生欄位</th><td><code>_derivedTransport</code>（<code>getTransportType()</code>）</td></tr>
+                    <tr><th>對照規則</th><td>
+                        <table class="wide">
+                            <tr><th>sub_cat</th><th>傳輸方式</th></tr>
+                            <tr><td>8（區域站）</td><td>無線電</td></tr>
+                            <tr><td>3（農業站）、5（高公局）、6（西濱）、9（行動數據）</td><td>4G</td></tr>
+                            <tr><td>1（署屬有人站）、2（合作站）</td><td>實體網路</td></tr>
+                            <tr><td>10 ~ 15（外單位）</td><td>外單位雨量資料交換</td></tr>
+                            <tr><td>其他（4 民航局、7 環境部）</td><td>未分類</td></tr>
+                        </table>
+                    </td></tr>
+                    <tr><th>選項來源</th><td>程式內固定 4 個選項（不含「未分類」）</td></tr>
+                    <tr><th>維護提醒</th><td>⚠️ 民航局（17 站）與環境部（75 站）屬於「未分類」，<strong>不會被任何傳輸方式選項選到</strong>。目前這 92 站都是未上架，預設條件下不影響結果。若日後要納入，請修改 <code>getTransportType()</code> 並在 <code>getOptionsByFilterId('transport')</code> 加入選項。</td></tr>
+                </table>
+            </div>
+        </details>
+
+        <details class="filter">
+            <summary><span class="f-name">5. 縣市選擇</span><span class="f-desc">依測站所在縣市篩選，選項由北到南排列</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>JSON 欄位</th><td><code>city</code>（縣市代碼）</td></tr>
+                    <tr><th>選項來源</th><td><code>mappings.city</code> 全部縣市，依程式內 <code>NORTH_TO_SOUTH_CITIES</code> 由北到南排序（不在清單中的排最後）</td></tr>
+                    <tr><th>判斷邏輯</th><td><code>city</code> 是否在勾選的代碼中</td></tr>
+                    <tr><th>連動</th><td>同一池中若也有「鄉鎮選擇」，勾選縣市後鄉鎮清單只顯示該縣市的鄉鎮，已勾選但不屬於這些縣市的鄉鎮會自動取消。</td></tr>
+                </table>
+            </div>
+        </details>
+
+        <details class="filter">
+            <summary><span class="f-name">6. 鄉鎮選擇</span><span class="f-desc">依測站所在鄉鎮市區篩選；同名區會分開列出並標註縣市</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>JSON 欄位</th><td><code>city</code> + <code>town</code></td></tr>
+                    <tr><th>選項來源</th><td>從全部測站整理出不重複的「縣市＋鄉鎮」組合（目前 361 組），依縣市由北到南、鄉鎮名稱排序。選項值為 <code>縣市代碼-鄉鎮代碼</code>，例如 <code>22-71</code>。</td></tr>
+                    <tr><th>判斷邏輯</th><td>測站的 <code>city-town</code> 組合是否在勾選值中</td></tr>
+                    <tr><th>為何用組合</th><td>⚠️ JSON 的 <code>mappings.town</code> 是依<strong>名稱</strong>編號，不同縣市的同名區共用同一代碼。目前有 6 個：東區（新竹市、嘉義市）、北區（新竹市、臺中市、臺南市）、中正區、中山區、信義區（基隆市、臺北市）、大安區（臺北市、臺中市）。若只比對 <code>town</code>，選「東區」會同時篩出兩個縣市的站。這些同名區在清單中會顯示成「東區（新竹市）」的格式。<span class="new">NEW</span></td></tr>
+                    <tr><th>注意事項</th><td>只會列出「有測站」的鄉鎮；沒有任何測站的鄉鎮不會出現在選項中。</td></tr>
+                </table>
+            </div>
+        </details>
+
+        <details class="filter">
+            <summary><span class="f-name">7. 海拔高度</span><span class="f-desc">輸入最低與最高公尺數，可新增多個區間</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>JSON 欄位</th><td><code>alt</code>（公尺）</td></tr>
+                    <tr><th>判斷邏輯</th><td>落在任一區間內即符合（多個區間之間為 OR），上下限都<strong>包含</strong>等於。最低留空視為不設下限，最高留空視為不設上限。</td></tr>
+                    <tr><th>注意事項</th><td>沒有 <code>alt</code> 的測站以 0 m 計算（目前資料中每站都有海拔，不受影響）。</td></tr>
+                </table>
+            </div>
+        </details>
+
+        <details class="filter">
+            <summary><span class="f-name">8. 區域站歸屬</span><span class="f-desc">12 個區域中心：宜蘭、花蓮、臺東、恆春、新竹、梧棲、臺北、臺中、日月潭、嘉義、臺南、高雄</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>JSON 欄位</th><td><code>reg</code>，以及 <code>treeData["署屬站"]["區域站"]</code> 的樹狀結構</td></tr>
+                    <tr><th>選項來源</th><td>程式內固定 <code>reg</code> 代碼 8 ~ 19，名稱取 <code>mappings.reg</code></td></tr>
+                    <tr><th>判斷邏輯</th><td>符合以下任一即算：
+                        <ul>
+                            <li>測站的 <code>reg</code> 等於勾選的代碼</li>
+                            <li>測站在 <code>treeData["署屬站"]["區域站"][區域名稱]</code> 底下（任意深度，依 <code>sid</code> 或 <code>cwbid</code> 對應）。這部分在載入時存成 <code>_my_regional_boss</code>。</li>
+                        </ul>
+                    </td></tr>
+                    <tr><th>連動</th><td>同一池中若也有「中繼站選擇」，勾選區域後，中繼站清單只顯示 <code>reg</code> 屬於這些區域的中繼站。</td></tr>
+                    <tr><th>維護提醒</th><td>⚠️ 代碼 8 ~ 19 是寫死的。若 <code>mappings.reg</code> 的區域中心代碼有變動，請修改 <code>getOptionsByFilterId('regional-center')</code>。</td></tr>
+                </table>
+            </div>
+        </details>
+
+        <details class="filter">
+            <summary><span class="f-name">9. 中繼站選擇</span><span class="f-desc">選出經由指定中繼站傳輸的測站（含多層轉傳）</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>JSON 欄位</th><td><code>is_hub</code>、<code>repid</code>、<code>n</code>（站名）</td></tr>
+                    <tr><th>選項來源</th><td>所有 <code>is_hub === true</code> 的測站（目前 87 站），依 <code>reg</code> 再依站名排序；選項值為<strong>中繼站站名</strong></td></tr>
+                    <tr><th>衍生欄位</th><td><code>_upstream_relay_names</code>：從測站的 <code>repid</code> 開始，一層層往上找上層站，把沿途所有站名記下來（最多 20 層，防止資料循環）</td></tr>
+                    <tr><th>判斷邏輯</th><td>勾選的中繼站名稱出現在該站的 <code>_upstream_relay_names</code> 中，也就是該站<strong>直接或間接</strong>經由此中繼站傳輸</td></tr>
+                    <tr><th>維護提醒</th><td>以<strong>站名</strong>比對，若日後出現同名中繼站會被視為同一站。目前沒有同名中繼站。</td></tr>
+                </table>
+            </div>
+        </details>
+
+        <details class="filter">
+            <summary><span class="f-name">10. 氣象資料頻率</span><span class="f-desc">1 分鐘或 10 分鐘傳輸；純雨量站不參與</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>JSON 欄位</th><td><code>sub_cat</code></td></tr>
+                    <tr><th>衍生欄位</th><td><code>_derivedWeatherFreq</code>（<code>getWeatherFreq()</code>）</td></tr>
+                    <tr><th>對照規則</th><td><code>sub_cat</code> 10 ~ 15 → 「不接受篩選(純雨量站)」；<code>sub_cat</code> = 8 → 10分鐘；其他 → 1分鐘</td></tr>
+                    <tr><th>注意事項</th><td>外單位雨量站（<code>sub_cat</code> 10 ~ 15）沒有氣象資料，<strong>不會被 1 分鐘或 10 分鐘選到</strong>。</td></tr>
+                </table>
+            </div>
+        </details>
+
+        <details class="filter">
+            <summary><span class="f-name">11. 雨量資料頻率</span><span class="f-desc">1 分鐘或 10 分鐘傳輸</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>JSON 欄位</th><td><code>sub_cat</code></td></tr>
+                    <tr><th>衍生欄位</th><td><code>_derivedRainFreq</code>（<code>getRainFreq()</code>）</td></tr>
+                    <tr><th>對照規則</th><td><code>sub_cat</code> 10 ~ 15（外單位）→ 10分鐘；其他 → 1分鐘</td></tr>
+                </table>
+            </div>
+        </details>
+
+        <details class="filter">
+            <summary><span class="f-name">12. 維護廠商</span><span class="f-desc">負責維護的廠商或單位，十河分署再細分轄區</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>JSON 欄位</th><td><code>vendor</code>、<code>reg</code></td></tr>
+                    <tr><th>衍生欄位</th><td><code>_derivedVendor</code>（<code>getDerivedVendorString()</code>）</td></tr>
+                    <tr><th>判斷邏輯</th><td>
+                        <ul>
+                            <li><code>vendor ≠ 7</code>：取 <code>mappings.vendor[vendor]</code>，例如 翰昇、勤睿、達元、北市府大地處</li>
+                            <li><code>vendor = 7</code>（十河分署）依 <code>reg</code> 細分：23 → 十河分署-翡翠水庫、24 → 十河分署-石門水庫、25 → 十河分署-第10河川局、其他 → 十河分署</li>
+                        </ul>
+                    </td></tr>
+                    <tr><th>選項來源</th><td>全部測站 <code>_derivedVendor</code> 的不重複值，但不列出「未知」</td></tr>
+                </table>
+            </div>
+        </details>
+
+        <details class="filter">
+            <summary><span class="f-name">13. 測站上架狀態</span><span class="f-desc">正式上架或未上架（預設排除未上架）</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>JSON 欄位</th><td><code>station_publish</code>、<code>publish_reason</code></td></tr>
+                    <tr><th>衍生欄位</th><td><code>_derivedStatus</code>：<code>station_publish == 0</code> → 未上架，其他 → 正式上架</td></tr>
+                    <tr><th>預設</th><td>開啟網頁與「清空條件」後，排除池會自動放入「未上架」（<code>initDefaultFilters()</code>）。要查未上架站，請把排除池的這張卡片移除，或在包含池勾選「未上架」。</td></tr>
+                    <tr><th>顯示</th><td>未上架站在表格中以灰色斜體顯示，滑鼠移上去可看到 <code>publish_reason</code>（暫不上架原因）。</td></tr>
+                </table>
+            </div>
+        </details>
+
+        <details class="filter">
+            <summary><span class="f-name">14. 資料供應狀態</span><span class="f-desc">官網、PDS、資料申購、Open Data 各資料集</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>JSON 欄位</th><td><code>data_supply</code>：物件格式，例如 <code>{"1": 1, "2": 0, ...}</code>，鍵為管道代碼，值為 1 代表有供應</td></tr>
+                    <tr><th>衍生欄位</th><td><code>supply_channels</code>：值為 1 的管道，經 <code>mappings.data_supply</code> 轉成名稱的陣列，例如 <code>["官網", "O-A0002"]</code></td></tr>
+                    <tr><th>選項來源</th><td>程式內固定 8 個選項：官網、PDS、申購、O-A0001、O-A0002、O-A0003、O-A0005、O-A0091</td></tr>
+                    <tr><th>判斷邏輯</th><td>測站的 <code>supply_channels</code> 含有任一勾選項目</td></tr>
+                    <tr><th>維護提醒</th><td>⚠️ 選項的值必須與 <code>mappings.data_supply</code> 的名稱<strong>完全相同</strong>（目前一致）。若 JSON 改名或新增資料集，請同步修改 <code>getOptionsByFilterId('public')</code>，否則該選項會篩不到任何站，而且不會出現錯誤訊息。</td></tr>
+                </table>
+            </div>
+        </details>
+
+        <div class="tip-box">🚧 「觀測項目」與「建站日期」兩張卡片為建置中，等後端資料準備好後開放。</div>
+
+        <!-- 4 -->
+        <h2 id="table">🔍 5. 搜尋、資料表與匯出</h2>
+        <div class="logic-grid">
+            <div class="logic-item">
+                <div class="logic-title">✨ 多關鍵字模糊搜尋</div>
+                <div class="logic-details"><p>在左側搜尋框輸入站名、站碼、縣市或鄉鎮。可用空白分隔多個關鍵字，例如 <code>花蓮 國小</code>，會找出同時符合的測站（「台」與「臺」視為相同）。最多列出 15 筆，按「定位」或 Enter 會選第一筆。搜尋範圍是<strong>全部測站</strong>，不受篩選條件影響。</p></div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">✨ 勾選與批量剔除</div>
+                <div class="logic-details"><p>勾選表格前方的核取方塊（支援全選），再按「🗑️ 批量剔除」，可把這些站從本次結果中隱藏，匯出 CSV 與分布圖也會同步排除。要恢復時，點上方條件摘要中「🗑️ 手動剔除」標籤的 <strong>↩️ 復原</strong>，其他篩選條件不受影響。<span class="new">NEW</span></p></div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">✨ 表格點擊排序</div>
+                <div class="logic-details"><p>點表格標題（ID、站名、縣市、鄉鎮、高度）切換升冪 🔼／降冪 🔽。排序設定會<strong>保留</strong>：調整篩選條件後，結果仍依同一欄排序；已勾選的列也不會因為排序或調整條件而被清掉。<span class="new">NEW</span></p></div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">📥 匯出 CSV <span class="new">NEW</span></div>
+                <div class="logic-details">
+                    <p>匯出的檔案<strong>前 4 列</strong>記錄查詢條件、匯出時間、資料更新時間與測站數，空一列後才是表頭與資料，日後翻閱就知道這份清單是怎麼篩出來的。若要用程式讀取這個 CSV，請略過前 5 列。</p>
+                    <p>欄位：原始站碼、正式代碼、站名、縣市、鄉鎮市區、緯度、經度、高度、傳輸方式、所屬單位、維護廠商，以及新增的<strong>測站類型、區域站歸屬、直屬中繼站、上架狀態、未上架原因、資料供應管道</strong>。</p>
+                </div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">🕒 資料更新時間 <span class="new">NEW</span></div>
+                <div class="logic-details"><p>「📊 統計結果區」標題右側顯示 <code>stationData.json</code> 的最後更新時間（取自伺服器回應的 Last-Modified），用來判斷數字是否為最新。若伺服器沒有提供，會顯示「無法取得」。</p></div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">✨ 表格與地圖連動</div>
+                <div class="logic-details"><p>點表格任一列，會開啟地圖並定位到該站，顯示詳細資訊卡。此時地圖<strong>只顯示這一站</strong>；按「🗺️ 分布圖」即可回到顯示全部篩選結果。</p></div>
+            </div>
+        </div>
+
+        <!-- 6 -->
+        <h2 id="stats">📊 6. 分組統計 <span class="new">NEW</span></h2>
+        <p>點測站清單上方的「📊 分組統計」，依目前的篩選結果統計各類別站數，不必匯出到 Excel 再做樞紐分析。</p>
+        <ul>
+            <li><strong>列（分組依據）</strong>：選一個維度，例如縣市，表格列出各縣市站數、占比與長條。</li>
+            <li><strong>欄（交叉比較）</strong>：再選一個維度，例如傳輸方式，就變成「縣市 × 傳輸方式」交叉表，格子顏色越深代表站數越多，最右欄與最下列為合計。</li>
+            <li>按「📥 匯出統計 CSV」可下載目前的統計表，同樣附上查詢條件與資料日期。</li>
+        </ul>
+        <details class="filter">
+            <summary><span class="f-name">可選的分組維度與取值方式</span><span class="f-desc">程式位置：GROUP_DIMS</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>縣市</th><td><code>mappings.city[city]</code>，由北到南排序</td></tr>
+                    <tr><th>鄉鎮市區</th><td>縣市＋鄉鎮（例：新竹市東區）</td></tr>
+                    <tr><th>所屬單位、傳輸方式、維護廠商</th><td>與篩選條件相同的衍生欄位 <code>_derivedUnit</code>、<code>_derivedTransport</code>、<code>_derivedVendor</code></td></tr>
+                    <tr><th>測站類型</th><td><code>mappings.station_type[station_type]</code></td></tr>
+                    <tr><th>區域站歸屬</th><td><code>reg</code> 為 8～19 時取區域中心名稱；否則取 <code>treeData</code> 中的歸屬；都沒有則為「（非區域站）」</td></tr>
+                    <tr><th>直屬中繼站</th><td>沿 <code>repid</code> 往上的<strong>第一層</strong>上層站；沒有則為「（無，直接傳輸）」</td></tr>
+                    <tr><th>氣象／雨量頻率、上架狀態</th><td>與篩選條件相同的衍生欄位</td></tr>
+                    <tr><th>海拔區間</th><td>固定分為 0–500、500–1000、1000–2000、2000–3000、3000 m 以上（程式位置：<code>ALT_BINS</code>）</td></tr>
+                    <tr><th>資料供應管道</th><td><code>supply_channels</code>，<strong>可複選</strong>：一站可能同時計入多個管道，各類別加總會大於合計；沒有任何管道的站計為「無對外供應」</td></tr>
+                </table>
+                <p style="margin-top:8px;">「合計」一律是<strong>不重複站數</strong>。類別順序：縣市依由北到南、海拔依區間大小，其餘依站數由多到少。</p>
+            </div>
+        </details>
+
+        <!-- 7 -->
+        <h2 id="map">🗺️ 7. 分布圖與圖片下載</h2>
+        <div class="logic-grid">
+            <div class="logic-item">
+                <div class="logic-title">📌 詳細資訊卡</div>
+                <div class="logic-details"><p>點地圖上的測站，可看到管理與通訊路徑（所屬單位 ▶ 區域中心 ▶ 測站類型 ▶ 傳輸方式）、海拔、經緯度、維護廠商、資料頻率、上架狀態與資料供應管道。未上架站會以紅框顯示原因。</p></div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">📌 自動著色規則</div>
+                <div class="logic-details">
+                    <ul>
+                        <li>依<strong>包含池中最早勾選項目的那張卡片</strong>著色（卡片內的勾選全部取消後再重新勾選，順序會排到最後），勾選的每個項目一種顏色，右下角圖例同步列出。</li>
+                        <li>包含池同時有「縣市」與「鄉鎮」時，改以「縣市-鄉鎮」組合著色；同時有「區域站歸屬」與「中繼站選擇」時，改以「區域-中繼站」組合著色。</li>
+                        <li>海拔高度依區間著色。</li>
+                        <li>色盤共 10 色，<strong>超過 10 個類別時，第 11 類以後統一以深灰色標示為「其他」</strong>，不再重複使用前面的顏色，以免誤判。<span class="new">NEW</span></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">📌 一鍵下載圖片</div>
+                <div class="logic-details"><p>把地圖調整到想要的範圍後，點右上角「📥 下載圖片」，會產生白底、高解析度的 PNG，可直接貼進簡報。</p></div>
+            </div>
+        </div>
+
+        <!-- 8 -->
+        <h2 id="health">🩺 8. 資料健檢 <span class="new">NEW</span></h2>
+        <p>點左側欄最下方的「🩺 資料健檢」，自動檢查 <code>stationData.json</code> 的完整性。建議<strong>每次更新 JSON 後</strong>開來看一下，可以及早發現會讓篩選或統計出錯的資料。每個項目點開可看到問題測站清單，「📥 匯出問題清單」可下載全部問題。</p>
+        <table class="wide">
+            <tr><th>等級</th><th>意義</th><th>檢查項目</th></tr>
+            <tr><td>⛔ 錯誤</td><td>會讓篩選、地圖或統計出錯，應修正資料</td><td>座標缺漏或明顯錯誤、repid 指向不存在的測站、代碼不在對照表中、資料供應選項與 JSON 不一致、區域中心代碼對照</td></tr>
+            <tr><td>⚠️ 警告</td><td>資料不完整，可能造成誤解</td><td>站碼為文字 "nan"、缺少站碼、缺少縣市或鄉鎮、傳輸方式為「未分類」、未上架但沒有填寫原因、海拔缺漏或異常、中繼站同名</td></tr>
+            <tr><td>ℹ️ 提示</td><td>程式已處理，或屬正常的資料特性</td><td>遠洋離島座標（東沙、南沙）、站碼重複（同地點的有人站與區域中心共用站碼）、同名鄉鎮共用代碼、維護廠商為「未知」</td></tr>
+            <tr><td>✅ 通過</td><td>沒有發現問題</td><td>—</td></tr>
+        </table>
+        <div class="tip-box">💡 檢查規則寫在 <code>runHealthChecks()</code>，要新增檢查項目時，仿照既有的 <code>add(等級, 標題, 說明, 問題清單)</code> 加一行即可。</div>
+
+        <!-- 9 -->
+        <h2 id="appendix">🧰 9. 附錄：JSON 欄位與程式位置速查</h2>
+        <details class="filter">
+            <summary><span class="f-name">stationData.json 結構</span><span class="f-desc">本頁用到的欄位</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>allStations</th><td>以 <code>sid</code> 為鍵的測站物件。本頁使用：<code>n</code> 站名、<code>sid</code> 無線電站碼、<code>cwbid</code> 站碼、<code>lat</code>／<code>lon</code>、<code>alt</code>、<code>city</code>、<code>town</code>、<code>main_cat</code>、<code>sub_cat</code>、<code>vendor</code>、<code>reg</code>、<code>station_type</code>、<code>station_publish</code>、<code>publish_reason</code>、<code>data_supply</code>、<code>repid</code>（上層中繼站 sid）、<code>is_hub</code>、<code>is_reg_center</code></td></tr>
+                    <tr><th>mappings</th><td>代碼對照表：<code>main</code>、<code>sub</code>、<code>reg</code>、<code>vendor</code>、<code>station_type</code>、<code>data_supply</code>、<code>city</code>、<code>town</code></td></tr>
+                    <tr><th>treeData</th><td>階層結構；本頁只用 <code>treeData["署屬站"]["區域站"]</code> 判斷區域歸屬</td></tr>
+                    <tr><th>網址參數</th><td><code>?q=</code> 為查詢條件 JSON（<code>{ i: 包含池, e: 排除池, m: 手動剔除 sid }</code>）經 UTF-8 編碼後的 base64url 字串；程式位置：<code>encodeState()</code>／<code>decodeState()</code>／<code>applyQueryState()</code></td></tr>
+                    <tr><th>讀取路徑</th><td><code>/static/nas/mogisData/stationData.json</code>（每次載入加時間戳避免快取）、<code>/static/nas/mogisData/taiwan.json</code>（分布圖縣市邊界）</td></tr>
+                </table>
+            </div>
+        </details>
+        <details class="filter">
+            <summary><span class="f-name">新增一種篩選條件要改哪裡</span><span class="f-desc">app_station_cal.js 中需同步修改的位置</span></summary>
+            <div class="f-body">
+                <ol>
+                    <li><code>station_cal.html</code>：在左側清單加一張 <code>&lt;div class="filter-card" draggable="true" data-filter="新代碼"&gt;</code></li>
+                    <li><code>getTitleByFilterId()</code>：加上中文標題</li>
+                    <li><code>getOptionsByFilterId()</code>：回傳選項清單 <code>[{ value, text }]</code></li>
+                    <li><code>stationMatchesFilter()</code>：加一個 <code>case</code>，回傳該站是否符合（包含池與排除池共用這一個函式）</li>
+                    <li>若要在分布圖依此條件著色：<code>getStationColorKey()</code> 與 <code>getMatchValueChineseName()</code>（皆在 <code>renderMap()</code> 內）</li>
+                    <li>若選項值是代碼、需要在條件摘要顯示中文：<code>updateActiveFiltersSummary()</code> 內的 <code>formatValues</code></li>
+                    <li>若需要新的衍生欄位：在 <code>initStationData()</code> 中計算</li>
+                </ol>
+            </div>
+        </details>
+        <details class="filter">
+            <summary><span class="f-name">寫死在程式中的清單</span><span class="f-desc">JSON 對照表變動時需人工同步</span></summary>
+            <div class="f-body">
+                <table>
+                    <tr><th>區域中心代碼</th><td><code>getOptionsByFilterId('regional-center')</code>：<code>reg</code> 8 ~ 19</td></tr>
+                    <tr><th>資料供應選項</th><td><code>getOptionsByFilterId('public')</code>：8 個管道名稱，需與 <code>mappings.data_supply</code> 一致</td></tr>
+                    <tr><th>傳輸方式對照</th><td><code>getTransportType()</code>、<code>getWeatherFreq()</code>、<code>getRainFreq()</code>：依 <code>sub_cat</code> 代碼判斷</td></tr>
+                    <tr><th>單位／廠商細分</th><td><code>getDerivedUnitString()</code>（北市府 vendor 5／6）、<code>getDerivedVendorString()</code>（十河分署 reg 23／24／25）</td></tr>
+                    <tr><th>縣市排序</th><td><code>NORTH_TO_SOUTH_CITIES</code>：縣市名稱需與 <code>mappings.city</code> 完全相同（含「臺」字）</td></tr>
+                    <tr><th>內建常用查詢</th><td><code>BUILTIN_PRESETS</code>：要新增全單位共用的查詢，在這裡加一筆 <code>{ name, state: { i: 包含池, e: 排除池 } }</code>，值與條件卡片的勾選值相同</td></tr>
+                    <tr><th>資料監控頁連結</th><td><code>MONITOR_PAGE_URL</code>：目前為空（不顯示）。填入網址後，地圖資訊卡會出現「📈 查看此站監控資料」按鈕，網址中的 <code>{sid}</code> 會換成站碼</td></tr>
+                    <tr><th>分組統計維度</th><td><code>GROUP_DIMS</code>（維度清單）、<code>ALT_BINS</code>（海拔分段）</td></tr>
+                </table>
+            </div>
+        </details>
+
+        <a href="#top" class="back-top">⬆ 回到頂端</a>
+    </div>
+    <div class="footer">© 2026 測站通訊監控系統 | 大氣觀測組 資料品管科編製</div>
+</div>
+</body>
+</html>
