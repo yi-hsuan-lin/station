@@ -113,6 +113,24 @@
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         path.leaflet-interactive:focus { outline: none !important; }
 
+        /* 🏔️ 地形陰影以「正片疊底」疊加，底圖顏色與文字仍清楚 */
+        .hillshade-layer { mix-blend-mode: multiply; }
+        .leaflet-control-layers-expanded { font-size: 0.85rem; line-height: 1.8; }
+
+        /* 🏔️ 3D 地形檢視 */
+        .btn-3d {
+            background: #ffffff; color: #0f172a; border: 2px solid rgba(0,0,0,0.2); border-radius: 4px;
+            padding: 6px 10px; font-size: 0.85rem; font-weight: bold; cursor: pointer; background-clip: padding-box;
+        }
+        .btn-3d:hover { background: #e0f2fe; color: #0284c7; }
+        .map3d-toolbar {
+            position: absolute; top: 10px; left: 10px; z-index: 10; display: flex; gap: 10px; align-items: center;
+            background: rgba(255,255,255,0.92); border: 1px solid var(--border-color); border-radius: 6px;
+            padding: 6px 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.12); font-size: 0.85rem; color: #0f172a;
+        }
+        .map3d-toolbar select { padding: 3px 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem; }
+        .map3d-hint { color: var(--text-muted); font-size: 0.8rem; }
+
         /* 🌟 模式控制：當「不是」選取縣市模式時，縣市圖層一律強制穿透隱形 */
         #map-container:not(.mode-county) .custom-county-pane path.leaflet-interactive {
             pointer-events: none !important;
@@ -129,8 +147,9 @@
     <div class="header">
         <!-- 左側：系統標題與提示 -->
         <div style="display: flex; align-items: baseline; gap: 15px;">
-            <h1>🗺️ 測站空間圈選系統</h1>
-            <span class="header-hint">使用左側工具在地圖上畫出範圍，或<strong>直接點擊縣市邊界</strong>進行篩選。</span>
+            <h1>🗺️ 測站空間圈選系統 <span style="font-size:0.75rem; color:#94a3b8; font-weight:normal;">v2.3</span></h1>
+            <span class="header-hint">使用右側「地圖互動模式」在地圖上畫出範圍，或切到<strong>選取縣市</strong>直接點擊縣市（再點一次可取消）。右上角可切換地形底圖。</span>
+            <a href="user_guide_station_spatial.html" target="_blank" style="text-decoration: none; font-size: 0.9rem; cursor: pointer; color: var(--accent-blue); font-weight: bold; white-space: nowrap;" title="查看詳細使用說明">ℹ️ 說明文件</a>
         </div>
         
         <!-- 右側：搜尋框區塊 -->
@@ -152,6 +171,23 @@
             <div id="coord-display" style="position: absolute; bottom: 15px; left: 15px; background: rgba(255,255,255,0.9); padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; color: #1e293b; z-index: 1000; pointer-events: none; border: 1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: none; font-weight: bold;">
                 經度: -, 緯度: -
             </div>
+            <!-- 🏔️ 3D 地形檢視（蓋在 2D 地圖上方，按「回到 2D」關閉） -->
+            <div id="map3d-overlay" style="display: none; position: absolute; inset: 0; z-index: 1500; background: #eaf2f8;">
+                <div id="map3d" style="position: absolute; inset: 0;"></div>
+                <div class="map3d-toolbar">
+                    <button class="btn" onclick="close3D()">🗺️ 回到 2D</button>
+                    <label>地形誇張
+                        <select id="map3d-exaggeration">
+                            <option value="0">平面</option>
+                            <option value="1">1 倍（真實）</option>
+                            <option value="1.5" selected>1.5 倍</option>
+                            <option value="2">2 倍</option>
+                            <option value="3">3 倍</option>
+                        </select>
+                    </label>
+                    <span class="map3d-hint">右鍵拖曳（或 Ctrl＋拖曳）可旋轉、傾斜</span>
+                </div>
+            </div>
         </div>
         
         <div id="sidebar">
@@ -162,7 +198,7 @@
                     <button class="btn" onclick="exportCSV()">📥 匯出 CSV</button>
                 </div>
             </div>
-        
+            
             <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; margin-bottom: 12px;">
                 <div style="font-size: 0.95rem; font-weight: bold; color: #0f172a; margin-bottom: 10px;">🖱️ 地圖互動模式</div>
                 <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
@@ -213,7 +249,7 @@
                         </tr>
                     </thead>
                     <tbody id="result-tbody">
-                        <tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">請在地圖上圈選或點擊縣市範圍...</td></tr>
+                        <tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">請在地圖上圈選或點擊縣市範圍...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -228,18 +264,37 @@
         let map, drawControl, drawnItems, countyLayer;
         let allStations = [];
         let stationMarkers = [];
+        const markerBySid = new Map();       // ⚡ sid → marker，快速查找（取代 Array.find）
         let currentSelectedStations = [];
+        let selectedSidSet = new Set();      // ⚡ 已圈選測站的 sid（取代 Array.some）
         let rawMappings = {};
         let currentSort = { column: null, direction: 'asc' };
-        let focusedStationMarker = null; // 追蹤目前從表格點擊的測站標記
-        let currentSearchCircle = null;  // 用來追蹤目前畫出的圓
-        let mapClickMode = 'county';     // 🌟 新增：追蹤目前的地圖點擊模式 (預設為選縣市)
-        let currentDrawHandler = null;   // 🌟 新增：追蹤目前使用的畫圖工具
-        let markerRenderer;   // 👇 新增這個變數：用來存放測站專屬的繪圖引擎
+        let focusedStationMarker = null;     // 追蹤目前從表格/搜尋點擊的測站標記
+        let currentSearchCircle = null;      // 用來追蹤目前畫出的圓
+        let mapClickMode = 'none';           // 與預設勾選的 radio 一致
+        let currentDrawHandler = null;       // 追蹤目前使用的畫圖工具
+        let markerRenderer;                  // 測站專屬的繪圖引擎
+        const countySelections = new Map();  // 🆕 縣市名稱 → 該縣市產生的圈選圖層（再點一次可取消）
+        let drawToolbarActive = false;       // 「編輯 / 刪除」工具開啟中時，不處理縣市點擊
+
+        const DEFAULT_VIEW = { center: [23.7, 120.9], zoom: 7 };
+        const DRAW_STYLE = { color: '#0284c7', weight: 2, opacity: 1, fill: true, fillColor: '#0284c7', fillOpacity: 0.15 };
+        const MARKER_STYLES = {
+            normal:   { fillColor: "#64748b", fillOpacity: 0.6,  color: "#1e293b",     weight: 1 },
+            selected: { fillColor: "#0ea5e9", fillOpacity: 1,    color: "#ffffff",     weight: 1.5 },
+            dimmed:   { fillColor: "#cbd5e1", fillOpacity: 0.15, color: "transparent", weight: 0 },
+            focused:  { fillColor: "#f59e0b", fillOpacity: 1,    color: "#ffffff",     weight: 2 }
+        };
+
+        // === 🛡️ HTML 跳脫（站名、原因含引號或 < > 時不會讓畫面壞掉） ===
+        function escapeHtml(v) {
+            if (v === undefined || v === null) return '';
+            return String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
 
         // === 取得動態縮放半徑 ===
         function getRadiusByZoom(zoom) {
-            if (zoom <= 7) return 1.5; 
+            if (zoom <= 7) return 1.5;
             if (zoom === 8) return 4;
             if (zoom === 9) return 5;
             if (zoom === 10) return 6;
@@ -249,101 +304,173 @@
 
         // === 取得傳輸方式轉換 ===
         function getTransportType(sub) {
-            if (sub == 8) return "無線電";
-            if ([3, 5, 6, 9, "3", "5", "6", "9"].includes(sub)) return "4G";
-            if ([1, 2, "1", "2"].includes(sub)) return "實體網路";
-            if ([10, 11, 12, 13, 14, 15, "10", "11", "12", "13", "14", "15"].includes(sub)) return "外單位交換";
+            const n = Number(sub);
+            if (n === 8) return "無線電";
+            if ([3, 5, 6, 9].includes(n)) return "4G";
+            if ([1, 2].includes(n)) return "實體網路";
+            if (n >= 10 && n <= 15) return "外單位交換";
             return "未分類";
+        }
+
+        // === ⚡ 載入時一次算好衍生欄位（彈窗、表格、排序、CSV 共用，不必各算一次） ===
+        function enrichStation(s) {
+            s._code = s.cwbid || s.sid;
+            s._cityName = rawMappings.city[s.city] || "";
+            s._townName = rawMappings.town[s.town] || "";
+            s._unitName = (s.main_cat == 7) ? (rawMappings.sub[s.sub_cat] || "") : (rawMappings.main[s.main_cat] || "");
+            s._unitLabel = s._unitName || (s.main_cat == 7 ? "外單位" : "未知單位");
+            s._typeName = rawMappings.station_type[s.station_type] || "";
+            s._transport = getTransportType(s.sub_cat);
+            s._published = (Number(s.station_publish) === 1);
+            s._hasAlt = (s.alt !== undefined && s.alt !== null && s.alt !== "");
+        }
+
+        // === 🎨 測站樣式統一由狀態決定（修正：搜尋第二站時，前一站被淡化到幾乎看不見） ===
+        function applyMarkerStyle(marker, baseRadius, hasDrawings) {
+            let style, r;
+            if (marker === focusedStationMarker) { style = MARKER_STYLES.focused; r = baseRadius + 4; }
+            else if (selectedSidSet.has(String(marker.stationData.sid))) { style = MARKER_STYLES.selected; r = baseRadius + 2; }
+            else if (hasDrawings) { style = MARKER_STYLES.dimmed; r = baseRadius; }
+            else { style = MARKER_STYLES.normal; r = baseRadius; }
+            marker.setStyle(Object.assign({ radius: r }, style));
+        }
+
+        function refreshAllMarkerStyles() {
+            const baseRadius = getRadiusByZoom(map.getZoom());
+            const hasDrawings = drawnItems.getLayers().length > 0;
+            stationMarkers.forEach(m => applyMarkerStyle(m, baseRadius, hasDrawings));
+            update3D();
         }
 
         // === 產生資訊卡片 (Popup) ===
         function generateStationPopupHtml(s) {
-            const cityName = rawMappings.city[s.city] || "未知縣市";
-            const townName = rawMappings.town[s.town] || "";
-            let unitName = rawMappings.main[s.main_cat] || "未知單位";
-            if (s.main_cat == 7) unitName = rawMappings.sub[s.sub_cat] || "外單位";
-            
-            const typeName = rawMappings.station_type[s.station_type] || "未知類型";
-            const transport = getTransportType(s.sub_cat);
-            const alt = (s.alt !== undefined && s.alt !== null) ? `${s.alt} m` : "無資料";
-            const isPublished = (Number(s.station_publish) === 1);
-            const statusText = isPublished ? '✅ 正式上架' : '❌ 未上架';
-            const statusColor = isPublished ? '#16a34a' : '#ef4444';
-            const statusBg = isPublished ? '#dcfce7' : '#fee2e2';
-            const statusBorder = isPublished ? '#bbf7d0' : '#fecaca';
+            const alt = s._hasAlt ? `${s.alt} m` : "無資料";
+            const statusText = s._published ? '✅ 正式上架' : '❌ 未上架';
+            const statusColor = s._published ? '#16a34a' : '#ef4444';
+            const statusBg = s._published ? '#dcfce7' : '#fee2e2';
+            const statusBorder = s._published ? '#bbf7d0' : '#fecaca';
 
             return `
                 <div style="min-width: 220px; padding: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
                     <div style="text-align:center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 10px;">
-                        <strong style="font-size:1.2rem; color:#0f172a;">${s.n}</strong>
-                        <span style="color:#64748b; font-size:0.9rem; margin-left:4px;">(${s.cwbid || s.sid})</span>
+                        <strong style="font-size:1.2rem; color:#0f172a;">${escapeHtml(s.n)}</strong>
+                        <span style="color:#64748b; font-size:0.9rem; margin-left:4px;">(${escapeHtml(s._code)})</span>
                         <div style="color:#0ea5e9; font-size:0.9rem; margin-top:6px; font-weight:bold;">
-                            📍 ${cityName}${townName}
+                            📍 ${escapeHtml(s._cityName || "未知縣市")}${escapeHtml(s._townName)}
                         </div>
                     </div>
-                    
+
                     <div style="font-size: 0.85rem; color: #334155; line-height: 1.6;">
-                        <div><strong>🏢 單位：</strong>${unitName}</div>
-                        <div><strong>🏷️ 類型：</strong>${typeName}</div>
-                        <div><strong>📡 傳輸：</strong>${transport}</div>
-                        <div><strong>⛰️ 海拔：</strong>${alt}</div>
+                        <div><strong>🏢 單位：</strong>${escapeHtml(s._unitLabel)}</div>
+                        <div><strong>🏷️ 類型：</strong>${escapeHtml(s._typeName || "未知類型")}</div>
+                        <div><strong>📡 傳輸：</strong>${escapeHtml(s._transport)}</div>
+                        <div><strong>⛰️ 海拔：</strong>${escapeHtml(alt)}</div>
                     </div>
-                    
+
                     <div style="margin-top: 10px; text-align: center;">
-                        <span style="background:${statusBg}; border:1px solid ${statusBorder}; padding:3px 8px; border-radius:4px; font-size:0.75rem; color:${statusColor}; font-weight:bold;" title="${s.publish_reason || ''}">
+                        <span style="background:${statusBg}; border:1px solid ${statusBorder}; padding:3px 8px; border-radius:4px; font-size:0.75rem; color:${statusColor}; font-weight:bold;" title="${escapeHtml(s.publish_reason)}">
                             ${statusText}
                         </span>
                     </div>
-                    
+
                     <div style="margin-top: 12px; border-top: 1px dashed #cbd5e1; padding-top: 10px;">
-                        <button onclick="fillLatLonAndDraw(${s.lat}, ${s.lon})" style="width: 100%; background: #f1f5f9; color: #0284c7; border: 1px solid #bae6fd; padding: 6px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: background 0.2s;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#f1f5f9'">
+                        <button onclick="fillLatLonAndDraw(${Number(s.lat)}, ${Number(s.lon)})" style="width: 100%; background: #f1f5f9; color: #0284c7; border: 1px solid #bae6fd; padding: 6px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: background 0.2s;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#f1f5f9'">
                             🎯 以此測站為中心畫圓
                         </button>
                     </div>
-
                 </div>
             `;
         }
 
+        // === 🏔️ 底圖設定（含地形圖） ===
+        function createBaseLayers() {
+            const baseLayers = {
+                "🗺️ 一般街道 (CARTO)": L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_2osw_1_c7a0c0e05b43943486e746b0', {
+                    attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
+                }),
+                "🇹🇼 臺灣通用電子地圖 (國土測繪中心)": L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}', {
+                    attribution: '&copy; 內政部國土測繪中心', maxZoom: 19
+                }),
+                "⛰️ 地形圖 (Esri World Topo)": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Tiles &copy; Esri', maxZoom: 19
+                }),
+                "🏔️ 等高線地形 (OpenTopoMap)": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap, SRTM | &copy; OpenTopoMap (CC-BY-SA)', subdomains: 'abc', maxNativeZoom: 17, maxZoom: 19
+                })
+            };
+            const overlays = {
+                "🌄 地形陰影 (可疊在任一底圖上)": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Hillshade &copy; Esri', opacity: 0.5, maxNativeZoom: 16, maxZoom: 19, zIndex: 5, className: 'hillshade-layer'
+                })
+            };
+            return { baseLayers, overlays };
+        }
+
+        // 記住使用者上次選的底圖（瀏覽器若不允許儲存，就用預設）
+        const BASEMAP_KEY = 'stationSpatial.basemap';
+        const HILLSHADE_KEY = 'stationSpatial.hillshade';
+        function loadPref(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+        function savePref(key, val) { try { localStorage.setItem(key, val); } catch (e) { /* 忽略 */ } }
+
         // === 1. 初始化地圖 ===
         function initMap() {
-            map = L.map('map').setView([23.7, 120.9], 7);
-            
-             L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_2osw_1_c7a0c0e05b43943486e746b0', {
-                attribution: '&copy; OpenStreetMap &copy; CARTO'
-            }).addTo(map);
+            map = L.map('map').setView(DEFAULT_VIEW.center, DEFAULT_VIEW.zoom);
 
-            /// 🌟 建立專屬的縣市圖層 Pane (隔離圖層，讓畫圖不受干擾)
+            const { baseLayers, overlays } = createBaseLayers();
+            const savedBase = loadPref(BASEMAP_KEY);
+            const firstBase = baseLayers[savedBase] || Object.values(baseLayers)[0];
+            firstBase.addTo(map);
+            const hillshade = Object.values(overlays)[0];
+            if (loadPref(HILLSHADE_KEY) === '1') hillshade.addTo(map);
+
+            L.control.layers(baseLayers, overlays, { position: 'topright', collapsed: true }).addTo(map);
+            map.on('baselayerchange', e => savePref(BASEMAP_KEY, e.name));
+
+            // 🏔️ 2D → 3D 切換按鈕
+            const Toggle3DControl = L.Control.extend({
+                options: { position: 'topright' },
+                onAdd: function () {
+                    const b = L.DomUtil.create('button', 'btn-3d');
+                    b.innerHTML = '🏔️ 3D 地形';
+                    b.title = '切換到 3D 地形檢視（目前的圈選結果會一起帶過去）';
+                    L.DomEvent.disableClickPropagation(b);
+                    L.DomEvent.on(b, 'click', open3D);
+                    return b;
+                }
+            });
+            map.addControl(new Toggle3DControl());
+            map.on('overlayadd', e => { if (e.layer === hillshade) savePref(HILLSHADE_KEY, '1'); });
+            map.on('overlayremove', e => { if (e.layer === hillshade) savePref(HILLSHADE_KEY, '0'); });
+
+            // 🌟 建立專屬的縣市圖層 Pane (隔離圖層，讓畫圖不受干擾)
             map.createPane('countyPane');
             const cPane = map.getPane('countyPane');
             cPane.style.zIndex = 250;
-            cPane.classList.add('custom-county-pane'); // 👉 主動加入自訂標籤
+            cPane.classList.add('custom-county-pane');
 
             // 🌟 建立測站專屬 Pane
             map.createPane('markerPane');
             const mPane = map.getPane('markerPane');
             mPane.style.zIndex = 600;
-            mPane.classList.add('custom-marker-pane'); // 👉 主動加入自訂標籤
+            mPane.classList.add('custom-marker-pane');
 
-            // 👇 為這個專屬圖層建立一個獨立的「繪圖引擎 (Renderer)」
             markerRenderer = L.svg({ pane: 'markerPane' });
 
             drawnItems = new L.FeatureGroup();
             map.addLayer(drawnItems);
 
-            // 🌟 隱藏左側的畫圖按鈕，只保留「編輯(修改多邊形)」與「刪除」
+            // 隱藏畫圖按鈕，只保留「編輯」與「刪除」
             drawControl = new L.Control.Draw({
                 draw: { polyline: false, polygon: false, rectangle: false, circle: false, marker: false, circlemarker: false },
                 edit: { featureGroup: drawnItems, remove: true }
             });
             map.addControl(drawControl);
 
-            // 繪圖事件綁定
             map.on(L.Draw.Event.CREATED, function (event) {
                 drawnItems.addLayer(event.layer);
                 analyzeIntersection();
-                
-                // 🌟 畫完之後，如果還在畫形狀的模式，自動重新啟動工具讓你可以繼續畫第二個
+
+                // 畫完之後，如果還在畫形狀的模式，自動重新啟動工具讓你可以繼續畫第二個
                 if (mapClickMode === 'rectangle') {
                     currentDrawHandler = new L.Draw.Rectangle(map);
                     currentDrawHandler.enable();
@@ -352,92 +479,118 @@
                     currentDrawHandler.enable();
                 }
             });
-            
+
+            // ⚡ 縣市範圍有數百個頂點，進入「編輯」時不開放拖拉頂點，避免瀏覽器卡住
+            map.on(L.Draw.Event.DELETESTART, () => { drawToolbarActive = true; });
+            map.on(L.Draw.Event.DELETESTOP, () => { drawToolbarActive = false; });
+            map.on(L.Draw.Event.EDITSTART, function () {
+                drawToolbarActive = true;
+                setTimeout(() => {
+                    drawnItems.eachLayer(l => { if (l._countyName && l.editing) l.editing.disable(); });
+                }, 0);
+            });
+            map.on(L.Draw.Event.EDITSTOP, function () {
+                drawToolbarActive = false;
+                if (mapClickMode === 'circle' && currentSearchCircle && currentSearchCircle.editing) {
+                    currentSearchCircle.editing.enable();
+                }
+            });
+
             map.on(L.Draw.Event.EDITED, analyzeIntersection);
             map.on(L.Draw.Event.DELETED, function (event) {
                 event.layers.eachLayer(function (layer) {
                     if (layer === currentSearchCircle) currentSearchCircle = null;
+                    if (layer._countyName && countySelections.has(layer._countyName)) {
+                        const remain = countySelections.get(layer._countyName).filter(l => l !== layer);
+                        if (remain.length) countySelections.set(layer._countyName, remain);
+                        else countySelections.delete(layer._countyName);
+                    }
                 });
                 analyzeIntersection();
             });
 
             // 縮放事件：動態更新點點大小
-            map.on('zoomend', function() {
-                const currentZoom = map.getZoom();
-                const baseRadius = getRadiusByZoom(currentZoom);
-                
-                stationMarkers.forEach(marker => {
-                    const isSelected = currentSelectedStations.some(s => s.sid === marker.stationData.sid);
-                    const isFocused = focusedStationMarker && marker.stationData.sid === focusedStationMarker.stationData.sid;
-                    marker.setRadius(isFocused ? baseRadius + 4 : (isSelected ? baseRadius + 2 : baseRadius));
-                });
-            });
+            map.on('zoomend', refreshAllMarkerStyles);
 
             // 游標移動時顯示經緯度
             const coordDisplay = document.getElementById('coord-display');
             if (coordDisplay) {
-                map.on('mousemove', function(e) {
+                map.on('mousemove', function (e) {
                     coordDisplay.style.display = 'block';
-                    coordDisplay.innerHTML = `經度: ${e.latlng.lng.toFixed(4)}, 緯度: ${e.latlng.lat.toFixed(4)}`;
+                    coordDisplay.textContent = `經度: ${e.latlng.lng.toFixed(4)}, 緯度: ${e.latlng.lat.toFixed(4)}`;
                 });
-                map.on('mouseout', function() {
+                map.on('mouseout', function () {
                     coordDisplay.style.display = 'none';
                 });
             }
 
-            map.on('click', function(e) {
+            map.on('click', function (e) {
                 if (mapClickMode === 'circle') {
                     fillLatLonAndDraw(e.latlng.lat, e.latlng.lng);
                 }
             });
 
-            // 🌟 載入台灣縣市 (修正為 taiwan.json)
+            // 🌟 載入台灣縣市
             fetch('taiwan.json')
                 .then(res => res.json())
                 .then(data => {
                     countyLayer = L.geoJSON(data, {
-                        pane: 'countyPane', // 放入專屬 Pane
+                        pane: 'countyPane',
                         style: { color: "#94a3b8", weight: 1, opacity: 0.8, fillOpacity: 0.05, fillColor: "#cbd5e1" },
                         onEachFeature: function (feature, layer) {
                             const name = feature.properties.COUNTYNAME || feature.properties.name || "未知縣市";
-                            layer.bindTooltip(name);
-                            
-                            layer.on('click', function(e) {
-                                // 💡 修正：只有在「選取縣市」模式時，才攔截點擊事件並畫出縣市範圍
-                                if (mapClickMode === 'county') {
-                                    L.DomEvent.stopPropagation(e); // 停止事件向下傳遞
-                                    
-                                    const drawStyle = { color: '#0284c7', weight: 2, opacity: 1, fill: true, fillColor: '#0284c7', fillOpacity: 0.15 };
-                                    if (layer.getLatLngs) {
-                                        const latlngs = layer.getLatLngs();
-                                        const isMulti = Array.isArray(latlngs[0]) && Array.isArray(latlngs[0][0]);
-                                        if (isMulti) {
-                                            latlngs.forEach(poly => L.polygon(poly, drawStyle).addTo(drawnItems));
-                                        } else {
-                                            L.polygon(latlngs, drawStyle).addTo(drawnItems);
-                                        }
-                                    } else if (layer.eachLayer) {
-                                        layer.eachLayer(subLayer => {
-                                            if (subLayer.getLatLngs) L.polygon(subLayer.getLatLngs(), drawStyle).addTo(drawnItems);
-                                        });
-                                    }
-                                    analyzeIntersection();
-                                }
-                                // 💡 如果不是縣市模式（例如畫圓模式），事件會自然穿透，觸發地圖本身的 map.on('click')
+                            layer.bindTooltip(escapeHtml(name));
+                            layer.on('click', function (e) {
+                                // 只有在「選取縣市」模式時，才攔截點擊事件
+                                if (mapClickMode !== 'county' || drawToolbarActive) return;
+                                L.DomEvent.stopPropagation(e);
+                                toggleCountySelection(name, layer);
                             });
                         }
                     }).addTo(map);
+                    if (map3d && map3d.getSource('counties')) map3d.getSource('counties').setData(countyLayer.toGeoJSON());
                 })
                 .catch(err => console.warn("縣市 GeoJSON 載入失敗", err));
         }
 
+        // === 🆕 點縣市：加入圈選；同一縣市再點一次：取消 ===
+        function toggleCountySelection(name, countyFeatureLayer) {
+            if (countySelections.has(name)) {
+                countySelections.get(name).forEach(l => drawnItems.removeLayer(l));
+                countySelections.delete(name);
+            } else {
+                if (!countyFeatureLayer.getLatLngs) return;
+                const latlngs = countyFeatureLayer.getLatLngs();
+                // Polygon：[外圈, 洞...]；MultiPolygon：[[外圈, 洞...], [外圈, 洞...], ...]
+                const isMulti = Array.isArray(latlngs[0]) && Array.isArray(latlngs[0][0]);
+                const created = [];
+                (isMulti ? latlngs : [latlngs]).forEach(poly => {
+                    const p = L.polygon(poly, DRAW_STYLE);
+                    p._countyName = name;
+                    // 🐛 修正：選取後藍色範圍會蓋在縣市圖層上方，點擊要由它自己接手才能「再點一次取消」
+                    p.on('click', function (e) {
+                        if (mapClickMode !== 'county' || drawToolbarActive) return;
+                        L.DomEvent.stopPropagation(e);
+                        toggleCountySelection(name, countyFeatureLayer);
+                    });
+                    drawnItems.addLayer(p);
+                    created.push(p);
+                });
+                countySelections.set(name, created);
+            }
+            analyzeIntersection();
+        }
+
         // === 2. 載入測站資料 ===
         function loadData() {
-            fetch('stationData.json?v=' + new Date().getTime())
+            // ⚡ 原本用 ?v=時間戳 每次強制重抓 540KB；改用 no-cache：檔案沒變時伺服器回 304，有變才重抓
+            fetch('stationData.json', { cache: 'no-cache' })
                 .then(res => res.json())
                 .then(data => {
+                    rawMappings = data.mappings || {};
+                    ['city', 'town', 'main', 'sub', 'station_type'].forEach(k => { rawMappings[k] = rawMappings[k] || {}; });
                     allStations = Object.values(data.allStations);
-                    rawMappings = data.mappings;
+                    allStations.forEach(enrichStation);
                     plotAllStations();
                 })
                 .catch(err => console.error("資料載入失敗", err));
@@ -449,27 +602,27 @@
 
             allStations.forEach(s => {
                 if (s.lat && s.lon) {
-                    const marker = L.circleMarker([s.lat, s.lon], {
-                        pane: 'markerPane',   
-                        renderer: markerRenderer, // 指派專屬繪圖引擎
-                        radius: initRadius,
-                        color: "#1e293b",
-                        weight: 1,
-                        fillColor: "#64748b",
-                        fillOpacity: 0.6
-                    }).bindTooltip(`${s.n} (${s.cwbid || s.sid})`)
-                      .bindPopup(generateStationPopupHtml(s));
-                    
+                    const marker = L.circleMarker([s.lat, s.lon], Object.assign({
+                        pane: 'markerPane',
+                        renderer: markerRenderer,
+                        radius: initRadius
+                    }, MARKER_STYLES.normal))
+                        .bindTooltip(`${escapeHtml(s.n)} (${escapeHtml(s._code)})`)
+                        .bindPopup(() => generateStationPopupHtml(s));  // ⚡ 點開時才產生 HTML
+
                     marker.stationData = s;
                     marker.addTo(map);
                     stationMarkers.push(marker);
+                    markerBySid.set(String(s.sid), marker);
                 }
             });
+            // 資料若晚於使用者圈選才載入，補算一次
+            if (drawnItems.getLayers().length > 0) analyzeIntersection();
+            else update3D();
         }
 
         // === 4. 表格互動：排序與點擊連動地圖 ===
         function initTableInteractions() {
-            // 排序功能
             const headers = document.querySelectorAll('th[data-sort]');
             headers.forEach(header => {
                 header.addEventListener('click', () => {
@@ -483,59 +636,24 @@
                         currentSort.direction = 'asc';
                     }
 
-                    document.querySelectorAll('th .sort-icon').forEach(icon => icon.innerHTML = "");
-                    header.querySelector('.sort-icon').innerHTML = currentSort.direction === 'asc' ? ' 🔼' : ' 🔽';
+                    document.querySelectorAll('th .sort-icon').forEach(icon => icon.textContent = "");
+                    header.querySelector('.sort-icon').textContent = currentSort.direction === 'asc' ? ' 🔼' : ' 🔽';
                     updateTable();
                 });
             });
 
-            // 🌟 使用事件代理綁定點擊事件 (確保動態生成的 HTML 也能觸發)
+            // 使用事件代理綁定點擊事件
             const tbody = document.getElementById('result-tbody');
-            tbody.addEventListener('click', function(e) {
+            tbody.addEventListener('click', function (e) {
                 const row = e.target.closest('.station-row');
                 if (!row) return;
-                const sid = row.getAttribute('data-sid');
-                focusStationFromTable(sid);
+                focusStationFromTable(row.getAttribute('data-sid'));
             });
         }
 
-        
+        // === 5. 圈選範圍判斷 ===
 
-        // === 6. 判斷圈選範圍 ===
-        // 🌟 終極防呆法：遞迴提取所有邊界環，不管陣列包了幾層深
-        function extractSafeRings(latlngs) {
-            let rings = [];
-            function traverse(arr) {
-                if (!Array.isArray(arr) || arr.length === 0) return;
-                // 如果陣列的第一個元素是經緯度物件，代表這是一個環
-                if (arr[0].lat !== undefined && arr[0].lng !== undefined) {
-                    rings.push(arr);
-                } else {
-                    // 否則繼續往下剝開
-                    arr.forEach(traverse);
-                }
-            }
-            traverse(latlngs);
-            return rings;
-        }
-
-        // 🌟 終極防呆法：遞迴提取所有邊界環 (處理不同深度的陣列)
-        function extractSafeRings(latlngs) {
-            let rings = [];
-            function traverse(arr) {
-                if (!Array.isArray(arr) || arr.length === 0) return;
-                // 若陣列第一個元素是經緯度物件，代表這是一個邊界環
-                if (arr[0].lat !== undefined && arr[0].lng !== undefined) {
-                    rings.push(arr);
-                } else {
-                    arr.forEach(traverse);
-                }
-            }
-            traverse(latlngs);
-            return rings;
-        }
-
-        // 判斷點是否在多邊形內 (射線法)
+        // 判斷點是否在一個環內 (射線法)
         function isPointInRing(lat, lon, ring) {
             let inside = false;
             for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -548,66 +666,90 @@
             return inside;
         }
 
-        // === 6. 判斷圈選範圍 ===
+        // 🐛 修正重點：把 getLatLngs() 拆成「外圈 + 洞」的多邊形清單
+        //   單一環（矩形、手繪）：[latlng...]            → [{outer, holes: []}]
+        //   帶洞多邊形（新北市）：[外圈, 洞...]           → [{outer: 外圈, holes: [洞...]}]
+        //   多個多邊形（澎湖）  ：[[外圈, 洞...], ...]    → 逐一拆開
+        function polygonsFromLatLngs(latlngs) {
+            if (!Array.isArray(latlngs) || latlngs.length === 0) return [];
+            const isLatLng = v => v && v.lat !== undefined && v.lng !== undefined;
+            if (isLatLng(latlngs[0])) return [{ outer: latlngs, holes: [] }];
+            if (isLatLng(latlngs[0][0])) return [{ outer: latlngs[0], holes: latlngs.slice(1) }];
+            return latlngs.reduce((acc, p) => acc.concat(polygonsFromLatLngs(p)), []);
+        }
+
+        // ⚡ 圈選形狀只整理一次（原本是每個測站都重新拆一次）
+        function buildShapes(layers) {
+            const shapes = [];
+            const visit = (l) => {
+                if (l instanceof L.Circle) {
+                    shapes.push({ type: 'circle', center: l.getLatLng(), radius: l.getRadius() });
+                } else if (l.getLatLngs) {
+                    polygonsFromLatLngs(l.getLatLngs()).forEach(p => {
+                        if (p.outer.length < 3) return;
+                        shapes.push({ type: 'polygon', outer: p.outer, holes: p.holes, bounds: L.latLngBounds(p.outer) });
+                    });
+                } else if (l.eachLayer) {
+                    l.eachLayer(visit);
+                }
+            };
+            layers.forEach(visit);
+            return shapes;
+        }
+
+        function isStationInShapes(lat, lon, shapes) {
+            const pt = L.latLng(lat, lon);
+            for (const sh of shapes) {
+                if (sh.type === 'circle') {
+                    if (sh.center.distanceTo(pt) <= sh.radius) return true;
+                } else {
+                    if (!sh.bounds.contains(pt)) continue;   // ⚡ 外框快篩，不在框內就不用逐邊計算
+                    if (isPointInRing(lat, lon, sh.outer) && !sh.holes.some(h => isPointInRing(lat, lon, h))) return true;
+                }
+            }
+            return false;
+        }
+
         function analyzeIntersection() {
             currentSelectedStations = [];
-            focusedStationMarker = null; 
-            
-            const currentZoom = map.getZoom();
-            const baseRadius = getRadiusByZoom(currentZoom);
+            selectedSidSet = new Set();
+            focusedStationMarker = null;
+
             const layers = drawnItems.getLayers();
-            
-            if (layers.length === 0) {
-                stationMarkers.forEach(m => m.setStyle({ fillColor: "#64748b", fillOpacity: 0.6, color: "#1e293b", weight: 1, radius: baseRadius }));
-                updateTable();
-                return;
+            if (layers.length > 0) {
+                const shapes = buildShapes(layers);
+                stationMarkers.forEach(marker => {
+                    const s = marker.stationData;
+                    if (isStationInShapes(s.lat, s.lon, shapes)) {
+                        currentSelectedStations.push(s);
+                        selectedSidSet.add(String(s.sid));
+                    }
+                });
             }
 
-            stationMarkers.forEach(marker => {
-                const s = marker.stationData;
-                let isInside = false;
-
-                // 🌟 萬能圖層遍歷器：不管是圓形、手繪多邊形、還是 GeoJSON 縣市群組，通通支援
-                const traverseLayers = (l) => {
-                    if (l instanceof L.Circle) {
-                        // 處理圓形
-                        const center = l.getLatLng();
-                        const radiusMeters = l.getRadius();
-                        const stationLatLng = L.latLng(s.lat, s.lon);
-                        if (center.distanceTo(stationLatLng) <= radiusMeters) isInside = true;
-                    } else if (l.eachLayer) {
-                        // 處理 GeoJSON 群組 (如縣市圖層)
-                        l.eachLayer(sub => traverseLayers(sub)); 
-                    } else if (l.getLatLngs) {
-                        // 處理手繪多邊形或拆解到底的 Polygon
-                        const rings = extractSafeRings(l.getLatLngs());
-                        rings.forEach(ring => { if (isPointInRing(s.lat, s.lon, ring)) isInside = true; });
-                    }
-                };
-
-                // 將畫布上所有的形狀都丟進遍歷器檢查
-                layers.forEach(layer => traverseLayers(layer));
-
-                if (isInside) {
-                    currentSelectedStations.push(s);
-                    marker.setStyle({ fillColor: "#0ea5e9", fillOpacity: 1, color: "#ffffff", weight: 1.5, radius: baseRadius + 2 });
-                    marker.bringToFront();
-                } else {
-                    marker.setStyle({ fillColor: "#cbd5e1", fillOpacity: 0.15, color: "transparent", weight: 0, radius: baseRadius });
-                }
+            refreshAllMarkerStyles();
+            currentSelectedStations.forEach(s => {
+                const m = markerBySid.get(String(s.sid));
+                if (m) m.bringToFront();
             });
-
             updateTable();
         }
 
-       
-       
+        // === 6. 更新右側表格 ===
+        const SORT_GETTERS = {
+            cwbid: s => String(s._code || ""),
+            name: s => s.n || "",
+            city: s => s._cityName,
+            alt: s => s._hasAlt ? parseFloat(s.alt) : -Infinity,
+            unit: s => s._unitName,
+            transport: s => s._transport,
+            status: s => s._published ? 1 : 0
+        };
+        const NUMERIC_COLUMNS = new Set(['alt', 'status']);
 
-        // === 7. 更新右側表格 ===
         function updateTable() {
             const tbody = document.getElementById('result-tbody');
-            const countSpan = document.getElementById('result-count');
-            countSpan.textContent = currentSelectedStations.length;
+            document.getElementById('result-count').textContent = currentSelectedStations.length;
 
             if (currentSelectedStations.length === 0) {
                 const text = drawnItems.getLayers().length > 0 ? "此範圍內無測站" : "請在地圖上圈選或點擊縣市範圍...";
@@ -615,224 +757,184 @@
                 return;
             }
 
+            const col = currentSort.column;
+            const dir = currentSort.direction === 'asc' ? 1 : -1;
             currentSelectedStations.sort((a, b) => {
-                const col = currentSort.column;
                 if (!col) {
                     if (a.city !== b.city) return (a.city || 0) - (b.city || 0);
                     if (a.town !== b.town) return (a.town || 0) - (b.town || 0);
                     return (a.n || "").localeCompare(b.n || "", 'zh-Hant');
                 }
-
-                let valA, valB;
-                if (col === 'cwbid') { valA = a.cwbid || a.sid || ""; valB = b.cwbid || b.sid || ""; } 
-                else if (col === 'name') { valA = a.n || ""; valB = b.n || ""; } 
-                else if (col === 'city') { valA = rawMappings.city[a.city] || ""; valB = rawMappings.city[b.city] || ""; } 
-                else if (col === 'alt') { valA = a.alt !== undefined && a.alt !== null ? parseFloat(a.alt) : -Infinity; valB = b.alt !== undefined && b.alt !== null ? parseFloat(b.alt) : -Infinity; } 
-                else if (col === 'unit') { valA = a.main_cat == 7 ? (rawMappings.sub[a.sub_cat] || "") : (rawMappings.main[a.main_cat] || ""); valB = b.main_cat == 7 ? (rawMappings.sub[b.sub_cat] || "") : (rawMappings.main[b.main_cat] || ""); } 
-                else if (col === 'transport') { valA = getTransportType(a.sub_cat); valB = getTransportType(b.sub_cat); }
-                else if (col === 'status') { valA = Number(a.station_publish) || 0; valB = Number(b.station_publish) || 0; }
-
-                if (col === 'alt' || col === 'status') {
-                    return currentSort.direction === 'asc' ? valA - valB : valB - valA;
-                } else {
-                    return currentSort.direction === 'asc' ? String(valA).localeCompare(String(valB), 'zh-Hant') : String(valB).localeCompare(String(valA), 'zh-Hant');
-                }
+                const getter = SORT_GETTERS[col];
+                const va = getter(a), vb = getter(b);
+                if (NUMERIC_COLUMNS.has(col)) return dir * ((va > vb) - (va < vb));
+                return dir * String(va).localeCompare(String(vb), 'zh-Hant');
             });
 
-            let html = "";
-            currentSelectedStations.forEach(s => {
-                const cityName = rawMappings.city[s.city] || "未知";
-                const townName = rawMappings.town[s.town] || "";
-                let unitName = rawMappings.main[s.main_cat] || "未知單位";
-                if (s.main_cat == 7) unitName = rawMappings.sub[s.sub_cat] || "外單位";
-                const transportStr = getTransportType(s.sub_cat);
-                const altDisplay = (s.alt !== undefined && s.alt !== null) ? s.alt : "-";
-                
-                const isPublished = (Number(s.station_publish) === 1);
-                const statusHtml = isPublished ? "" : `<span style="color:#ef4444; font-size:0.9rem;" title="未上架原因：${s.publish_reason || '無'}">❌</span>`;
-                
-                html += `
-                    <tr data-sid="${s.sid}" class="station-row" style="cursor: pointer;" title="點擊在地圖上定位此測站">
-                        <td style="color: #475569;">${s.cwbid || s.sid}</td>
-                        <td><strong>${s.n}</strong></td>
-                        <td>${cityName}${townName}</td>
-                        <td>${altDisplay}</td>
-                        <td><span style="background:#e0f2fe; color:#0284c7; padding:2px 6px; border-radius:4px; font-size:0.75rem; border:1px solid #bae6fd;">${unitName}</span></td>
-                        <td>${transportStr}</td>
+            const rows = currentSelectedStations.map(s => {
+                const statusHtml = s._published ? "" : `<span style="color:#ef4444; font-size:0.9rem;" title="未上架原因：${escapeHtml(s.publish_reason || '無')}">❌</span>`;
+                return `
+                    <tr data-sid="${escapeHtml(s.sid)}" class="station-row" style="cursor: pointer;" title="點擊在地圖上定位此測站">
+                        <td style="color: #475569;">${escapeHtml(s._code)}</td>
+                        <td><strong>${escapeHtml(s.n)}</strong></td>
+                        <td>${escapeHtml(s._cityName || "未知")}${escapeHtml(s._townName)}</td>
+                        <td>${s._hasAlt ? escapeHtml(s.alt) : "-"}</td>
+                        <td><span style="background:#e0f2fe; color:#0284c7; padding:2px 6px; border-radius:4px; font-size:0.75rem; border:1px solid #bae6fd;">${escapeHtml(s._unitLabel)}</span></td>
+                        <td>${escapeHtml(s._transport)}</td>
                         <td style="text-align: center;">${statusHtml}</td>
-                    </tr>
-                `;
+                    </tr>`;
             });
-            tbody.innerHTML = html;
+            tbody.innerHTML = rows.join("");
         }
 
-        // === 8. 表格點擊後地圖連動 ===
+        // === 7. 表格 / 搜尋點擊後地圖連動 ===
         function focusStationFromTable(sid) {
-            const currentZoom = map.getZoom();
-            const baseRadius = getRadiusByZoom(currentZoom);
-
-            // 恢復上一個焦點測站的顏色
-            if (focusedStationMarker) {
-                const isInside = currentSelectedStations.some(s => String(s.sid) === String(focusedStationMarker.stationData.sid));
-                if (isInside) {
-                    focusedStationMarker.setStyle({ fillColor: "#0ea5e9", fillOpacity: 1, color: "#ffffff", weight: 1.5, radius: baseRadius + 2 });
-                } else {
-                    focusedStationMarker.setStyle({ fillColor: "#cbd5e1", fillOpacity: 0.15, color: "transparent", weight: 0, radius: baseRadius });
-                }
-            }
-
-            // 🌟 嚴格型別比對，確保找到對應的標記
-            const targetMarker = stationMarkers.find(m => String(m.stationData.sid) === String(sid));
+            const targetMarker = markerBySid.get(String(sid));
             if (!targetMarker) return;
 
-            // 變身亮橘黃色並放大
-            targetMarker.setStyle({ fillColor: "#f59e0b", fillOpacity: 1, color: "#ffffff", weight: 2, radius: baseRadius + 4 });
-            targetMarker.bringToFront();
+            const prev = focusedStationMarker;
             focusedStationMarker = targetMarker;
 
-            // 讓地圖飛過去 (使用 flyTo 會有平滑飛行的動畫)
-            map.flyTo([targetMarker.stationData.lat, targetMarker.stationData.lon], 12, { animate: true, duration: 0.8 });
-            
-            // 延遲打開 Popup，避免動畫過程被卡掉
-            setTimeout(() => {
-                targetMarker.openPopup();
-            }, 800);
+            const baseRadius = getRadiusByZoom(map.getZoom());
+            const hasDrawings = drawnItems.getLayers().length > 0;
+            if (prev && prev !== targetMarker) applyMarkerStyle(prev, baseRadius, hasDrawings);  // 🐛 依實際狀態復原
+            applyMarkerStyle(targetMarker, baseRadius, hasDrawings);
+            targetMarker.bringToFront();
+
+            const s = targetMarker.stationData;
+            if (is3DActive && map3d) {
+                // 3D 開啟中：在 3D 地圖上飛過去並開資訊卡
+                map.setView([s.lat, s.lon], 12, { animate: false });
+                update3D();
+                if (map3dPopup) { map3dPopup.remove(); map3dPopup = null; }
+                map3d.once('moveend', () => open3DPopup(s.sid));   // 飛行結束才開資訊卡，避免動畫中被關掉
+                map3d.flyTo({ center: [Number(s.lon), Number(s.lat)], zoom: 11, pitch: 60, duration: 1200 });
+                return;
+            }
+            map.flyTo([s.lat, s.lon], 12, { animate: true, duration: 0.8 });
+            setTimeout(() => targetMarker.openPopup(), 800);
         }
 
-        // === 9. 清除所有繪圖 ===
+        // === 8. 清除所有繪圖 ===
         function clearDrawings() {
             drawnItems.clearLayers();
-            currentSearchCircle = null; // 🌟 清除圈選時，也把追蹤的圓形狀態清空
+            countySelections.clear();
+            currentSearchCircle = null;
             analyzeIntersection();
         }
 
-        // === 10. 匯出 CSV ===
+        // === 9. 匯出 CSV ===
         function exportCSV() {
             if (currentSelectedStations.length === 0) {
                 alert("目前沒有圈選任何測站可以匯出！");
                 return;
             }
             const headers = ["原始站碼(sid)", "正式代碼(cwbid)", "站名", "縣市", "鄉鎮", "經度", "緯度", "海拔高度(m)", "所屬單位", "測站類型", "傳輸方式", "狀態", "未上架原因"];
-            const rows = currentSelectedStations.map(s => {
-                const cityName = rawMappings.city[s.city] || "";
-                const townName = rawMappings.town[s.town] || "";
-                let unitName = rawMappings.main[s.main_cat] || "";
-                if (s.main_cat == 7) unitName = rawMappings.sub[s.sub_cat] || "";
-                const typeName = rawMappings.station_type[s.station_type] || "";
-                const transportStr = getTransportType(s.sub_cat);
-                const status = (Number(s.station_publish) === 1) ? "上架" : "未上架";
-                const reason = s.publish_reason || "";
+            const rows = currentSelectedStations.map(s => [
+                s.sid, s.cwbid || "", s.n, s._cityName, s._townName, s.lon, s.lat,
+                s._hasAlt ? s.alt : "",   // 🐛 原本海拔為 null 時會輸出 "null"
+                s._unitName, s._typeName, s._transport, s._published ? "上架" : "未上架", s.publish_reason || ""
+            ].map(v => `"${String(v === undefined || v === null ? "" : v).replace(/"/g, '""')}"`).join(","));
 
-                return [
-                    s.sid, s.cwbid || "", s.n, cityName, townName, s.lon, s.lat, 
-                    s.alt !== undefined ? s.alt : "", unitName, typeName, transportStr, status, reason
-                ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",");
-            });
-            
-            const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+            const csvContent = "﻿" + [headers.join(","), ...rows].join("\n");
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = `空間圈選測站結果_${new Date().toISOString().slice(0,10)}.csv`;
+            link.href = url;
+            link.download = `空間圈選測站結果_${new Date().toISOString().slice(0, 10)}.csv`;
             link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
 
-        // 啟動程式
-        initMap();
-        initTableInteractions();
-        loadData();
-        updateClickMode();
-        initSearchBox();  // 👈 加上這一行，啟動搜尋功能
-
-        // === 🌟 更新：模糊搜尋測站功能（包含清除按鈕） ===
+        // === 10. 模糊搜尋測站（含清除按鈕） ===
         function initSearchBox() {
             const searchInput = document.getElementById('station-search-input');
             const searchResults = document.getElementById('search-results');
-            const clearBtn = document.getElementById('clear-search-btn'); // 👈 新增：取得清除按鈕的元素
+            const clearBtn = document.getElementById('clear-search-btn');
+            let lastMatches = [];
 
-            searchInput.addEventListener('input', function() {
+            function pickStation(s) {
+                searchInput.value = `${s.n} (${s._code})`;
+                searchResults.style.display = 'none';
+                focusStationFromTable(s.sid);
+            }
+
+            searchInput.addEventListener('input', function () {
                 const keyword = this.value.trim().toLowerCase();
-                searchResults.innerHTML = ''; // 清空先前的結果
+                searchResults.innerHTML = '';
+                lastMatches = [];
 
-                // 如果輸入框是空的，隱藏結果選單與清除按鈕
                 if (keyword === '') {
                     searchResults.style.display = 'none';
-                    clearBtn.style.display = 'none'; // 👈 隱藏清除按鈕
+                    clearBtn.style.display = 'none';
                     return;
-                } else {
-                    clearBtn.style.display = 'block'; // 👈 有文字時，顯示清除按鈕
                 }
+                clearBtn.style.display = 'block';
 
-                // 進行模糊比對
-                const matchedStations = allStations.filter(s => {
-                    const sidMatch = (s.sid && String(s.sid).toLowerCase().includes(keyword));
-                    const cwbidMatch = (s.cwbid && String(s.cwbid).toLowerCase().includes(keyword));
-                    const nameMatch = (s.n && s.n.toLowerCase().includes(keyword));
-                    return sidMatch || cwbidMatch || nameMatch;
-                }).slice(0, 30); 
+                lastMatches = allStations.filter(s =>
+                    (s.sid && String(s.sid).toLowerCase().includes(keyword)) ||
+                    (s.cwbid && String(s.cwbid).toLowerCase().includes(keyword)) ||
+                    (s.n && s.n.toLowerCase().includes(keyword))
+                ).slice(0, 30);
 
-                // 處理找不到測站的情況
-                if (matchedStations.length === 0) {
+                if (lastMatches.length === 0) {
                     searchResults.innerHTML = '<li style="padding: 8px 12px; color: #64748b; font-size: 0.85rem;">找不到符合的測站</li>';
                     searchResults.style.display = 'block';
                     return;
                 }
 
-                // 產生結果列表
-                matchedStations.forEach(s => {
+                const frag = document.createDocumentFragment();
+                lastMatches.forEach(s => {
                     const li = document.createElement('li');
                     li.style.cssText = 'padding: 8px 12px; font-size: 0.85rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background 0.2s;';
-                    li.innerHTML = `<strong>${s.n}</strong> <span style="color:#64748b; font-size:0.8rem; margin-left:4px;">(${s.cwbid || s.sid})</span>`;
-                    
+                    li.innerHTML = `<strong>${escapeHtml(s.n)}</strong> <span style="color:#64748b; font-size:0.8rem; margin-left:4px;">(${escapeHtml(s._code)})</span>`;
                     li.onmouseover = () => li.style.background = '#f1f5f9';
                     li.onmouseout = () => li.style.background = 'white';
-
-                    li.onclick = () => {
-                        searchInput.value = `${s.n} (${s.cwbid || s.sid})`; 
-                        searchResults.style.display = 'none';               
-                        focusStationFromTable(s.sid);                       
-                    };
-                    searchResults.appendChild(li);
+                    li.onclick = () => pickStation(s);
+                    frag.appendChild(li);
                 });
-
+                searchResults.appendChild(frag);
                 searchResults.style.display = 'block';
             });
 
-            // 🌟 更新：清除按鈕的點擊事件（加入地圖復原邏輯）
-            clearBtn.addEventListener('click', function() {
-                searchInput.value = '';                 // 1. 清空輸入框文字
-                searchResults.style.display = 'none';   // 2. 隱藏下拉選單
-                clearBtn.style.display = 'none';        // 3. 隱藏自己(清除按鈕)
-                searchInput.focus();                    // 4. 讓游標自動跳回輸入框，方便再次輸入
-                
-                // --- 👇 新增的地圖復原邏輯 ---
-                if (focusedStationMarker) {
-                    focusedStationMarker.closePopup(); // 關閉打開的資訊卡片
-                    focusedStationMarker = null;       // 清除焦點標記
-                    
-                    analyzeIntersection();             // 重新掃描並恢復所有測站原本的顏色狀態
-                    
-                    // 讓視角優雅地退回原狀
-                    if (drawnItems.getLayers().length > 0) {
-                        // 如果地圖上已經有畫圖圈選，就將視角縮放到剛好能看到所有圈選範圍的大小
-                        map.flyToBounds(drawnItems.getBounds(), { padding: [50, 50], duration: 0.8 });
-                    } else {
-                        // 如果地圖上沒有畫圖，就退回預設的全台灣視角
-                        map.flyTo([23.7, 120.9], 7, { duration: 0.8 }); 
-                    }
+            // 🆕 Enter：直接定位第一筆；Esc：關閉下拉選單
+            searchInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && lastMatches.length > 0) {
+                    e.preventDefault();
+                    pickStation(lastMatches[0]);
+                } else if (e.key === 'Escape') {
+                    searchResults.style.display = 'none';
                 }
-                // --- 👆 新增完畢 ---
             });
 
-            // 點擊畫面其他地方時，自動隱藏搜尋結果選單
-            document.addEventListener('click', function(e) {
+            clearBtn.addEventListener('click', function () {
+                searchInput.value = '';
+                searchResults.style.display = 'none';
+                clearBtn.style.display = 'none';
+                lastMatches = [];
+                searchInput.focus();
+
+                if (focusedStationMarker) {
+                    focusedStationMarker.closePopup();
+                    focusedStationMarker = null;
+                    refreshAllMarkerStyles();   // ⚡ 只需恢復顏色，不必重算圈選
+
+                    if (drawnItems.getLayers().length > 0) {
+                        map.flyToBounds(drawnItems.getBounds(), { padding: [50, 50], duration: 0.8 });
+                    } else {
+                        map.flyTo(DEFAULT_VIEW.center, DEFAULT_VIEW.zoom, { duration: 0.8 });
+                    }
+                }
+            });
+
+            document.addEventListener('click', function (e) {
                 if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
                     searchResults.style.display = 'none';
                 }
             });
         }
 
-        // === 🌟 新增：從左側面板輸入框讀取經緯度畫圓 ===
+        // === 11. 手動輸入經緯度畫圓 ===
         function drawCircleFromInput() {
             const lat = parseFloat(document.getElementById('input-lat').value);
             const lon = parseFloat(document.getElementById('input-lon').value);
@@ -845,12 +947,11 @@
             executeDrawCircle(lat, lon, radiusKm);
         }
 
-        // === 🌟 新增：點擊測站圖卡時，自動帶入經緯度並畫圓 ===
+        // 點擊測站圖卡或地圖時，自動帶入經緯度並畫圓
         function fillLatLonAndDraw(lat, lon) {
             document.getElementById('input-lat').value = lat;
             document.getElementById('input-lon').value = lon;
-            
-            // 讀取目前的半徑設定，如果沒有就預設為 10 公里
+
             let radiusKm = parseFloat(document.getElementById('input-radius').value);
             if (isNaN(radiusKm) || radiusKm <= 0) {
                 radiusKm = 10;
@@ -859,84 +960,67 @@
             executeDrawCircle(lat, lon, radiusKm);
         }
 
-        // === 🌟 在地圖上產生圓形並觸發計算 ===
+        // 在地圖上產生圓形並觸發計算
         function executeDrawCircle(lat, lon, radiusKm) {
-            const radiusMeters = radiusKm * 1000;
-            const drawStyle = { color: '#0284c7', weight: 2, opacity: 1, fill: true, fillColor: '#0284c7', fillOpacity: 0.15 };
-            
             if (currentSearchCircle) {
                 drawnItems.removeLayer(currentSearchCircle);
             }
 
-            currentSearchCircle = L.circle([lat, lon], Object.assign({radius: radiusMeters}, drawStyle));
-            drawnItems.addLayer(currentSearchCircle);
-            
-            // 🌟 魔法解鎖：開啟 Leaflet.Draw 的隱藏編輯模式，讓圓心跟邊緣出現控制點！
-            if (currentSearchCircle.editing) {
-                currentSearchCircle.editing.enable();
+            const circle = L.circle([lat, lon], Object.assign({ radius: radiusKm * 1000 }, DRAW_STYLE));
+            currentSearchCircle = circle;
+            drawnItems.addLayer(circle);
+
+            // 開啟編輯模式，讓圓心跟邊緣出現控制點
+            if (circle.editing && mapClickMode === 'circle') {
+                circle.editing.enable();
             }
 
-            // 🌟 監聽拖曳互動：當你拉扯邊緣(改半徑)或拉扯圓心(改位置)放開滑鼠時觸發
-            currentSearchCircle.on('edit', function() {
-                // 抓取拉扯後的新半徑與新圓心
-                const newRadiusKm = (currentSearchCircle.getRadius() / 1000).toFixed(2);
-                const center = currentSearchCircle.getLatLng();
-                
-                // 即時同步把新的數字寫回左側的輸入框
-                document.getElementById('input-radius').value = newRadiusKm;
+            // 拉扯邊緣(改半徑)或圓心(改位置)放開滑鼠時觸發
+            circle.on('edit', function () {
+                const center = circle.getLatLng();
+                document.getElementById('input-radius').value = (circle.getRadius() / 1000).toFixed(2);
                 document.getElementById('input-lat').value = center.lat.toFixed(4);
                 document.getElementById('input-lon').value = center.lng.toFixed(4);
-                
-                // 重新掃描這個新圈圈裡面包了哪些測站
-                analyzeIntersection(); 
+                analyzeIntersection();
             });
-            
-            map.flyToBounds(currentSearchCircle.getBounds(), { padding: [50, 50], duration: 0.8 });
+
+            map.flyToBounds(circle.getBounds(), { padding: [50, 50], duration: 0.8 });
             analyzeIntersection();
+            if (is3DActive && map3d) {
+                if (map3dPopup) { map3dPopup.remove(); map3dPopup = null; }
+                const b = circle.getBounds();
+                map3d.fitBounds([[b.getWest(), b.getSouth()], [b.getEast(), b.getNorth()]], { padding: 60, pitch: 60, duration: 1000 });
+            }
         }
 
-        // === 🌟 更新：處理地圖點擊模式切換 ===
+        // === 12. 地圖點擊模式切換 ===
         function updateClickMode() {
             const modeInput = document.querySelector('input[name="clickMode"]:checked');
             if (!modeInput) return;
             mapClickMode = modeInput.value;
-            
+
             const mapDiv = document.getElementById('map');
-            const mapContainer = document.getElementById('map-container'); // 🐛 這裡補上剛剛遺失的關鍵變數！
-            
-            // 停用之前的繪圖工具
+            const mapContainer = document.getElementById('map-container');
+
             if (currentDrawHandler) {
                 currentDrawHandler.disable();
                 currentDrawHandler = null;
             }
 
             if (currentSearchCircle && currentSearchCircle.editing) {
-                if (mapClickMode === 'circle') {
-                    currentSearchCircle.editing.enable();
-                } else {
-                    currentSearchCircle.editing.disable();
-                }
+                if (mapClickMode === 'circle') currentSearchCircle.editing.enable();
+                else currentSearchCircle.editing.disable();
             }
 
-            // 👇 全新、最乾淨的模式切換法：只用 Class 統一控管 CSS 顯示狀態
             mapContainer.classList.remove('mode-none', 'mode-county', 'mode-draw');
-            
-            if (mapClickMode === 'none') {
-                mapContainer.classList.add('mode-none');
-            } else if (mapClickMode === 'county') {
-                mapContainer.classList.add('mode-county');
-            } else {
-                mapContainer.classList.add('mode-draw'); // rectangle, polygon, circle 都屬於畫圖模式
-            }
+            if (mapClickMode === 'none') mapContainer.classList.add('mode-none');
+            else if (mapClickMode === 'county') mapContainer.classList.add('mode-county');
+            else mapContainer.classList.add('mode-draw');
 
-            // 解決拖曳到地圖的問題：在畫方形、多邊形、圓形時，強制關閉地圖原本的平移拖曳功能
-            if (mapClickMode === 'rectangle' || mapClickMode === 'polygon' || mapClickMode === 'circle') {
-                map.dragging.disable();
-            } else {
-                map.dragging.enable();
-            }
+            // 畫圓時仍可拖曳地圖（拖曳不會誤觸點擊）；畫多邊形、畫方形時畫圖工具會攔截滑鼠，地圖無法拖曳（與原版相同）
+            if (mapClickMode === 'polygon') map.dragging.disable();
+            else map.dragging.enable();
 
-            // 設定滑鼠游標並啟動畫圖工具
             if (mapClickMode === 'circle') {
                 mapDiv.style.cursor = 'crosshair';
             } else if (mapClickMode === 'rectangle') {
@@ -950,10 +1034,221 @@
             } else if (mapClickMode === 'none') {
                 mapDiv.style.cursor = 'grab';
             } else {
-                mapDiv.style.cursor = ''; 
+                mapDiv.style.cursor = '';
             }
         }
-        
+
+        // ================================================================
+        // === 13. 🏔️ 3D 地形檢視（MapLibre GL + AWS Terrain Tiles）===
+        // ================================================================
+        // MapLibre 只在第一次按「3D 地形」時才載入，不影響 2D 開啟速度。
+        // 若日後要改用自己放的檔案，把下面兩行換成對應路徑即可。
+        const MAPLIBRE_JS  = 'https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js';
+        const MAPLIBRE_CSS = 'https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css';
+        // AWS 免費全球地形瓦片（Terrarium 編碼，免金鑰）；日後換成自製 DEM 只要改這一行與 encoding
+        const DEM_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
+
+        let map3d = null;
+        let is3DActive = false;
+        let map3dPopup = null;
+        let maplibreLoading = null;
+
+        function loadMapLibre() {
+            if (window.maplibregl) return Promise.resolve();
+            if (maplibreLoading) return maplibreLoading;
+            maplibreLoading = new Promise((resolve, reject) => {
+                const css = document.createElement('link');
+                css.rel = 'stylesheet';
+                css.href = MAPLIBRE_CSS;
+                document.head.appendChild(css);
+                const js = document.createElement('script');
+                js.src = MAPLIBRE_JS;
+                js.onload = resolve;
+                js.onerror = () => { maplibreLoading = null; reject(new Error('MapLibre 載入失敗')); };
+                document.head.appendChild(js);
+            });
+            return maplibreLoading;
+        }
+
+        // 圓形 → 多邊形（MapLibre 沒有「地理半徑圓」，用 64 個點近似）
+        function circleToPolygon(center, radiusM, steps) {
+            steps = steps || 64;
+            const R = 6371008.8, d = radiusM / R;
+            const lat1 = center.lat * Math.PI / 180, lon1 = center.lng * Math.PI / 180;
+            const coords = [];
+            for (let i = 0; i <= steps; i++) {
+                const brng = 2 * Math.PI * i / steps;
+                const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng));
+                const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+                coords.push([lon2 * 180 / Math.PI, lat2 * 180 / Math.PI]);
+            }
+            return { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [coords] } };
+        }
+
+        // 2D 的圈選範圍 → GeoJSON（縣市的洞也會一起帶過去）
+        function buildDrawnGeoJSON() {
+            const features = [];
+            drawnItems.eachLayer(l => {
+                if (l instanceof L.Circle) features.push(circleToPolygon(l.getLatLng(), l.getRadius()));
+                else if (l.toGeoJSON) features.push(l.toGeoJSON());
+            });
+            return { type: 'FeatureCollection', features: features };
+        }
+
+        // 測站狀態：0 範圍外(淡化)、1 一般、2 已圈選、3 目前焦點 —— 與 2D 顏色一致
+        function buildStationGeoJSON() {
+            const hasDrawings = drawnItems.getLayers().length > 0;
+            return {
+                type: 'FeatureCollection',
+                features: stationMarkers.map(m => {
+                    const s = m.stationData;
+                    const sid = String(s.sid);
+                    const state = (m === focusedStationMarker) ? 3 : selectedSidSet.has(sid) ? 2 : (hasDrawings ? 0 : 1);
+                    return {
+                        type: 'Feature',
+                        geometry: { type: 'Point', coordinates: [Number(s.lon), Number(s.lat)] },
+                        properties: { sid: sid, label: `${s.n} (${s._code})`, state: state }
+                    };
+                })
+            };
+        }
+
+        function init3DMap() {
+            const c = map.getCenter();
+            const demSource = { type: 'raster-dem', tiles: [DEM_TILES], encoding: 'terrarium', tileSize: 256, maxzoom: 15, attribution: 'Terrain Tiles &copy; Mapzen / AWS Open Data' };
+            const r = ['match', ['get', 'state'], 3, 1.0, 2, 0.75, 0.5];   // 半徑倍率：焦點 > 已圈選 > 其他
+
+            map3d = new maplibregl.Map({
+                container: 'map3d',
+                center: [c.lng, c.lat],
+                zoom: Math.max(map.getZoom() - 1, 5),   // Leaflet zoom = MapLibre zoom + 1
+                pitch: 60,
+                maxPitch: 80,
+                canvasContextAttributes: { antialias: true },
+                style: {
+                    version: 8,
+                    sources: {
+                        carto: {
+                            type: 'raster',
+                            tiles: ['https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_2osw_1_c7a0c0e05b43943486e746b0'],
+                            tileSize: 256, maxzoom: 19,
+                            attribution: '&copy; OpenStreetMap &copy; CARTO'
+                        },
+                        terrainSource: demSource,
+                        hillshadeSource: Object.assign({}, demSource),   // 地形與陰影分開兩個 source（MapLibre 建議）
+                        counties: { type: 'geojson', data: countyLayer ? countyLayer.toGeoJSON() : { type: 'FeatureCollection', features: [] } },
+                        drawn: { type: 'geojson', data: buildDrawnGeoJSON() },
+                        stations: { type: 'geojson', data: buildStationGeoJSON() }
+                    },
+                    layers: [
+                        { id: 'carto', type: 'raster', source: 'carto' },
+                        { id: 'hillshade', type: 'hillshade', source: 'hillshadeSource', paint: { 'hillshade-shadow-color': '#473B24', 'hillshade-exaggeration': 0.35 } },
+                        { id: 'county-line', type: 'line', source: 'counties', paint: { 'line-color': '#64748b', 'line-width': 1, 'line-opacity': 0.7 } },
+                        { id: 'drawn-fill', type: 'fill', source: 'drawn', paint: { 'fill-color': '#0284c7', 'fill-opacity': 0.12 } },
+                        { id: 'drawn-line', type: 'line', source: 'drawn', paint: { 'line-color': '#0284c7', 'line-width': 2 } },
+                        {
+                            id: 'stations', type: 'circle', source: 'stations',
+                            layout: { 'circle-sort-key': ['get', 'state'] },
+                            paint: {
+                                'circle-radius': ['interpolate', ['linear'], ['zoom'],
+                                    6, ['*', r, 7],
+                                    10, ['*', r, 13],
+                                    13, ['*', r, 18]],
+                                'circle-color': ['match', ['get', 'state'], 3, '#f59e0b', 2, '#0ea5e9', 1, '#64748b', '#cbd5e1'],
+                                'circle-opacity': ['match', ['get', 'state'], 0, 0.35, 1, 0.75, 1],
+                                'circle-stroke-color': ['match', ['get', 'state'], 2, '#ffffff', 3, '#ffffff', '#1e293b'],
+                                'circle-stroke-width': ['match', ['get', 'state'], 0, 0, 1, 0.8, 1.5]
+                            }
+                        }
+                    ],
+                    terrain: { source: 'terrainSource', exaggeration: parseFloat(document.getElementById('map3d-exaggeration').value) || 1.5 },
+                    sky: {
+                        'sky-color': '#BFD9F2', 'horizon-color': '#F0F4F8', 'fog-color': '#FFFFFF',
+                        'sky-horizon-blend': 0.5, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.8
+                    }
+                }
+            });
+
+            map3d.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+            map3d.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+
+            map3d.on('click', 'stations', e => {
+                if (e.features && e.features.length) open3DPopup(e.features[0].properties.sid);
+            });
+            map3d.on('mouseenter', 'stations', () => { map3d.getCanvas().style.cursor = 'pointer'; });
+            map3d.on('mouseleave', 'stations', () => { map3d.getCanvas().style.cursor = ''; });
+        }
+
+        function open3DPopup(sid) {
+            const marker = markerBySid.get(String(sid));
+            if (!marker || !map3d) return;
+            const s = marker.stationData;
+            if (map3dPopup) map3dPopup.remove();
+            map3dPopup = new maplibregl.Popup({ offset: 10, maxWidth: '300px' })
+                .setLngLat([Number(s.lon), Number(s.lat)])
+                .setHTML(generateStationPopupHtml(s))
+                .addTo(map3d);
+        }
+
+        // 2D 圈選或焦點改變時，同步到 3D
+        function update3D() {
+            if (!map3d || !is3DActive) return;
+            if (!map3d.isStyleLoaded()) { map3d.once('idle', update3D); return; }
+            map3d.getSource('stations').setData(buildStationGeoJSON());
+            map3d.getSource('drawn').setData(buildDrawnGeoJSON());
+        }
+
+        async function open3D() {
+            document.getElementById('map3d-overlay').style.display = 'block';
+            is3DActive = true;
+            try {
+                await loadMapLibre();
+            } catch (e) {
+                alert('無法載入 3D 地圖元件（MapLibre），請確認網路可連到 unpkg.com。');
+                close3D();
+                return;
+            }
+            if (!map3d) {
+                try {
+                    init3DMap();
+                } catch (e) {
+                    console.error(e);
+                    alert('這個瀏覽器無法開啟 3D 檢視（需要 WebGL）。');
+                    map3d = null;
+                    close3D();
+                    return;
+                }
+            } else {
+                const c = map.getCenter();
+                map3d.resize();
+                map3d.jumpTo({ center: [c.lng, c.lat], zoom: Math.max(map.getZoom() - 1, 5) });
+                update3D();
+            }
+        }
+
+        function close3D() {
+            document.getElementById('map3d-overlay').style.display = 'none';
+            is3DActive = false;
+            if (map3dPopup) { map3dPopup.remove(); map3dPopup = null; }
+            if (map3d) {
+                const c = map3d.getCenter();
+                map.setView([c.lat, c.lng], Math.round(map3d.getZoom() + 1), { animate: false });   // 2D 接續 3D 的位置
+            }
+            map.invalidateSize();
+        }
+
+        document.getElementById('map3d-exaggeration').addEventListener('change', function () {
+            if (!map3d) return;
+            const v = parseFloat(this.value);
+            map3d.setTerrain(v > 0 ? { source: 'terrainSource', exaggeration: v } : null);   // 0 = 平面
+        });
+
+        // === 啟動程式 ===
+        initMap();
+        initTableInteractions();
+        loadData();
+        updateClickMode();
+        initSearchBox();
     </script>
 </body>
 </html>
