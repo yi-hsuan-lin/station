@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測站空間圈選系統 - 使用者操作說明文件</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { font-family: "Segoe UI", "Microsoft JhengHei", Helvetica, Arial, sans-serif; line-height: 1.6; color: #2d3748; background-color: #f7fafc; margin: 0; padding: 0; }
+        .container { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+        .card { background: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); padding: 40px; margin-bottom: 30px; }
+        h1 { color: #1a365d; font-size: 26px; border-bottom: 3px solid #3182ce; padding-bottom: 12px; margin-top: 0; margin-bottom: 24px; }
+        h2 { color: #2c5282; font-size: 18px; margin-top: 36px; margin-bottom: 16px; padding-left: 10px; border-left: 4px solid #4299e1; scroll-margin-top: 16px; }
+        p { margin-top: 0; margin-bottom: 16px; color: #4a5568; }
+        .logic-grid { display: flex; flex-direction: column; gap: 16px; margin: 20px 0; }
+        .logic-item { background: #f8fafc; border: 1px solid #edf2f7; border-radius: 8px; padding: 20px; }
+        .logic-title { font-size: 15px; font-weight: 700; color: #2b6cb0; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+        .logic-details { font-size: 14px; color: #4a5568; }
+        .logic-details p:last-child { margin-bottom: 0; }
+        ul, ol { margin: 0; padding-left: 22px; }
+        li { margin-bottom: 6px; }
+        .highlight-box { background-color: #fffaf0; border-left: 4px solid #dd6b20; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; font-size: 14px; color: #4a5568; }
+        .tip-box { background-color: #ebf8ff; border-left: 4px solid #3182ce; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 12px 0; font-size: 14px; color: #4a5568; }
+        .footer { text-align: center; margin-top: 40px; color: #a0aec0; font-size: 12px; }
+        code, kbd { background: #edf2f7; border-radius: 4px; padding: 1px 6px; font-size: 13px; font-family: Consolas, "Courier New", monospace; }
+        kbd { border: 1px solid #cbd5e0; border-bottom-width: 2px; }
+
+        /* 目錄 */
+        .toc { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; margin-bottom: 8px; }
+        .toc-title { font-weight: 700; color: #1a365d; margin-bottom: 8px; }
+        .toc ol { columns: 2; column-gap: 32px; }
+        .toc a { color: #2b6cb0; text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+
+        /* 表格 */
+        table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 12px 0 16px; }
+        th, td { border: 1px solid #e2e8f0; padding: 10px 12px; text-align: left; vertical-align: top; }
+        th { background: #edf2f7; color: #2d3748; white-space: nowrap; }
+        td:first-child { white-space: nowrap; font-weight: 600; color: #2d3748; }
+
+        /* 測站顏色圖例 */
+        .dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: -2px; margin-right: 6px; }
+        .dot-normal   { background: #64748b; border: 1px solid #1e293b; opacity: 0.8; }
+        .dot-selected { background: #0ea5e9; border: 2px solid #ffffff; box-shadow: 0 0 0 1px #0ea5e9; }
+        .dot-dimmed   { background: #cbd5e1; opacity: 0.5; }
+        .dot-focused  { background: #f59e0b; border: 2px solid #ffffff; box-shadow: 0 0 0 1px #f59e0b; width: 16px; height: 16px; }
+
+        .back-top { display: inline-block; margin-top: 8px; font-size: 13px; color: #718096; text-decoration: none; }
+        .back-top:hover { color: #2b6cb0; }
+
+        @media (max-width: 640px) {
+            .card { padding: 24px 18px; }
+            .toc ol { columns: 1; }
+            table { font-size: 13px; }
+            td:first-child { white-space: normal; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card" id="top">
+        <h1>🗺️ 測站空間圈選系統 - 使用手冊</h1>
+        <p>本系統讓您在地圖上用「縣市」、「圓形」、「方形」、「多邊形」或「座標」圈出範圍，立即列出範圍內的所有測站，並可匯出 CSV、切換地形底圖，或以 3D 立體地形檢視圈選結果。</p>
+
+        <div class="toc">
+            <div class="toc-title">📑 目錄</div>
+            <ol>
+                <li><a href="#layout">畫面配置</a></li>
+                <li><a href="#quickstart">三步驟快速上手</a></li>
+                <li><a href="#modes">地圖互動模式</a></li>
+                <li><a href="#select">各種圈選方式</a></li>
+                <li><a href="#edit">修改與清除圈選</a></li>
+                <li><a href="#colors">測站顏色代表什麼</a></li>
+                <li><a href="#table">結果表格</a></li>
+                <li><a href="#search">搜尋測站</a></li>
+                <li><a href="#csv">匯出 CSV</a></li>
+                <li><a href="#basemap">底圖與地形陰影</a></li>
+                <li><a href="#view3d">3D 地形檢視</a></li>
+                <li><a href="#faq">常見問題</a></li>
+            </ol>
+        </div>
+
+        <!-- 1 -->
+        <h2 id="layout">🖥️ 1. 畫面配置</h2>
+        <table>
+            <tr><th>位置</th><th>功能</th></tr>
+            <tr><td>頁首右側</td><td>🔍 測站搜尋框：輸入站碼或站名快速定位。</td></tr>
+            <tr><td>左側地圖</td><td>顯示全部測站與縣市界線。左上角是縮放與「編輯／刪除圈選」工具，右上角是「底圖切換」與「🏔️ 3D 地形」按鈕，左下角會即時顯示滑鼠所在的經緯度。</td></tr>
+            <tr><td>右側面板</td><td>由上而下為：圈選結果站數與「清除圈選／匯出 CSV」按鈕、地圖互動模式、手動輸入座標、結果表格。</td></tr>
+        </table>
+
+        <!-- 2 -->
+        <h2 id="quickstart">🚀 2. 三步驟快速上手</h2>
+        <ol>
+            <li><strong>選模式：</strong>在右側「🖱️ 地圖互動模式」選一種圈選方式（例如「🗺️ 選取縣市」）。</li>
+            <li><strong>圈範圍：</strong>到地圖上點選縣市或畫出形狀，範圍內的測站會變成藍色，右側表格立即列出結果。</li>
+            <li><strong>看結果：</strong>點表格任一列可在地圖上定位該站；需要資料時按「📥 匯出 CSV」。</li>
+        </ol>
+        <div class="tip-box">💡 可以<strong>混合使用多種方式</strong>：例如先選「臺中市」，再畫一個圓，結果會是兩個範圍的<strong>聯集</strong>（任一範圍內的測站都會列出）。</div>
+
+        <!-- 3 -->
+        <h2 id="modes">🖱️ 3. 地圖互動模式</h2>
+        <p>不同模式下，在地圖上點擊會有不同效果。模式之間可隨時切換，已圈好的範圍不會消失。</p>
+        <table>
+            <tr><th>模式</th><th>在地圖上的操作</th><th>可否點測站看資訊</th></tr>
+            <tr><td>🔒 測站鎖定</td><td>單純瀏覽。滑鼠移到測站會顯示站名，點擊可開啟資訊卡。</td><td>✅ 可以</td></tr>
+            <tr><td>🗺️ 選取縣市</td><td>點縣市即加入圈選；<strong>同一縣市再點一次取消</strong>。</td><td>—</td></tr>
+            <tr><td>🎯 點擊畫圓</td><td>在地圖上點一下，以該點為圓心、依「畫圓半徑設定」畫圓。</td><td>—</td></tr>
+            <tr><td>⬛ 畫方形</td><td>按住滑鼠左鍵拖曳出方形範圍。</td><td>—</td></tr>
+            <tr><td>🛑 畫多邊形</td><td>逐點點擊畫出多邊形頂點。</td><td>—</td></tr>
+        </table>
+        <div class="highlight-box">⚠️ 只有在「🔒 測站鎖定」模式下才能點擊地圖上的測站；其他模式下測站不會攔截點擊，避免畫圖時誤觸。若在其他模式想看某站資訊，可點右側表格或使用搜尋。</div>
+
+        <!-- 4 -->
+        <h2 id="select">✏️ 4. 各種圈選方式</h2>
+        <div class="logic-grid">
+            <div class="logic-item">
+                <div class="logic-title">🗺️ 選取縣市</div>
+                <div class="logic-details">
+                    <ul>
+                        <li>點擊縣市即可選取，可連續點選多個縣市。</li>
+                        <li>同一縣市<strong>再點一次即取消</strong>選取。</li>
+                        <li>系統已正確處理「縣中有市」的情況：例如選取新北市不會包含臺北市的測站，選取嘉義縣也不會包含嘉義市。</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">🎯 點擊畫圓</div>
+                <div class="logic-details">
+                    <ul>
+                        <li>先在右側「畫圓半徑設定」輸入半徑（公里，預設 10），再到地圖上點擊圓心位置。這個模式下仍可拖曳地圖，拖曳不會誤畫圓。</li>
+                        <li>畫好的圓會出現<strong>控制點</strong>：拖曳圓心可移動位置，拖曳邊緣可改變半徑，放開滑鼠後結果自動更新，右側的緯度、經度、半徑欄位也會同步。</li>
+                        <li>畫圓範圍<strong>同時只保留一個</strong>：再點一次地圖，會以新圓心取代舊的圓。</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">⬛ 畫方形</div>
+                <div class="logic-details">
+                    <p>按住左鍵在地圖上拖曳，放開即完成。可連續畫多個方形。畫方形時地圖暫時無法拖曳平移，如需移動地圖，請先切到其他模式或用滑鼠滾輪縮放。</p>
+                </div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">🛑 畫多邊形</div>
+                <div class="logic-details">
+                    <ul>
+                        <li>在地圖上逐一點擊加入頂點。</li>
+                        <li>至少點 3 個頂點後，<strong>點回第一個頂點</strong>，或在<strong>最後一個頂點上雙擊</strong>，即可完成多邊形。</li>
+                        <li>完成後可接著畫下一個。畫多邊形時地圖無法拖曳平移，請用滑鼠滾輪縮放，或暫時切到其他模式移動地圖。</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">📍 手動輸入座標畫圓</div>
+                <div class="logic-details">
+                    <p>在右側「📍 手動輸入座標圈選」填入<strong>緯度</strong>（例如 <code>23.5</code>）與<strong>經度</strong>（例如 <code>121.0</code>），按「執行」即以該點為圓心、依目前半徑畫圓。適合已知確切座標的情況。</p>
+                </div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">🎯 以某測站為中心畫圓</div>
+                <div class="logic-details">
+                    <p>開啟任一測站的資訊卡，點最下方的「🎯 以此測站為中心畫圓」，系統會自動帶入該站座標並依目前半徑畫圓。適合查詢「某站周邊 N 公里內有哪些測站」。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5 -->
+        <h2 id="edit">🧹 5. 修改與清除圈選</h2>
+        <table>
+            <tr><th>想做的事</th><th>操作方式</th></tr>
+            <tr><td>清除全部範圍</td><td>按右側上方的「🗑️ 清除圈選」。</td></tr>
+            <tr><td>取消某個縣市</td><td>在「選取縣市」模式下，再點一次該縣市。</td></tr>
+            <tr><td>修改方形／多邊形形狀</td><td>按地圖左上角的 ✏️（編輯）圖示，拖曳頂點後按「Save」儲存，或按「Cancel」放棄。</td></tr>
+            <tr><td>刪除單一範圍</td><td>按地圖左上角的 🗑️（刪除）圖示，點選要刪除的範圍，再按「Save」。</td></tr>
+        </table>
+        <div class="highlight-box">⚠️ 縣市範圍的邊界頂點數量很多，為避免瀏覽器卡住，<strong>縣市範圍不開放用 ✏️ 編輯拖拉頂點</strong>，但可以用 🗑️ 刪除，或在「選取縣市」模式下再點一次取消。</div>
+
+        <!-- 6 -->
+        <h2 id="colors">🎨 6. 測站顏色代表什麼</h2>
+        <table>
+            <tr><th>顏色</th><th>意義</th></tr>
+            <tr><td><span class="dot dot-normal"></span>灰色</td><td>尚未圈選任何範圍時的一般測站。</td></tr>
+            <tr><td><span class="dot dot-selected"></span>藍色（較大）</td><td>位於圈選範圍內的測站，會列在右側表格中。</td></tr>
+            <tr><td><span class="dot dot-dimmed"></span>淡灰色</td><td>已有圈選範圍時，位於範圍外的測站。</td></tr>
+            <tr><td><span class="dot dot-focused"></span>橘色（最大）</td><td>從表格或搜尋點選、目前正在查看的測站。</td></tr>
+        </table>
+        <p>測站點的大小會隨地圖縮放自動調整，放大地圖時比較容易點選。</p>
+
+        <!-- 7 -->
+        <h2 id="table">📋 7. 結果表格</h2>
+        <div class="logic-grid">
+            <div class="logic-item">
+                <div class="logic-title">✨ 欄位說明</div>
+                <div class="logic-details">
+                    <p>站碼、站名、位置（縣市／鄉鎮）、海拔（公尺）、所屬單位、傳輸方式、狀態。<strong>狀態欄出現 ❌</strong> 表示該站<strong>未上架</strong>，滑鼠移到 ❌ 上可看到未上架原因。</p>
+                </div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">✨ 點擊標題排序</div>
+                <div class="logic-details">
+                    <p>點擊任一欄標題即可依該欄排序，再點一次切換升冪 🔼／降冪 🔽。預設排序為依縣市、鄉鎮、站名。</p>
+                </div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">✨ 點擊列定位測站</div>
+                <div class="logic-details">
+                    <p>點擊表格任一列，地圖會飛到該站並放大，測站變成<strong>橘色</strong>並自動開啟資訊卡（站名、單位、類型、傳輸方式、海拔、上架狀態）。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 8 -->
+        <h2 id="search">🔍 8. 搜尋測站</h2>
+        <ul>
+            <li>在頁首搜尋框輸入<strong>站碼或站名的一部分</strong>（例如 <code>466</code>、<code>花蓮</code>），下拉選單會即時列出符合的測站（最多 30 筆）。</li>
+            <li>點選結果，或直接按 <kbd>Enter</kbd> 選第一筆，地圖就會定位到該站。</li>
+            <li>按 <kbd>Esc</kbd> 可關閉下拉選單。</li>
+            <li>按搜尋框右側的 <strong>×</strong> 清除搜尋：資訊卡會關閉，地圖退回圈選範圍（若沒有圈選則退回全臺視角）。</li>
+        </ul>
+        <div class="tip-box">💡 搜尋範圍是<strong>全部測站</strong>，不限於目前圈選結果；搜尋不會改變圈選範圍。</div>
+
+        <!-- 9 -->
+        <h2 id="csv">📥 9. 匯出 CSV</h2>
+        <p>按右側上方「📥 匯出 CSV」，會下載目前圈選結果，檔名為 <code>空間圈選測站結果_日期.csv</code>，可直接用 Excel 開啟（中文不會亂碼）。資料順序與表格目前的排序相同。</p>
+        <p>包含欄位：原始站碼 (sid)、正式代碼 (cwbid)、站名、縣市、鄉鎮、經度、緯度、海拔高度、所屬單位、測站類型、傳輸方式、狀態、未上架原因。</p>
+
+        <!-- 10 -->
+        <h2 id="basemap">🏔️ 10. 底圖與地形陰影</h2>
+        <p>將滑鼠移到地圖右上角的<strong>圖層圖示</strong>，即可切換底圖：</p>
+        <table>
+            <tr><th>底圖</th><th>適用情境</th></tr>
+            <tr><td>🗺️ 一般街道 (CARTO)</td><td>預設底圖，畫面乾淨，適合一般查詢。</td></tr>
+            <tr><td>🇹🇼 臺灣通用電子地圖</td><td>國土測繪中心圖資，臺灣地名、道路最詳細。</td></tr>
+            <tr><td>⛰️ 地形圖 (Esri)</td><td>帶有地形起伏的彩色地圖。</td></tr>
+            <tr><td>🏔️ 等高線地形 (OpenTopoMap)</td><td>顯示等高線，適合判讀山區測站位置。</td></tr>
+        </table>
+        <p>勾選 <strong>🌄 地形陰影</strong> 可在任一底圖上疊加山脈陰影。您選擇的底圖與地形陰影設定會被記住，下次開啟時自動套用。</p>
+
+        <!-- 11 -->
+        <h2 id="view3d">🌐 11. 3D 地形檢視</h2>
+        <div class="logic-grid">
+            <div class="logic-item">
+                <div class="logic-title">開啟與關閉</div>
+                <div class="logic-details">
+                    <ul>
+                        <li>按地圖右上角「🏔️ 3D 地形」，地圖會傾斜顯示立體地形。目前的<strong>圈選範圍、測站顏色</strong>都會一起帶過去。</li>
+                        <li>按左上角「🗺️ 回到 2D」返回，2D 地圖會停在您在 3D 最後看的位置。</li>
+                        <li>第一次開啟需要載入 3D 元件與地形資料，請稍候幾秒。</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">視角操作</div>
+                <div class="logic-details">
+                    <table>
+                        <tr><th>動作</th><th>操作方式</th></tr>
+                        <tr><td>平移</td><td>按住左鍵拖曳</td></tr>
+                        <tr><td>縮放</td><td>滑鼠滾輪，或右上角 ＋／－</td></tr>
+                        <tr><td>旋轉、傾斜</td><td>按住<strong>右鍵</strong>拖曳，或按住 <kbd>Ctrl</kbd> ＋ 左鍵拖曳</td></tr>
+                        <tr><td>恢復正北</td><td>點右上角的指北針</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">3D 中可以做的事</div>
+                <div class="logic-details">
+                    <ul>
+                        <li>點擊測站開啟資訊卡；資訊卡上的「🎯 以此測站為中心畫圓」同樣可用，結果會即時更新。</li>
+                        <li>點右側表格或使用搜尋，3D 地圖會飛到該測站。</li>
+                        <li>用左上角「地形誇張」選單調整山的高度：平面、1 倍（真實比例）、1.5 倍（預設）、2 倍、3 倍。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="highlight-box">⚠️ 3D 檢視中<strong>不能畫圖或點選縣市</strong>，要新增或修改圈選範圍請先「回到 2D」。另外 3D 的地形資料來自網際網路上的公開圖資，在臺灣屬於概略精度，適合觀察大範圍地形起伏。</div>
+
+        <!-- 12 -->
+        <h2 id="faq">❓ 12. 常見問題</h2>
+        <div class="logic-grid">
+            <div class="logic-item">
+                <div class="logic-title">Q：點縣市沒有反應？</div>
+                <div class="logic-details"><p>請確認右側「地圖互動模式」已切到「🗺️ 選取縣市」。其他模式下點縣市不會選取。</p></div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">Q：點地圖上的測站沒有反應？</div>
+                <div class="logic-details"><p>只有在「🔒 測站鎖定」模式下才能點測站。其他模式請改用右側表格或搜尋框。</p></div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">Q：畫方形或多邊形時地圖不能拖曳？</div>
+                <div class="logic-details"><p>這兩個模式下，滑鼠左鍵是用來畫圖的，所以地圖無法平移。可用滑鼠滾輪縮放，或暫時切到「🔒 測站鎖定」移動地圖後再切回來（已畫好的範圍不會消失）。「🎯 點擊畫圓」模式則可以正常拖曳地圖。</p></div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">Q：圈出來的站數和預期不同？</div>
+                <div class="logic-details"><p>系統是以測站的<strong>經緯度座標</strong>判斷是否落在範圍內，而不是依測站登記的縣市欄位。少數位於縣市交界的測站，可能因座標落在鄰近縣市而被歸入（或排除）。</p></div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">Q：按了 3D 出現錯誤訊息，或地形是平的？</div>
+                <div class="logic-details"><p>3D 需要連到網際網路上的地圖元件與地形資料。若所在網路有限制，可能無法載入；若瀏覽器不支援 WebGL 也無法開啟 3D。請改用 2D 的「⛰️ 地形圖」或「🌄 地形陰影」。</p></div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">Q：某個底圖顯示空白？</div>
+                <div class="logic-details"><p>該底圖服務可能暫時無法連線，請改選其他底圖。</p></div>
+            </div>
+            <div class="logic-item">
+                <div class="logic-title">Q：網頁更新後功能沒有變？</div>
+                <div class="logic-details"><p>請按 <kbd>Ctrl</kbd> ＋ <kbd>F5</kbd> 強制重新整理，清除瀏覽器快取。</p></div>
+            </div>
+        </div>
+
+        <a href="#top" class="back-top">⬆ 回到頂端</a>
+    </div>
+    <div class="footer">© 2026 測站通訊監控系統 | 大氣觀測組 資料品管科編製</div>
+</div>
+</body>
+</html>
