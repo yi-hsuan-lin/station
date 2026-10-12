@@ -166,6 +166,46 @@
         .legend-sub input[type="checkbox"] {
             width: 14px; height: 14px;
         }
+
+        /* 🆕 底圖與長距離連線設定 */
+        .ctl-section { border-top: 1.5px solid #edf2f7; margin-top: 10px; padding-top: 10px; }
+        .ctl-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 600; color: #4a5568; }
+        .ctl-row select, .ctl-row input[type="number"] { flex: 1; min-width: 0; padding: 4px 6px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; }
+        .ctl-row input[type="number"] { flex: 0 0 56px; }
+        .hillshade-layer { mix-blend-mode: multiply; }
+
+        /* 🆕 資訊卡動作按鈕 */
+        .popup-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0; }
+        .popup-actions button { flex: 1 1 auto; padding: 6px 8px; font-size: 12px; font-weight: 700; color: #2b6cb0; background: #ebf8ff; border: 1px solid #bee3f8; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+        .popup-actions button:hover { background: #bee3f8; }
+
+        /* 🆕 地形剖面面板 */
+        .profile-panel {
+            position: absolute; left: 20px; right: 70px; bottom: 20px; z-index: 3500;
+            background: rgba(255,255,255,0.97); border: 1px solid #e2e8f0; border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.18); padding: 12px 16px; display: none; flex-direction: column; gap: 8px;
+            font-size: 13px; color: #2d3748;
+        }
+        .pf-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .pf-title { font-weight: 800; font-size: 14px; margin-right: auto; }
+        .pf-head label { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #4a5568; font-weight: 600; }
+        .pf-head input { width: 52px; padding: 3px 5px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; }
+        .pf-btn { padding: 4px 10px; font-size: 12px; font-weight: 700; border: 1px solid #e2e8f0; background: white; border-radius: 6px; cursor: pointer; color: #4a5568; }
+        .pf-btn:hover { background: #edf2f7; }
+        .pf-legend { display: flex; gap: 14px; font-size: 12px; color: #4a5568; flex-wrap: wrap; }
+        .pf-legend i { display: inline-block; vertical-align: middle; margin-right: 5px; }
+        .pf-chart { position: relative; width: 100%; min-height: 230px; }
+        .pf-tip { position: absolute; display: none; pointer-events: none; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.12); padding: 6px 10px; font-size: 12px; line-height: 1.6; width: 170px; }
+        .pf-tip b { color: #1a202c; }
+        .pf-tip span { color: #718096; }
+        .pf-stats { font-size: 12.5px; color: #2d3748; line-height: 1.6; }
+        .pf-stats.blocked { color: #9b2c2c; font-weight: 600; }
+        .pf-note { font-size: 11px; color: #a0aec0; }
+        @media (max-width: 768px) { .profile-panel { left: 8px; right: 8px; bottom: 8px; } }
+
+        /* 🆕 提示訊息 */
+        #toast { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%) translateY(20px); background: #2d3748; color: white; padding: 10px 18px; border-radius: 8px; font-size: 13px; z-index: 5000; opacity: 0; transition: all 0.25s; pointer-events: none; }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     </style>
 </head>
 <body>
@@ -186,7 +226,7 @@
             <div class="tree" id="treeView"></div>
             <div class="tree" id="searchResults"></div>
             <div class="sidebar-footer">
-                <a class="guide-link" href="OD_station_monitor_guide.html" target="_blank" rel="noopener">
+                <a class="guide-link" href="user_guide_station_relation.html" target="_blank" rel="noopener">
                     <i data-lucide="book-open"></i>
                     <span class="gl-text">操作說明手冊</span>
                     <span class="gl-ext"><i data-lucide="external-link"></i></span>
@@ -207,6 +247,16 @@
                          📥 匯出目前視圖 (SVG)
                      </button>
 
+                    <div class="ctl-row">底圖
+                        <select id="basemapSelect">
+                            <option value="carto">一般街道</option>
+                            <option value="shade">地形暈渲（國土測繪中心）</option>
+                            <option value="topo">地形圖（Esri）</option>
+                        </select>
+                    </div>
+                    <label><input type="checkbox" id="hillshadeToggle"> 🌄 疊加地形陰影</label>
+                    <hr style="border:0; border-top:1.5px solid #edf2f7; margin:10px 0;">
+
                     <div id="controlsRelation">
                         <label><input type="checkbox" id="layerCenter" checked onchange="drawMap()"> <span style="color:var(--reg-color);">●</span> 區域中心 <button class="name-toggle-btn" id="nameBtnCenter" onclick="event.stopPropagation();toggleName('Center')" title="顯示/隱藏站名">顯示/隱藏名字</button></label>
                         <label><input type="checkbox" id="layerHub" checked onchange="drawMap()"> <span style="color:var(--hub-color);">●</span> 中繼站 <button class="name-toggle-btn" id="nameBtnHub" onclick="event.stopPropagation();toggleName('Hub')" title="顯示/隱藏站名">顯示/隱藏名字</button></label>
@@ -215,6 +265,14 @@
                         <label><input type="checkbox" id="linkAutoHub" checked onchange="drawMap()"> <span style="color:var(--hub-color); opacity:0.6;">---</span> 自動站-中繼站</label>
                         <label><input type="checkbox" id="linkHubReg" checked onchange="drawMap()"> <span style="color:var(--reg-color); opacity:0.8;">---</span> 中繼站-區域站</label>
                         <label><input type="checkbox" id="linkAutoReg" checked onchange="drawMap()"> <span style="color:var(--active-blue); opacity:0.8;">- - -</span> 自動站-區域站</label>
+                        <div class="ctl-section">
+                            <div class="ctl-row" style="margin-bottom:0;">
+                                <label style="margin:0;"><input type="checkbox" id="longLinkToggle" onchange="drawMap(currentFilter)"> <span style="color:#dd6b20; font-weight:900;">━</span> 標示長距離連線</label>
+                            </div>
+                            <div class="ctl-row" style="margin:6px 0 0 26px; font-weight:500; font-size:12px;">超過
+                                <input type="number" id="longLinkKm" value="20" min="1" step="1" onchange="drawMap(currentFilter)"> km
+                            </div>
+                        </div>
                     </div>
 
                     <div id="controlsCategory" style="display: none;">
@@ -294,6 +352,25 @@
 
                 </div>
             </details>
+
+            <!-- 🆕 地形剖面面板 -->
+            <div id="profilePanel" class="profile-panel">
+                <div class="pf-head">
+                    <span class="pf-title" id="profileTitle">📈 地形剖面</span>
+                    <label>起點天線 <input type="number" id="antennaA" value="10" min="0" step="1"> m</label>
+                    <label>終點天線 <input type="number" id="antennaB" value="10" min="0" step="1"> m</label>
+                    <button class="pf-btn" onclick="downloadProfileCSV()">📥 剖面 CSV</button>
+                    <button class="pf-btn" onclick="closeProfile()">✕ 關閉</button>
+                </div>
+                <div class="pf-legend">
+                    <span><i style="width:14px;height:10px;background:rgba(160,112,42,0.35);border-top:2px solid #a0702a;"></i>地形（含地球曲率）</span>
+                    <span><i style="width:16px;height:0;border-top:2px solid #2b6cb0;"></i>視線</span>
+                    <span><i style="width:2px;height:12px;background:#c53030;"></i>⚠ 遮蔽處</span>
+                </div>
+                <div class="pf-chart" id="profileChart"></div>
+                <div class="pf-stats" id="profileStats"></div>
+                <div class="pf-note">以 4/3 等效地球半徑計入地球曲率；未計 Fresnel 區，天線高度為假設值，僅供初步判讀。地形資料：AWS Terrain Tiles（約 30–40 m 解析度）。</div>
+            </div>
         </div>
     </div>
 
@@ -307,6 +384,92 @@
         let pendingPopupStation = null; // 下一次 drawMap 後要自動開啟 popup 的站
         let viewMode = 'link'; 
         let categoryLayer;
+        let openPopupStation = null;   // 🆕 目前開著資訊卡的測站：地圖重畫後自動重新打開
+        let isRedrawing = false;       // 🆕 重畫中清除圖層造成的關閉，不算使用者關閉
+        let centerStats = {};          // ⚡ 各區域中心管轄站數（載入時算一次）
+        let hubStats = new Map();      // ⚡ 各中繼站管轄站數（載入時算一次）
+        const iconCache = new Map();   // ⚡ 分類模式圖示快取
+
+        // 🛡️ HTML 跳脫
+        function esc(v) {
+            if (v === undefined || v === null || v === '') return '—';
+            return String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        // ⚡ 管轄站數統計：原本每次重畫都掃一遍全部測站，改為載入時只算一次
+        function computeStats() {
+            centerStats = {};
+            hubStats = new Map();
+            Object.values(allStations).forEach(s => {
+                if (s.is_hub && s.folder) {
+                    if (!centerStats[s.folder]) centerStats[s.folder] = { hubs: 0, autos: 0 };
+                    centerStats[s.folder].hubs++;
+                } else if (!s.is_reg_center && !s.is_hub) {
+                    if (s.repid && allStations[s.repid]) {
+                        const hub = allStations[s.repid];
+                        if (!hubStats.has(hub)) hubStats.set(hub, { autos: 0 });
+                        hubStats.get(hub).autos++;
+                        if (hub.folder) {
+                            if (!centerStats[hub.folder]) centerStats[hub.folder] = { hubs: 0, autos: 0 };
+                            centerStats[hub.folder].autos++;
+                        }
+                    } else if (s.folder) {
+                        if (!centerStats[s.folder]) centerStats[s.folder] = { hubs: 0, autos: 0 };
+                        centerStats[s.folder].autos++;
+                    }
+                }
+            });
+        }
+
+        // 資訊卡內容（點開時才產生）
+        function popupHTML(st) {
+            let statsHTML = '';
+            if (st.is_reg_center && st.folder && centerStats[st.folder]) {
+                const cnt = centerStats[st.folder];
+                statsHTML = `<tr><th>管轄中繼站</th><td><b>${cnt.hubs}</b> 站</td></tr><tr><th>管轄自動站</th><td><b>${cnt.autos}</b> 站</td></tr>`;
+            } else if (st.is_hub && hubStats.has(st)) {
+                statsHTML = `<tr><th>管轄自動站</th><td><b>${hubStats.get(st).autos}</b> 站</td></tr>`;
+            }
+            const coord = (typeof st.lat === 'number' && typeof st.lon === 'number') ? `${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}` : '—';
+            return `<div style="min-width:280px;"><b style="font-size:15px; color:#2d3748;">${esc(st.n)}</b>
+                <hr style="border:0; border-top:1px solid #edf2f7; margin:8px 0;">
+                <table class="info-table">
+                    <tr><th>區域站</th><td>${esc(st.reg)}</td></tr>
+                    <tr><th>站碼</th><td>${esc(st.cwbid)}</td></tr>
+                    <tr><th>無線電站碼</th><td>${esc(st.sid)}</td></tr>
+                    <tr><th>座標</th><td>${coord}</td></tr>
+                    <tr><th>地址</th><td>${esc(st.addr)}</td></tr>${statsHTML}${linkInfoRows(st)}
+                </table>
+                ${popupActions(st)}
+                </div>`;
+        }
+
+        // 綁定資訊卡，並記住是哪個測站（重畫後才能重新打開）
+        function attachPopup(layer, st, openNow) {
+            layer._st = st;
+            layer.bindPopup(() => popupHTML(st));   // ⚡ 函式形式：點開時才產生 HTML
+            if (openNow) layer.openPopup();
+        }
+
+        // 中繼站、區域中心、分類模式標記共用的點擊聚焦邏輯（原本寫了三份）
+        function bindFocusClick(layer, st) {
+            layer.on('click', function (e) {
+                if (e && e.originalEvent) e.originalEvent.stopPropagation();
+                const isSame = (highlightedStation === st);
+                highlightedStation = isSame ? null : st;
+                pendingPopupStation = isSame ? null : st;
+                if (isSame) openPopupStation = null;   // 再點一次取消聚焦時，資訊卡也一起關閉（與原版相同）
+                drawMap(currentFilter);
+            });
+        }
+
+        // 資料載入失敗時，在畫面上提示（原本只寫在主控台，使用者只看到空白）
+        function showLoadError(msg) {
+            const box = document.createElement('div');
+            box.style.cssText = 'position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:4000; background:#fff5f5; color:#c53030; border:1px solid #feb2b2; border-radius:10px; padding:16px 22px; font-size:14px; font-weight:600; box-shadow:0 4px 12px rgba(0,0,0,0.1); max-width:80%; text-align:center;';
+            box.textContent = msg;
+            document.getElementById('map').appendChild(box);
+        }
 
         async function loadDataAndInit() {
             try {
@@ -352,15 +515,20 @@
                     }
                 });
 
+                computeStats();
+                computeLinks();
                 initMap();
+                focusFromURL();   // 🆕 網址帶 ?focus=站碼 時，直接聚焦該站
             } catch (e) { 
                 console.error("Data Load Error: 請確認使用 Live Server 且 JSON 檔案存在。", e); 
+                showLoadError("⚠️ 測站資料載入失敗，請稍後重新整理頁面；若持續發生請聯絡系統管理者。");
             }
         }
 
         // --- 初始化地圖 ---
         function initMap() {
             map = L.map('map', { 
+                preferCanvas: true,   // ⚡ 圓點與連線改用 Canvas 繪製，不再產生上千個 SVG 元素
                 zoomControl: false,
                 zoomSnap: 1,      
                 zoomDelta: 1,     
@@ -369,8 +537,16 @@
             }).setView([23.7, 121.0], 8);
 
             map.on('zoomstart', () => {
-                if (viewMode === 'category') categoryLayer.clearLayers();
+                if (viewMode === 'category') {
+                    isRedrawing = true;
+                    categoryLayer.clearLayers();
+                    isRedrawing = false;
+                }
             });
+
+            // 🐛 修正：記住開著的資訊卡，地圖重畫（例如飛行結束、縮放）後自動重新打開
+            map.on('popupopen', e => { if (e.popup && e.popup._source && e.popup._source._st) openPopupStation = e.popup._source._st; });
+            map.on('popupclose', () => { if (!isRedrawing) openPopupStation = null; });
 
             let zoomTimeout;
             map.on('zoomend', () => {
@@ -380,7 +556,7 @@
                 }, 150); 
             });
 
-            L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_2osw_1_c7a0c0e05b43943486e746b0', { attribution: '© CartoDB' }).addTo(map);
+            initBasemaps();   // 🆕 底圖可切換（一般街道／地形暈渲／地形圖）
             if (geojsonData.type) {
                 L.geoJSON(geojsonData, {
                     // 🚀 關鍵修改：加上 interactive: false，讓滑鼠點擊可以穿透陸地圖層！
@@ -394,6 +570,9 @@
                 L.DomEvent.disableClickPropagation(mapControls);
                 L.DomEvent.disableScrollPropagation(mapControls);
             }
+            const pfPanel = document.getElementById('profilePanel');
+            L.DomEvent.disableClickPropagation(pfPanel);
+            L.DomEvent.disableScrollPropagation(pfPanel);
 
             // 🚀 解除聚焦：現在點擊陸地或海域，都可以順利解除聚焦了
             map.on('click', function () {
@@ -499,14 +678,16 @@
                 (st.cwbid?.toLowerCase().includes(q))
             );
 
-            matches.forEach(st => {
+            const SEARCH_LIMIT = 100;   // 🆕 最多列 100 筆，避免一次產生上百個項目
+            const frag = document.createDocumentFragment();
+            matches.slice(0, SEARCH_LIMIT).forEach(st => {
                 const div = document.createElement('div');
                 div.className = 'st-item'; 
                 div.style.marginLeft = "5px"; 
                 div.innerHTML = `
                     <div style="display: flex; flex-direction: column; flex-grow: 1;">
-                        <span style="font-weight: bold; color: #2d3748;">${st.n || '未知站名'}</span>
-                        <span style="font-size: 11px; color: #718096;">代碼: ${st.sid || '無'} / ${st.cwbid || '無'}</span>
+                        <span style="font-weight: bold; color: #2d3748;">${st.n ? esc(st.n) : '未知站名'}</span>
+                        <span style="font-size: 11px; color: #718096;">代碼: ${st.sid ? esc(st.sid) : '無'} / ${st.cwbid ? esc(st.cwbid) : '無'}</span>
                     </div>
                     <span class="badge ${st.is_hub ? 'hub' : ''}">${st.is_hub ? '中繼' : '自動'}</span>
                 `;
@@ -514,8 +695,14 @@
                     if(window.innerWidth < 768) toggleSidebar(true);
                     navigateToStation(st.sid);
                 };
-                resV.appendChild(div);
+                frag.appendChild(div);
             });
+            resV.appendChild(frag);
+            const msg = document.createElement('div');
+            msg.style.cssText = 'padding: 10px 16px; font-size: 12px; color: #718096;';
+            if (matches.length === 0) msg.textContent = '找不到符合的測站';
+            else if (matches.length > SEARCH_LIMIT) msg.textContent = `共 ${matches.length} 筆，僅列出前 ${SEARCH_LIMIT} 筆，請輸入更精確的關鍵字`;
+            if (msg.textContent) resV.appendChild(msg);
         }
 
         function clearSearch() {
@@ -564,12 +751,13 @@
         }
 
         // 遞迴取得旗下所有測站 (改版)
-        function getAll(nodeId, list = []) { 
+        function getAll(nodeId, list = [], seen = new Set()) { 
             const st = allStations[nodeId];
-            if (st) {
-                if (!list.includes(st)) list.push(st); 
+            if (st && !seen.has(st)) {
+                seen.add(st);
+                list.push(st); 
                 if (st.children_ids) {
-                    st.children_ids.forEach(cid => getAll(cid, list)); 
+                    st.children_ids.forEach(cid => getAll(cid, list, seen)); 
                 }
             }
             return list; 
@@ -739,9 +927,10 @@
                         const center = regionalCenters[st.folder];
                         if (center) {
                             const p2 = getPos(center.lat, center.lon);
-                            const cColor = inG ? '#38a169' : '#d4d4d4';
-                            const cOpac  = inG ? 0.5 : 0.08;
-                            svg += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${cColor}" stroke-width="1.8" stroke-dasharray="8,8" opacity="${cOpac}" />`;
+                            const lng = inG && isLongLink(st);
+                            const cColor = lng ? LONG_LINK_COLOR : (inG ? '#38a169' : '#d4d4d4');
+                            const cOpac  = lng ? 0.9 : (inG ? 0.5 : 0.08);
+                            svg += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${cColor}" stroke-width="${lng ? 2.4 : 1.8}" stroke-dasharray="8,8" opacity="${cOpac}" />`;
                         }
                     }
 
@@ -750,18 +939,20 @@
                         if (center) {
                             const p2 = getPos(center.lat, center.lon);
                             const isCurrentCenterLine = highlightedStation && highlightedStation.is_reg_center && (st.folder === highlightedStation.folder);
-                            const cColor = inG ? '#FF79BC' : '#d4d4d4';
-                            const cOpac = inG ? (isCurrentCenterLine ? 0.85 : 0.4) : 0.08;
-                            svg += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${cColor}" stroke-width="1.2" stroke-dasharray="2,4" opacity="${cOpac}" />`;
+                            const lng = inG && isLongLink(st);
+                            const cColor = lng ? LONG_LINK_COLOR : (inG ? '#FF79BC' : '#d4d4d4');
+                            const cOpac = lng ? 0.9 : (inG ? (isCurrentCenterLine ? 0.85 : 0.4) : 0.08);
+                            svg += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${cColor}" stroke-width="${lng ? 2.4 : 1.2}" stroke-dasharray="2,4" opacity="${cOpac}" />`;
                         }
                     }
 
                     if (allowLayerControl && showLinkAH && st.repid && allStations[st.repid]) {
                         const p2 = getPos(allStations[st.repid].lat, allStations[st.repid].lon);
                         const isCurrentHubLine = highlightedStation && highlightedStation.is_hub && (st.repid === highlightedStation.sid);
-                        const cColor = inG ? '#e53e3e' : '#d4d4d4';
-                        const cOpac = isCurrentHubLine ? 0.85 : (inG ? 0.35 : 0.08);
-                        svg += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${cColor}" stroke-width="1.2" stroke-dasharray="4,4" opacity="${cOpac}" />`;
+                        const lng = inG && isLongLink(st);
+                        const cColor = lng ? LONG_LINK_COLOR : (inG ? '#e53e3e' : '#d4d4d4');
+                        const cOpac = lng ? 0.9 : (isCurrentHubLine ? 0.85 : (inG ? 0.35 : 0.08));
+                        svg += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${cColor}" stroke-width="${lng ? 2.4 : 1.2}" stroke-dasharray="4,4" opacity="${cOpac}" />`;
                     }
                 });
 
@@ -890,6 +1081,9 @@
 
         function setMode(mode) {
             viewMode = mode;
+            openPopupStation = null;
+            if (map) map.closePopup();
+            if (mode === 'category' && typeof closeProfile === 'function') closeProfile();
             document.getElementById('btnLinkView').classList.toggle('active', mode === 'link');
             document.getElementById('btnCatView').classList.toggle('active', mode === 'category');
             document.getElementById('controlsRelation').style.display = (mode === 'link') ? 'block' : 'none';
@@ -945,8 +1139,15 @@
             drawMap(currentFilter);
         }
 
+        // 包一層：重畫期間清除圖層造成的資訊卡關閉，不視為使用者關閉
         function drawMap(filter = null) {
             if (!map || typeof map.getZoom !== 'function') return;
+            isRedrawing = true;
+            try { drawMapInner(filter); } finally { isRedrawing = false; }
+            syncURL();
+        }
+
+        function drawMapInner(filter) {
             centerLayer.clearLayers();
             hubLayer.clearLayers();
             autoLayer.clearLayers();
@@ -1030,49 +1231,9 @@
                 });
             }
 
-            const _openPopupFor = pendingPopupStation;
+            // 🐛 修正：除了「要求打開」的測站，原本就開著的資訊卡也在重畫後重新打開
+            const _openPopupFor = pendingPopupStation || openPopupStation;
             pendingPopupStation = null;
-
-            const _centerCnt = {}; 
-            const _hubCnt = new Map(); 
-            Object.values(allStations).forEach(s => {
-                if (s.is_hub && s.folder) {
-                    if (!_centerCnt[s.folder]) _centerCnt[s.folder] = { hubs: 0, autos: 0 };
-                    _centerCnt[s.folder].hubs++;
-                } else if (!s.is_reg_center && !s.is_hub) {
-                    if (s.repid && allStations[s.repid]) {
-                        const hub = allStations[s.repid];
-                        if (!_hubCnt.has(hub)) _hubCnt.set(hub, { autos: 0 });
-                        _hubCnt.get(hub).autos++;
-                        if (hub.folder) {
-                            if (!_centerCnt[hub.folder]) _centerCnt[hub.folder] = { hubs: 0, autos: 0 };
-                            _centerCnt[hub.folder].autos++;
-                        }
-                    } else if (s.folder) {
-                        if (!_centerCnt[s.folder]) _centerCnt[s.folder] = { hubs: 0, autos: 0 };
-                        _centerCnt[s.folder].autos++;
-                    }
-                }
-            });
-            const _popup = st => {
-                let statsHTML = '';
-                if (st.is_reg_center && st.folder && _centerCnt[st.folder]) {
-                    const cnt = _centerCnt[st.folder];
-                    statsHTML = `<tr><th>管轄中繼站</th><td><b>${cnt.hubs}</b> 站</td></tr><tr><th>管轄自動站</th><td><b>${cnt.autos}</b> 站</td></tr>`;
-                } else if (st.is_hub && _hubCnt.has(st)) {
-                    statsHTML = `<tr><th>管轄自動站</th><td><b>${_hubCnt.get(st).autos}</b> 站</td></tr>`;
-                }
-                return `<div style="min-width:280px;"><b style="font-size:15px; color:#2d3748;">${st.n}</b>
-                    <hr style="border:0; border-top:1px solid #edf2f7; margin:8px 0;">
-                    <table class="info-table">
-                        <tr><th>區域站</th><td>${st.reg}</td></tr>
-                        <tr><th>站碼</th><td>${st.cwbid}</td></tr>
-                        <tr><th>無線電站碼</th><td>${st.sid}</td></tr>
-                        <tr><th>座標</th><td>${st.lat.toFixed(5)}, ${st.lon.toFixed(5)}</td></tr>
-                        <tr><th>地址</th><td>${st.addr}</td></tr>${statsHTML}
-                    </table>
-                    </div>`;
-            };
             const _w = 1.5 + (zoom - 8) * 0.2; 
             
             if (viewMode === 'category') {
@@ -1104,16 +1265,8 @@
                         opacity: inG ? 1 : 0.15 
                     }).addTo(categoryLayer);
 
-                    marker.bindPopup(_popup(st));
-                    if (st === _openPopupFor) marker.openPopup();
-                    
-                    marker.on('click', function(e) {
-                        if (e && e.originalEvent) e.originalEvent.stopPropagation();
-                        const isSame = (highlightedStation === st);
-                        highlightedStation = isSame ? null : st;
-                        pendingPopupStation = isSame ? null : st;
-                        drawMap(currentFilter);
-                    });
+                    attachPopup(marker, st, st === _openPopupFor);
+                    bindFocusClick(marker, st);
                 });
                 return; 
             }
@@ -1124,10 +1277,10 @@
                 if (allowLayerControl && showLinkHR && st.is_hub && (!st.repid || !allStations[st.repid])) {
                     const center = regionalCenters[st.folder];
                     const inG = isInGroup(st);
-                    if (center) L.polyline([[st.lat, st.lon], [center.lat, center.lon]], {
+                    if (center) L.polyline([[st.lat, st.lon], [center.lat, center.lon]], withLong(st, inG, {
                         color: inG ? '#38a169' : '#d4d4d4', weight: 1.8,
                         opacity: inG ? 0.5 : 0.08, dashArray: '8,8'
-                    }).addTo(lineCenterLayer);
+                    })).addTo(lineCenterLayer);
                 }
 
                 if (allowLayerControl && showLinkAR && (!st.is_hub && !st.is_reg_center) && (!st.repid || !allStations[st.repid])) {
@@ -1135,12 +1288,12 @@
                     const inG = isInGroup(st);
                     if (center) {
                         const isCurrentCenterLine = highlightedStation && highlightedStation.is_reg_center && (st.folder === highlightedStation.folder);
-                        L.polyline([[st.lat, st.lon], [center.lat, center.lon]], {
+                        L.polyline([[st.lat, st.lon], [center.lat, center.lon]], withLong(st, inG, {
                             color: inG ? '#FF79BC' : '#d4d4d4', 
                             weight: isCurrentCenterLine ? 1.2 : 1.2, 
                             opacity: inG ? (isCurrentCenterLine ? 0.85 : 0.4) : 0.08, 
                             dashArray: '2,4'
-                        }).addTo(lineCenterLayer);
+                        })).addTo(lineCenterLayer);
                     }
                 }
             });
@@ -1149,12 +1302,12 @@
                 if (allowLayerControl && showLinkAH && st.repid && allStations[st.repid]) {
                     const inG = isInGroup(st);
                     const isCurrentHubLine = highlightedStation && highlightedStation.is_hub && (st.repid === highlightedStation.sid);
-                    L.polyline([[st.lat, st.lon], [allStations[st.repid].lat, allStations[st.repid].lon]], {
+                    L.polyline([[st.lat, st.lon], [allStations[st.repid].lat, allStations[st.repid].lon]], withLong(st, inG, {
                         color: inG ? '#e53e3e' : '#d4d4d4', 
                         weight: isCurrentHubLine ? 1.2 : 1.2,
                         opacity: isCurrentHubLine ? 0.85 : (inG ? 0.35 : 0.08), 
                         dashArray: '4,4'
-                    }).addTo(lineAutoHubLayer);
+                    })).addTo(lineAutoHubLayer);
                 }
             });
             
@@ -1167,8 +1320,7 @@
                     color: inG ? '#fff' : '#d4d4d4', weight: _w,
                     fillOpacity: inG ? 0.8 : 0.08
                 }).addTo(autoLayer);
-                m.bindPopup(_popup(st));
-                if (st === _openPopupFor) m.openPopup();
+                attachPopup(m, st, st === _openPopupFor);
                 
                 if (inG && effAuto && _allowAuto && bounds.contains([st.lat, st.lon])) {
                     m.bindTooltip(st.n, { permanent: true, direction: 'right', offset: [5, 0], className: 'station-name-label' });
@@ -1184,16 +1336,9 @@
                     color: inG ? '#fff' : '#d4d4d4', weight: _w,
                     fillOpacity: inG ? 0.8 : 0.08
                 }).addTo(hubLayer);
-                m.bindPopup(_popup(st));
-                if (st === _openPopupFor) m.openPopup();
                 if (inG && effHub) m.bindTooltip(st.n, { permanent: true, direction: 'right', offset: [5, 0], className: 'station-name-label' });
-                m.on('click', function(e) {
-                    if (e && e.originalEvent) e.originalEvent.stopPropagation(); 
-                    const isSame = (highlightedStation === st);
-                    highlightedStation = isSame ? null : st;
-                    pendingPopupStation = isSame ? null : st;
-                    drawMap(currentFilter);
-                });
+                attachPopup(m, st, st === _openPopupFor);
+                bindFocusClick(m, st);
             });
             
             if (showCenter) listToProcess.forEach(st => {
@@ -1205,16 +1350,9 @@
                     color: inG ? '#f6e05e' : '#d4d4d4', weight: _w,
                     fillOpacity: inG ? 0.8 : 0.08
                 }).addTo(centerLayer);
-                m.bindPopup(_popup(st));
-                if (st === _openPopupFor) m.openPopup();
                 if (inG && effCenter) m.bindTooltip(st.n, { permanent: true, direction: 'right', offset: [5, 0], className: 'station-name-label' });
-                m.on('click', function(e) {
-                    if (e && e.originalEvent) e.originalEvent.stopPropagation(); 
-                    const isSame = (highlightedStation === st);
-                    highlightedStation = isSame ? null : st;
-                    pendingPopupStation = isSame ? null : st;
-                    drawMap(currentFilter);
-                });
+                attachPopup(m, st, st === _openPopupFor);
+                bindFocusClick(m, st);
             });
         }
 
@@ -1235,9 +1373,10 @@
             const nodes = []; 
             const flatIds = getFlatIds(treeData[mKey]); // 使用遞迴取得所有子孫 ID
             
+            const seen = new Set();
             flatIds.forEach(id => {
                 const st = allStations[id];
-                if (st && !nodes.includes(st)) nodes.push(st);
+                if (st && !seen.has(st)) { seen.add(st); nodes.push(st); }
             });
             
             currentFilter = nodes;
@@ -1268,7 +1407,15 @@
             } 
         }
 
+        // ⚡ 同類型、同縮放層級的圖示只產生一次
         function getCustomIcon(st, zoom) {
+            const key = `${st.main_cat}|${st.sub_cat}|${st.is_reg_center ? 1 : 0}|${st.is_hub ? 1 : 0}|${zoom}`;
+            let icon = iconCache.get(key);
+            if (!icon) { icon = buildCustomIcon(st, zoom); iconCache.set(key, icon); }
+            return icon;
+        }
+
+        function buildCustomIcon(st, zoom) {
             let size = Math.max(10, 4 + (zoom - 8) * 1.5);
             
             if (st.main_cat === '署屬站') {
@@ -1337,6 +1484,8 @@
 
         function collapseAll() { document.querySelectorAll('#treeView details').forEach(d => d.open = false); document.querySelectorAll('.st-item').forEach(el => el.classList.remove('active-highlight')); }
         function resetMap() { 
+            openPopupStation = null;
+            map.closePopup();
             currentFilter = null; 
             drawMap(); 
             map.setView([23.7, 121.0], 8); 
@@ -1384,6 +1533,449 @@
             labelState[type] = (cur === null) ? (autoOn ? false : true) : null;
             drawMap(currentFilter);
         }
+
+
+        // ================================================================
+        // === 🆕 新增功能：連線距離、地形剖面、轄下清單匯出、網址聚焦 ===
+        // ================================================================
+
+        // 兩點大圓距離（公里）
+        function haversineKm(lat1, lon1, lat2, lon2) {
+            const R = 6371.0088, toR = Math.PI / 180;
+            const dLat = (lat2 - lat1) * toR, dLon = (lon2 - lon1) * toR;
+            const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * toR) * Math.cos(lat2 * toR) * Math.sin(dLon / 2) ** 2;
+            return 2 * R * Math.asin(Math.sqrt(a));
+        }
+
+        // 每站的上層連線對象（規則與地圖連線完全相同）：有 repid → 該中繼站；否則 → 所屬區域中心
+        function computeLinks() {
+            const centerByFolder = {};
+            Object.values(allStations).forEach(s => { if (s.is_reg_center && s.folder) centerByFolder[s.folder] = s; });
+            Object.values(allStations).forEach(s => {
+                s._link = null;
+                if (s.is_reg_center || typeof s.lat !== 'number' || typeof s.lon !== 'number') return;
+                let t = null, kind = null;
+                if (s.repid && allStations[s.repid]) {
+                    const p = allStations[s.repid];
+                    t = { n: p.n, sid: p.sid, lat: p.lat, lon: p.lon, alt: p.alt };
+                    kind = p.is_hub ? 'hub' : 'station';
+                } else if (regionalCenters && s.folder && regionalCenters[s.folder]) {
+                    const c = regionalCenters[s.folder], cs = centerByFolder[s.folder];
+                    t = { n: cs ? cs.n : s.folder, sid: cs ? cs.sid : null, lat: c.lat, lon: c.lon, alt: cs ? cs.alt : undefined };
+                    kind = 'center';
+                }
+                if (t && typeof t.lat === 'number' && typeof t.lon === 'number') {
+                    s._link = { name: t.n, sid: t.sid, lat: t.lat, lon: t.lon, alt: t.alt, kind: kind, km: haversineKm(s.lat, s.lon, t.lat, t.lon) };
+                }
+            });
+        }
+
+        const LINK_KIND_LABEL = { hub: '中繼站', center: '區域中心', station: '上層站' };
+        const hasAlt = v => v !== undefined && v !== null && v !== '' && isFinite(Number(v));
+
+        // 資訊卡中的連線資訊列
+        function linkInfoRows(st) {
+            if (!st._link) return '';
+            const L0 = st._link;
+            let rows = `<tr><th>連線至</th><td>${esc(L0.name)}（${LINK_KIND_LABEL[L0.kind]}）</td></tr>
+                        <tr><th>連線距離</th><td><b>${L0.km.toFixed(1)}</b> km</td></tr>`;
+            if (hasAlt(st.alt) && hasAlt(L0.alt)) {
+                const diff = Number(st.alt) - Number(L0.alt);
+                rows += `<tr><th>海拔差</th><td>${diff >= 0 ? '高' : '低'} ${Math.abs(diff).toFixed(0)} m（本站 ${Number(st.alt).toFixed(0)} m／對方 ${Number(L0.alt).toFixed(0)} m）</td></tr>`;
+            }
+            return rows;
+        }
+
+        // 資訊卡下方的動作按鈕（用 data-act 事件代理，不把站碼塞進 onclick 字串）
+        function popupActions(st) {
+            const sid = esc(st.sid);
+            let html = '<div class="popup-actions">';
+            if (st._link) html += `<button data-act="profile" data-sid="${sid}">📈 地形剖面</button>`;
+            if (st.is_hub || st.is_reg_center) html += `<button data-act="export" data-sid="${sid}">📥 匯出轄下測站</button>`;
+            html += `<button data-act="link" data-sid="${sid}">🔗 複製連結</button></div>`;
+            return html;
+        }
+
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('[data-act]');
+            if (!btn) return;
+            const sid = btn.getAttribute('data-sid');
+            const act = btn.getAttribute('data-act');
+            if (act === 'profile') showProfile(sid);
+            else if (act === 'export') exportGroupCSV(sid);
+            else if (act === 'link') copyStationLink(sid);
+        });
+
+        // --- 長距離連線標示 ---
+        function isLongLink(st) {
+            const t = document.getElementById('longLinkToggle');
+            if (!t || !t.checked || !st._link) return false;
+            const th = parseFloat(document.getElementById('longLinkKm').value);
+            return st._link.km > (isFinite(th) && th > 0 ? th : 20);
+        }
+        const LONG_LINK_COLOR = '#dd6b20';
+        function withLong(st, inG, style) {
+            if (inG && isLongLink(st)) return Object.assign({}, style, { color: LONG_LINK_COLOR, opacity: 0.9, weight: 2.4 });
+            return style;
+        }
+
+        // --- 底圖 ---
+        const BASEMAP_KEY = 'stationRelation.basemap';
+        const HILLSHADE_KEY = 'stationRelation.hillshade';
+        function loadPref(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+        function savePref(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* 忽略 */ } }
+        let baseLayers = {}, currentBase = null, hillshadeLayer = null;
+
+        function initBasemaps() {
+            baseLayers = {
+                carto: L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_2osw_1_c7a0c0e05b43943486e746b0', { attribution: '© CartoDB', maxZoom: 19 }),
+                shade: L.tileLayer('https://wmts.nlsc.gov.tw/wmts/MOI_SHADERMAP/default/EPSG:3857/{z}/{y}/{x}', { attribution: '© 內政部國土測繪中心', maxNativeZoom: 16, maxZoom: 19 }),
+                topo: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri', maxZoom: 19 })
+            };
+            hillshadeLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Hillshade © Esri', opacity: 0.5, maxNativeZoom: 16, maxZoom: 19, zIndex: 5, className: 'hillshade-layer'
+            });
+            const sel = document.getElementById('basemapSelect');
+            const saved = loadPref(BASEMAP_KEY);
+            if (saved && baseLayers[saved]) sel.value = saved;
+            setBasemap(sel.value);
+            sel.addEventListener('change', () => { setBasemap(sel.value); savePref(BASEMAP_KEY, sel.value); });
+
+            const hs = document.getElementById('hillshadeToggle');
+            hs.checked = loadPref(HILLSHADE_KEY) === '1';
+            if (hs.checked) hillshadeLayer.addTo(map);
+            hs.addEventListener('change', () => {
+                if (hs.checked) hillshadeLayer.addTo(map); else map.removeLayer(hillshadeLayer);
+                savePref(HILLSHADE_KEY, hs.checked ? '1' : '0');
+            });
+        }
+        function setBasemap(key) {
+            if (currentBase) map.removeLayer(currentBase);
+            currentBase = baseLayers[key] || baseLayers.carto;
+            currentBase.addTo(map);
+            currentBase.bringToBack();
+        }
+
+        // --- 轄下測站匯出 CSV ---
+        function isInGroupOf(hSt, st) {
+            if (st === hSt || st.sid === hSt.sid) return true;
+            if (hSt.is_reg_center) {
+                if (st.is_hub) return st.folder === hSt.folder;
+                if (!st.is_reg_center && !st.is_hub) {
+                    if (st.repid && allStations[st.repid]) return allStations[st.repid].folder === hSt.folder;
+                    return st.folder === hSt.folder;
+                }
+                return false;
+            }
+            if (hSt.is_hub) return !st.is_reg_center && !st.is_hub && st.repid === hSt.sid;
+            return false;
+        }
+
+        function exportGroupCSV(sid) {
+            const h = allStations[sid];
+            if (!h) return;
+            const members = Object.values(allStations)
+                .filter(s => s !== h && isInGroupOf(h, s))
+                .sort((a, b) => (b.is_hub ? 1 : 0) - (a.is_hub ? 1 : 0) || String(a.n || '').localeCompare(String(b.n || ''), 'zh-Hant'));
+            if (members.length === 0) { showToast('此站沒有轄下測站'); return; }
+            const headers = ['類型', '站名', '站碼(cwbid)', '無線電站碼(sid)', '所屬中繼站', '區域站', '緯度', '經度', '海拔(m)', '連線至', '連線距離(km)', '地址'];
+            const rows = members.map(s => {
+                const parent = (s.repid && allStations[s.repid]) ? allStations[s.repid].n : (s.is_hub ? '' : '（直連區域中心）');
+                return [
+                    s.is_hub ? '中繼站' : '自動站', s.n, s.cwbid || '', s.sid || '', parent, s.reg || '',
+                    s.lat, s.lon, hasAlt(s.alt) ? s.alt : '',
+                    s._link ? s._link.name : '', s._link ? s._link.km.toFixed(2) : '', s.addr || ''
+                ].map(v => `"${String(v === undefined || v === null ? '' : v).replace(/"/g, '""')}"`).join(',');
+            });
+            const title = `"${(h.is_hub ? '中繼站：' : '區域中心：') + String(h.n).replace(/"/g, '""')}（轄下 ${members.length} 站）"`;
+            const csv = '﻿' + [title, headers.join(','), ...rows].join('\n');
+            const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `轄下測站_${h.n}_${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        // --- 網址記住聚焦狀態（?focus=站碼） ---
+        function syncURL() {
+            try {
+                const url = new URL(window.location.href);
+                if (highlightedStation && highlightedStation.sid) url.searchParams.set('focus', highlightedStation.sid);
+                else url.searchParams.delete('focus');
+                if (url.href !== window.location.href) history.replaceState(null, '', url.href);
+            } catch (e) { /* 舊瀏覽器忽略 */ }
+        }
+        // 頁面一開始就先記下網址參數（地圖初始化時會同步網址，避免參數先被清掉）
+        const URL_FOCUS_SID = (() => { try { return new URLSearchParams(window.location.search).get('focus'); } catch (e) { return null; } })();
+        function focusFromURL() {
+            try {
+                const sid = URL_FOCUS_SID;
+                if (sid && allStations[sid]) navigateToStation(sid);
+                else if (sid) showToast(`找不到網址指定的測站：${sid}`);
+            } catch (e) { /* 忽略 */ }
+        }
+        function copyStationLink(sid) {
+            let href;
+            try { const u = new URL(window.location.href); u.searchParams.set('focus', sid); href = u.href; }
+            catch (e) { href = window.location.href.split('?')[0] + '?focus=' + encodeURIComponent(sid); }
+            const done = () => showToast('已複製此站連結，貼給同事即可直接開到這一站');
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(href).then(done).catch(() => fallbackCopy(href, done));
+            } else fallbackCopy(href, done);
+        }
+        function fallbackCopy(text, done) {
+            const ta = document.createElement('textarea');
+            ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); done(); } catch (e) { prompt('請複製以下連結：', text); }
+            ta.remove();
+        }
+        function showToast(msg) {
+            let t = document.getElementById('toast');
+            if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
+            t.textContent = msg;
+            t.classList.add('show');
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => t.classList.remove('show'), 2500);
+        }
+
+        // ================================================================
+        // === 📈 地形剖面（AWS Terrain Tiles，Terrarium 編碼）===
+        // ================================================================
+        const DEM_TILE_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
+        const DEM_ZOOM = 12;              // 約 35 m/像素（臺灣緯度）
+        const K_FACTOR = 4 / 3;           // 標準大氣折射的等效地球半徑係數
+        const EARTH_R_KM = 6371;
+        const demTileCache = new Map();
+        let profileLayer = null, profileHoverMarker = null, currentProfile = null;
+
+        function loadDemTile(z, x, y) {
+            const key = `${z}/${x}/${y}`;
+            if (!demTileCache.has(key)) {
+                demTileCache.set(key, new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => {
+                        try {
+                            const c = document.createElement('canvas');
+                            c.width = c.height = 256;
+                            const ctx = c.getContext('2d');
+                            ctx.drawImage(img, 0, 0);
+                            resolve(ctx.getImageData(0, 0, 256, 256).data);
+                        } catch (err) { demTileCache.delete(key); reject(err); }
+                    };
+                    img.onerror = () => { demTileCache.delete(key); reject(new Error('DEM tile load failed')); };
+                    img.src = DEM_TILE_URL.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+                }));
+            }
+            return demTileCache.get(key);
+        }
+
+        async function getElevation(lat, lon) {
+            const n = 2 ** DEM_ZOOM;
+            const latR = lat * Math.PI / 180;
+            const xf = (lon + 180) / 360 * n;
+            const yf = (1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2 * n;
+            const x = Math.floor(xf), y = Math.floor(yf);
+            const px = Math.min(255, Math.floor((xf - x) * 256)), py = Math.min(255, Math.floor((yf - y) * 256));
+            const d = await loadDemTile(DEM_ZOOM, x, y);
+            const i = (py * 256 + px) * 4;
+            const e = d[i] * 256 + d[i + 1] + d[i + 2] / 256 - 32768;
+            return Math.max(0, e);   // 海面以 0 m 計（瓦片在海上是海底深度）
+        }
+
+        async function showProfile(sid) {
+            const st = allStations[sid];
+            if (!st || !st._link) return;
+            const A = { n: st.n, lat: st.lat, lon: st.lon, alt: st.alt };
+            const B = { n: st._link.name, lat: st._link.lat, lon: st._link.lon, alt: st._link.alt, kind: st._link.kind };
+            const D = st._link.km;
+
+            const panel = document.getElementById('profilePanel');
+            const ctl = document.querySelector('.map-controls');
+            if (panel.style.display !== 'flex' && ctl) { panel._ctlWasOpen = ctl.open; ctl.open = false; }   // 避免面板蓋住圖層設定
+            panel.style.display = 'flex';
+            document.getElementById('profileTitle').textContent = `📈 地形剖面：${A.n} → ${B.n}（${LINK_KIND_LABEL[B.kind]}）`;
+            document.getElementById('profileStats').textContent = '地形資料載入中…';
+            document.getElementById('profileChart').innerHTML = '';
+            map.closePopup();
+
+            // 地圖上標出這條連線
+            if (!profileLayer) profileLayer = L.layerGroup().addTo(map);
+            profileLayer.clearLayers();
+            L.polyline([[A.lat, A.lon], [B.lat, B.lon]], { color: '#2b6cb0', weight: 4, opacity: 0.9, interactive: false }).addTo(profileLayer);
+            profileHoverMarker = L.circleMarker([A.lat, A.lon], { radius: 6, color: '#fff', weight: 2, fillColor: '#2b6cb0', fillOpacity: 1, interactive: false });
+            map.fitBounds(L.latLngBounds([[A.lat, A.lon], [B.lat, B.lon]]), { paddingTopLeft: [40, 40], paddingBottomRight: [40, panel.offsetHeight + 40] });
+
+            const N = Math.max(100, Math.min(500, Math.round(D * 1000 / 40)));
+            const pts = [];
+            for (let i = 0; i < N; i++) {
+                const f = i / (N - 1);
+                pts.push({ f: f, d: D * f, lat: A.lat + (B.lat - A.lat) * f, lon: A.lon + (B.lon - A.lon) * f });
+            }
+            const token = {};
+            currentProfile = token;
+            try {
+                const elev = await Promise.all(pts.map(p => getElevation(p.lat, p.lon)));
+                if (currentProfile !== token) return;   // 已開啟另一條剖面
+                pts.forEach((p, i) => { p.e = elev[i]; });
+                currentProfile = { A, B, D, pts };
+                renderProfile();
+            } catch (err) {
+                console.warn(err);
+                if (currentProfile !== token) return;
+                document.getElementById('profileStats').textContent = '⚠️ 無法取得地形資料（需要能連到 s3.amazonaws.com），請稍後再試。';
+            }
+        }
+
+        function computeProfile(P) {
+            const antA = Math.max(0, parseFloat(document.getElementById('antennaA').value) || 0);
+            const antB = Math.max(0, parseFloat(document.getElementById('antennaB').value) || 0);
+            const hA = P.pts[0].e + antA, hB = P.pts[P.pts.length - 1].e + antB;
+            let worst = null;
+            P.pts.forEach((p, i) => {
+                p.bulge = (p.d * (P.D - p.d)) / (2 * K_FACTOR * EARTH_R_KM) * 1000;   // 地球曲率（m）
+                p.eff = p.e + p.bulge;
+                p.los = hA + (hB - hA) * p.f;
+                p.clear = p.los - p.eff;
+                if (i > 0 && i < P.pts.length - 1 && (!worst || p.clear < worst.clear)) worst = p;
+            });
+            return { hA, hB, antA, antB, worst };
+        }
+
+        function niceStep(range, target) {
+            const raw = range / target, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+            const n = raw / mag;
+            return (n >= 5 ? 10 : n >= 2 ? 5 : n >= 1 ? 2 : 1) * mag;
+        }
+
+        function renderProfile() {
+            const P = currentProfile;
+            if (!P || !P.pts || P.pts[0].e === undefined) return;
+            const R = computeProfile(P);
+            const box = document.getElementById('profileChart');
+            const W = Math.max(320, box.clientWidth), H = 230;
+            const m = { l: 56, r: 18, t: 22, b: 32 };
+            const iw = W - m.l - m.r, ih = H - m.t - m.b;
+            const yMaxRaw = Math.max(...P.pts.map(p => Math.max(p.eff, p.los)));
+            const yStep = niceStep(Math.max(50, yMaxRaw), 5);
+            const yMax = Math.ceil((yMaxRaw * 1.08) / yStep) * yStep;
+            const xs = d => m.l + d / P.D * iw;
+            const ys = v => m.t + ih - (v / yMax) * ih;
+
+            let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="地形剖面圖">`;
+            // 格線與 Y 軸（淡色，不搶資料）
+            for (let v = 0; v <= yMax + 1e-6; v += yStep) {
+                s += `<line x1="${m.l}" x2="${W - m.r}" y1="${ys(v)}" y2="${ys(v)}" stroke="#edf2f7" stroke-width="1"/>`;
+                s += `<text x="${m.l - 8}" y="${ys(v) + 4}" text-anchor="end" font-size="11" fill="#718096">${v.toLocaleString()}</text>`;
+            }
+            s += `<text x="12" y="${m.t + ih / 2}" font-size="11" fill="#718096" transform="rotate(-90 12 ${m.t + ih / 2})" text-anchor="middle">高度 (m)</text>`;
+            const xStep = niceStep(P.D, 6);
+            for (let d = 0; d <= P.D + 1e-6; d += xStep) {
+                s += `<text x="${xs(d)}" y="${H - m.b + 18}" text-anchor="middle" font-size="11" fill="#718096">${+d.toFixed(1)}</text>`;
+            }
+            s += `<text x="${W - m.r}" y="${H - 4}" text-anchor="end" font-size="11" fill="#718096">距 ${esc(P.A.n)} (km)</text>`;
+            // 地形（含地球曲率）面積
+            const terrainPath = P.pts.map((p, i) => `${i ? 'L' : 'M'}${xs(p.d).toFixed(1)},${ys(p.eff).toFixed(1)}`).join(' ');
+            s += `<path d="${terrainPath} L${xs(P.D)},${ys(0)} L${xs(0)},${ys(0)} Z" fill="#a0702a" fill-opacity="0.28" stroke="none"/>`;
+            s += `<path d="${terrainPath}" fill="none" stroke="#a0702a" stroke-width="2" stroke-linejoin="round"/>`;
+            // 遮蔽區段
+            P.pts.forEach((p, i) => {
+                if (i > 0 && i < P.pts.length - 1 && p.clear < 0) {
+                    s += `<line x1="${xs(p.d)}" x2="${xs(p.d)}" y1="${ys(p.eff)}" y2="${ys(p.los)}" stroke="#c53030" stroke-width="2" stroke-opacity="0.55"/>`;
+                }
+            });
+            // 視線
+            s += `<line x1="${xs(0)}" y1="${ys(R.hA)}" x2="${xs(P.D)}" y2="${ys(R.hB)}" stroke="#2b6cb0" stroke-width="2"/>`;
+            // 兩端點與直接標籤
+            s += `<circle cx="${xs(0)}" cy="${ys(R.hA)}" r="5" fill="#2b6cb0" stroke="#fff" stroke-width="2"/>`;
+            s += `<circle cx="${xs(P.D)}" cy="${ys(R.hB)}" r="5" fill="#2b6cb0" stroke="#fff" stroke-width="2"/>`;
+            s += `<text x="${xs(0) + 8}" y="${ys(R.hA) - 8}" font-size="12" font-weight="700" fill="#2d3748">${esc(P.A.n)}</text>`;
+            s += `<text x="${xs(P.D) - 8}" y="${ys(R.hB) - 8}" text-anchor="end" font-size="12" font-weight="700" fill="#2d3748">${esc(P.B.n)}</text>`;
+            // 最差點
+            if (R.worst) {
+                const w = R.worst, blocked = w.clear < 0;
+                s += `<circle cx="${xs(w.d)}" cy="${ys(w.eff)}" r="5" fill="${blocked ? '#c53030' : '#ffffff'}" stroke="${blocked ? '#ffffff' : '#a0702a'}" stroke-width="2"/>`;
+                const lx = Math.min(Math.max(xs(w.d), m.l + 60), W - m.r - 60);
+                s += `<text x="${lx}" y="${Math.max(m.t + 10, ys(Math.max(w.eff, w.los)) - 12)}" text-anchor="middle" font-size="11" font-weight="700" fill="#2d3748">${blocked ? '⚠ 遮蔽 +' + Math.round(-w.clear) + ' m' : '最小餘裕 ' + Math.round(w.clear) + ' m'}</text>`;
+            }
+            // 十字游標層
+            s += `<line id="pfCross" x1="0" x2="0" y1="${m.t}" y2="${m.t + ih}" stroke="#4a5568" stroke-width="1" stroke-dasharray="3,3" visibility="hidden"/>`;
+            s += `<rect id="pfHit" x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent" style="cursor:crosshair"/>`;
+            s += `</svg>`;
+            box.innerHTML = s + '<div id="pfTip" class="pf-tip"></div>';
+
+            // 統計文字
+            const w = R.worst;
+            const altNote = (lbl, ground, alt) => `${lbl}地面 ${Math.round(ground)} m${hasAlt(alt) ? `（資料海拔 ${Math.round(alt)} m）` : ''}`;
+            const verdict = !w ? '' : (w.clear < 0
+                ? `⚠️ 地形遮蔽：距 ${P.A.n} ${w.d.toFixed(1)} km 處，地形高出視線 ${Math.round(-w.clear)} m`
+                : `✅ 視線未被地形遮蔽，最小餘裕 ${Math.round(w.clear)} m（距 ${P.A.n} ${w.d.toFixed(1)} km 處）`);
+            document.getElementById('profileStats').textContent =
+                `距離 ${P.D.toFixed(1)} km ｜ ${altNote(P.A.n + ' ', P.pts[0].e, P.A.alt)} ｜ ${altNote(P.B.n + ' ', P.pts[P.pts.length - 1].e, P.B.alt)} ｜ ${verdict}`;
+            document.getElementById('profileStats').className = 'pf-stats' + (w && w.clear < 0 ? ' blocked' : '');
+
+            // 十字游標與地圖同步
+            const hit = document.getElementById('pfHit'), cross = document.getElementById('pfCross'), tip = document.getElementById('pfTip');
+            const svgEl = box.querySelector('svg');
+            hit.addEventListener('pointermove', ev => {
+                const r = svgEl.getBoundingClientRect();
+                const x = ev.clientX - r.left;
+                const f = Math.min(1, Math.max(0, (x - m.l) / iw));
+                const p = P.pts[Math.round(f * (P.pts.length - 1))];
+                cross.setAttribute('x1', xs(p.d)); cross.setAttribute('x2', xs(p.d)); cross.setAttribute('visibility', 'visible');
+                tip.replaceChildren();
+                const rowsData = [
+                    [`${p.d.toFixed(2)} km`, `距 ${P.A.n}`],
+                    [`${Math.round(p.e)} m`, '地形'],
+                    [`${Math.round(p.los)} m`, '視線'],
+                    [`${p.clear >= 0 ? '+' : ''}${Math.round(p.clear)} m`, p.clear < 0 ? '⚠ 遮蔽' : '餘裕（含地球曲率）']
+                ];
+                rowsData.forEach(([v, k]) => {
+                    const row = document.createElement('div');
+                    const b = document.createElement('b'); b.textContent = v;
+                    const sp = document.createElement('span'); sp.textContent = ' ' + k;
+                    row.append(b, sp); tip.appendChild(row);
+                });
+                tip.style.display = 'block';
+                const tx = xs(p.d) + 12;
+                tip.style.left = (tx + 170 > W ? xs(p.d) - 182 : tx) + 'px';
+                tip.style.top = (m.t + 4) + 'px';
+                if (profileHoverMarker) { profileHoverMarker.setLatLng([p.lat, p.lon]); if (!map.hasLayer(profileHoverMarker)) profileHoverMarker.addTo(profileLayer); }
+            });
+            hit.addEventListener('pointerleave', () => {
+                cross.setAttribute('visibility', 'hidden');
+                tip.style.display = 'none';
+                if (profileHoverMarker) profileLayer.removeLayer(profileHoverMarker);
+            });
+        }
+
+        function closeProfile() {
+            const panel = document.getElementById('profilePanel');
+            const ctl = document.querySelector('.map-controls');
+            if (panel.style.display === 'flex' && ctl && panel._ctlWasOpen) ctl.open = true;
+            panel.style.display = 'none';
+            currentProfile = null;
+            if (profileLayer) profileLayer.clearLayers();
+        }
+
+        function downloadProfileCSV() {
+            const P = currentProfile;
+            if (!P || !P.pts || P.pts[0].e === undefined) return;
+            computeProfile(P);
+            const head = ['距起點(km)', '緯度', '經度', '地形高度(m)', '地球曲率修正(m)', '視線高度(m)', '餘裕(m)'];
+            const rows = P.pts.map(p => [p.d.toFixed(3), p.lat.toFixed(6), p.lon.toFixed(6), p.e.toFixed(1), p.bulge.toFixed(1), p.los.toFixed(1), p.clear.toFixed(1)].join(','));
+            const url = URL.createObjectURL(new Blob(['﻿' + [`"${P.A.n} → ${P.B.n}"`, head.join(','), ...rows].join('\n')], { type: 'text/csv;charset=utf-8;' }));
+            const a = document.createElement('a');
+            a.href = url; a.download = `地形剖面_${P.A.n}_${P.B.n}.csv`;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        ['antennaA', 'antennaB'].forEach(id => document.getElementById(id).addEventListener('input', renderProfile));
+        window.addEventListener('resize', () => { if (currentProfile && document.getElementById('profilePanel').style.display !== 'none') renderProfile(); });
+
 
         window.onload = () => { loadDataAndInit(); lucide.createIcons(); };
     </script>

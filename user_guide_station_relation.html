@@ -1,0 +1,694 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>測站通訊監控系統 — 操作說明手冊</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+:root {
+  --c-center: #38a169;
+  --c-hub:    #e53e3e;
+  --c-auto:   #4299e1;
+  --c-text:   #2d3748;
+  --c-muted:  #718096;
+  --c-bg:     #f7fafc;
+  --c-panel:  #ffffff;
+  --c-border: #e2e8f0;
+  --c-accent: #3182ce;
+  --toc-w:    260px;
+}
+
+body {
+  font-family: "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  background: var(--c-bg);
+  color: var(--c-text);
+  line-height: 1.75;
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ── TOC 側邊欄 ── */
+#toc {
+  width: var(--toc-w);
+  min-width: var(--toc-w);
+  background: var(--c-panel);
+  border-right: 1px solid var(--c-border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 28px 0 40px;
+  flex-shrink: 0;
+}
+#toc-brand {
+  padding: 0 18px 16px;
+  border-bottom: 1px solid var(--c-border);
+  margin-bottom: 14px;
+}
+#toc-brand .sys-name { font-size: 12px; font-weight: 700; color: var(--c-accent); letter-spacing:.05em; }
+#toc-brand .doc-name { font-size: 14px; font-weight: 800; color: var(--c-text); margin-top: 2px; }
+#toc-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing:.1em;
+  color: var(--c-muted); padding: 0 18px 8px; text-transform: uppercase;
+}
+.toc-a {
+  display: block; padding: 5px 18px;
+  font-size: 13px; color: var(--c-muted);
+  text-decoration: none; border-left: 3px solid transparent;
+  transition: all .15s;
+}
+.toc-a:hover { color: var(--c-accent); background: #ebf8ff; }
+.toc-a.active { color: var(--c-accent); border-left-color: var(--c-accent); background: #ebf8ff; font-weight: 600; }
+.toc-a.sub { padding-left: 34px; font-size: 12px; }
+.toc-sep { height: 1px; background: var(--c-border); margin: 10px 18px; }
+
+/* ── 主內容 ── */
+#main {
+  flex: 1;
+  padding: 48px 60px 80px;
+  max-width: 900px;
+}
+
+.doc-hero {
+  margin-bottom: 52px;
+  padding-bottom: 28px;
+  border-bottom: 2px solid var(--c-border);
+}
+.doc-hero h1 { font-size: 30px; font-weight: 800; color: var(--c-text); }
+.doc-hero .sub { font-size: 15px; color: var(--c-muted); margin-top: 6px; }
+.tag {
+  display:inline-block; padding:2px 10px; border-radius:99px;
+  font-size:11px; font-weight:700; margin-right:6px; margin-top:10px;
+}
+.tag-v { background:#c6f6d5; color:#276749; }
+.tag-d { background:#bee3f8; color:#2a69ac; }
+.tag-new { background:#fefcbf; color:#b7791f; border: 1px solid #ecc94b; }
+
+/* 章節 */
+.chapter { margin-bottom: 72px; scroll-margin-top: 20px; }
+h2 {
+  font-size: 19px; font-weight: 800; color: var(--c-text);
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 18px; padding-bottom: 10px;
+  border-bottom: 2px solid var(--c-border);
+}
+h2 .num {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:28px; height:28px; background:var(--c-accent); color:#fff;
+  border-radius:6px; font-size:13px; font-weight:800; flex-shrink:0;
+}
+h3 { font-size:15px; font-weight:700; color:var(--c-text); margin:24px 0 10px; }
+p  { font-size:14.5px; margin-bottom:12px; }
+
+/* 插圖框 */
+.fig {
+  background:var(--c-panel); border:1px solid var(--c-border); border-radius:12px;
+  padding:24px; margin:20px 0; text-align:center; overflow:hidden;
+}
+.fig svg { max-width:100%; height:auto; }
+.fig-cap { font-size:12px; color:var(--c-muted); margin-top:10px; font-style:italic; }
+
+/* 說明方塊 */
+.callout {
+  border-radius:8px; padding:14px 16px; margin:16px 0;
+  font-size:13.5px; display:flex; gap:10px; align-items:flex-start;
+}
+.callout .ico { font-size:18px; flex-shrink:0; margin-top:1px; }
+.callout p { margin:0; }
+.note  { background:#ebf8ff; border-left:4px solid var(--c-accent); }
+.tip   { background:#f0fff4; border-left:4px solid #38a169; }
+.warn  { background:#fffff0; border-left:4px solid #d69e2e; }
+
+/* 圖例格 */
+.legend-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:16px 0; }
+.legend-item {
+  display:flex; align-items:center; gap:12px;
+  background:var(--c-panel); border:1px solid var(--c-border);
+  border-radius:8px; padding:10px 14px; font-size:13.5px;
+}
+
+/* 步驟清單 */
+ol.steps { counter-reset:s; list-style:none; margin:12px 0; }
+ol.steps li {
+  counter-increment:s; position:relative; padding:9px 0 9px 44px;
+  border-bottom:1px dashed var(--c-border); font-size:14px;
+}
+ol.steps li:last-child { border-bottom:none; }
+ol.steps li::before {
+  content:counter(s);
+  position:absolute; left:0; top:9px;
+  width:26px; height:26px; background:var(--c-accent); color:#fff;
+  border-radius:50%; text-align:center; line-height:26px;
+  font-size:12px; font-weight:700;
+}
+
+/* 表格 */
+table { width:100%; border-collapse:collapse; margin:16px 0; font-size:13.5px; }
+th { background:#edf2f7; padding:9px 14px; text-align:left; font-weight:700; border:1px solid var(--c-border); }
+td { padding:9px 14px; border:1px solid var(--c-border); }
+tr:nth-child(even) td { background:#f7fafc; }
+
+/* 對比框 */
+.compare { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:20px 0; }
+.cbox { border:1px solid var(--c-border); border-radius:10px; overflow:hidden; }
+.clabel { font-size:12px; font-weight:700; padding:6px 14px; text-align:center; }
+.clabel.before { background:#fed7d7; color:#742a2a; }
+.clabel.after  { background:#c6f6d5; color:#22543d; }
+
+kbd {
+  background:#edf2f7; border:1px solid #cbd5e0;
+  border-radius:4px; padding:1px 7px; font-size:12px; font-family:monospace;
+}
+strong { color: var(--c-text); }
+</style>
+</head>
+<body>
+
+<nav id="toc">
+  <div id="toc-brand">
+    <div class="sys-name">MOGIS</div>
+    <div class="doc-name">測站通訊監控系統<br>操作說明手冊</div>
+  </div>
+  <div id="toc-label">目錄</div>
+  <a class="toc-a" href="#ch1">1 &nbsp;系統簡介</a>
+  <a class="toc-a" href="#ch2">2 &nbsp;介面佈局</a>
+  <a class="toc-a sub" href="#ch2-map">地圖主區</a>
+  <a class="toc-a sub" href="#ch2-sidebar">左側欄</a>
+  <a class="toc-a sub" href="#ch2-panel">圖層控制面板</a>
+  <div class="toc-sep"></div>
+  <a class="toc-a" href="#ch3">3 &nbsp;測站圖例與模式</a>
+  <a class="toc-a sub" href="#ch3-link">通訊關聯模式（預設）</a>
+  <a class="toc-a sub" href="#ch3-category">全站分類模式</a>
+  <div class="toc-sep"></div>
+  <a class="toc-a" href="#ch4">4 &nbsp;視圖模式與圖層控制</a>
+  <a class="toc-a sub" href="#ch4-toggle">雙模式切換</a>
+  <a class="toc-a sub" href="#ch4-tree">主子分類連動過濾</a>
+  <a class="toc-a sub" href="#ch4-export">匯出 SVG 圖片</a>
+  <div class="toc-sep"></div>
+  <a class="toc-a" href="#ch5">5 &nbsp;站名標籤顯示</a>
+  <a class="toc-a sub" href="#ch5-auto">自動顯示邏輯</a>
+  <a class="toc-a sub" href="#ch5-btn">手動切換按鈕</a>
+  <div class="toc-sep"></div>
+  <a class="toc-a" href="#ch6">6 &nbsp;聚焦功能</a>
+  <a class="toc-a sub" href="#ch6-how">操作與解除方式</a>
+  <a class="toc-a sub" href="#ch6-scope">轄下範圍定義</a>
+  <div class="toc-sep"></div>
+  <a class="toc-a" href="#ch7">7 &nbsp;站點資訊彈窗</a>
+  <div class="toc-sep"></div>
+  <a class="toc-a" href="#ch8">8 &nbsp;搜尋與瀏覽</a>
+  <div class="toc-sep"></div>
+  <a class="toc-a" href="#ch9">9 &nbsp;地形與分析工具</a>
+  <a class="toc-a sub" href="#ch9-basemap">底圖與地形陰影</a>
+  <a class="toc-a sub" href="#ch9-profile">連線地形剖面</a>
+  <a class="toc-a sub" href="#ch9-long">長距離連線標示</a>
+  <a class="toc-a sub" href="#ch9-export">匯出轄下測站</a>
+  <a class="toc-a sub" href="#ch9-url">分享聚焦連結</a>
+</nav>
+
+<main id="main">
+
+  <div class="doc-hero">
+    <h1>測站通訊監控系統<br>操作說明手冊</h1>
+    <p class="sub">涵蓋介面操作、雙模式切換、圖層控制、聚焦功能與搜尋瀏覽的完整使用指南</p>
+    <span class="tag tag-v">v2025.10 更新版</span>
+    <span class="tag tag-d">CWA / MOGIS</span>
+  </div>
+
+  <section class="chapter" id="ch1">
+    <h2><span class="num">1</span>系統簡介</h2>
+    <p>
+      <strong>測站通訊監控系統</strong>是一套以互動式地圖為核心的網頁應用，
+      支援雙重檢視模式：可視覺化呈現氣象站點間的<strong>通訊拓撲結構</strong>，或是宏觀檢視全台各部會單位的<strong>分類分佈</strong>。
+      操作人員可透過本系統快速掌握各站點的地理分布、隸屬關係及轄下站數，
+      並以聚焦功能深入檢視特定站點的管轄範圍。
+    </p>
+
+    <h3>主要功能一覽</h3>
+    <table>
+      <tr><th>功能</th><th>說明</th></tr>
+      <tr><td>雙模式切換 <span class="tag tag-new" style="margin:0;">NEW</span></td><td>提供專業的「通訊關聯模式」與直觀的「全站分類模式」無縫切換。</td></tr>
+      <tr><td>多圖層地圖</td><td>支援主、子分類階層連動勾選，獨立控制各單位圖層的顯示狀態。</td></tr>
+      <tr><td>站名標籤</td><td>依縮放層級自動顯示，或透過「名」按鈕手動切換三態（自動/強制顯示/強制隱藏）。</td></tr>
+      <tr><td>聚焦功能</td><td>點選區域中心/中繼站，即時淡化非轄下站點，點擊地圖空白處即可快速解除。</td></tr>
+      <tr><td>站點資訊彈窗</td><td>顯示地址、座標、轄下中繼站與自動站統計數。</td></tr>
+      <tr><td>搜尋與瀏覽</td><td>支援關鍵字即時搜尋，以及依資料夾階層展開過濾。</td></tr>
+      <tr><td>向量圖匯出</td><td>一鍵將目前畫面的所有圖層完美匯出為高畫質 SVG 檔案。</td></tr>
+    </table>
+
+    <div class="callout note">
+      <span class="ico">💡</span>
+      <p>本系統以 <strong>Leaflet.js</strong> 為地圖引擎，使用前請確認瀏覽器已連線（地圖底圖需要網路）。
+      測站資料從本地 <code>stationData.json</code> 載入，無需額外登入帳號。</p>
+    </div>
+  </section>
+
+  <section class="chapter" id="ch2">
+    <h2><span class="num">2</span>介面佈局</h2>
+    <p>系統介面分為三個主要區域：左側欄、地圖主區、圖層控制面板。</p>
+
+    <div class="fig">
+      <svg viewBox="0 0 700 360" xmlns="http://www.w3.org/2000/svg">
+        <rect width="700" height="360" rx="10" fill="#f0f4f8"/>
+        <rect x="2" y="2" width="190" height="356" rx="8 0 0 8" fill="#2c3e50"/>
+        <text x="16" y="26" fill="#a0aec0" font-size="10" font-family="sans-serif" font-weight="700" letter-spacing="1">MOGIS</text>
+        <rect x="10" y="34" width="172" height="22" rx="5" fill="#3d4f61"/>
+        <text x="18" y="49" fill="#718096" font-size="10" font-family="sans-serif">🔍 搜尋測站名稱…</text>
+        <line x1="10" y1="64" x2="182" y2="64" stroke="#3d4f61" stroke-width="1"/>
+        <rect x="10" y="72" width="172" height="18" rx="4" fill="#3d4f61"/>
+        <text x="18" y="85" fill="#e2e8f0" font-size="10.5" font-family="sans-serif">▶ 署屬站</text>
+        <text x="28" y="107" fill="#718096" font-size="10" font-family="sans-serif">▶ 北部地區</text>
+        <text x="28" y="123" fill="#718096" font-size="10" font-family="sans-serif">▶ 中部地區</text>
+        <text x="16" y="148" fill="#718096" font-size="10.5" font-family="sans-serif">▶ 農業站</text>
+        <text x="16" y="166" fill="#718096" font-size="10.5" font-family="sans-serif">▶ 外單位</text>
+
+        <rect x="192" y="2" width="506" height="356" rx="0 8 8 0" fill="#dde4eb"/>
+        <ellipse cx="440" cy="195" rx="120" ry="155" fill="#e8dfc8" stroke="#c8bda0" stroke-width="1" opacity="0.6"/>
+        <line x1="400" y1="145" x2="420" y2="110" stroke="#38a169" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.5"/>
+        <circle cx="375" cy="170" r="4" fill="#4299e1" stroke="#fff" stroke-width="1"/>
+        <circle cx="400" cy="145" r="6" fill="#e53e3e" stroke="#fff" stroke-width="1.5"/>
+        <circle cx="420" cy="110" r="9" fill="#38a169" stroke="#f6e05e" stroke-width="2"/>
+        
+        <rect x="460" y="150" width="8" height="8" fill="#d69e2e" stroke="#fff" rx="1"/>
+        <polygon points="410,236 414,244 406,244" fill="#48bb78" stroke="#fff" stroke-width="1"/>
+
+        <rect x="530" y="14" width="160" height="230" rx="8" fill="white" stroke="#e2e8f0" stroke-width="1"/>
+        <text x="542" y="32" fill="#2d3748" font-size="10" font-family="sans-serif" font-weight="700">圖層設定</text>
+        <line x1="530" y1="38" x2="690" y2="38" stroke="#e2e8f0" stroke-width="1"/>
+        <rect x="542" y="44" width="136" height="22" rx="4" fill="#edf2f7"/>
+        <rect x="544" y="46" width="66" height="18" rx="3" fill="#fff" filter="drop-shadow(0 1px 1px rgba(0,0,0,0.1))"/>
+        <text x="577" y="58" fill="#3182ce" font-size="9" font-family="sans-serif" text-anchor="middle" font-weight="bold">關聯模式</text>
+        <text x="643" y="58" fill="#718096" font-size="9" font-family="sans-serif" text-anchor="middle">分類模式</text>
+        
+        <rect x="542" y="74" width="136" height="16" rx="3" fill="#fff" stroke="#cbd5e0" stroke-width="1"/>
+        <text x="610" y="85" fill="#4a5568" font-size="9" font-family="sans-serif" text-anchor="middle">📥 匯出 SVG</text>
+
+        <line x1="542" y1="98" x2="678" y2="98" stroke="#e2e8f0" stroke-width="1"/>
+        <rect x="542" y="106" width="10" height="10" rx="2" fill="#3182ce"/>
+        <text x="557" y="115" fill="#2d3748" font-size="9" font-family="sans-serif">● 區域中心</text>
+        <rect x="542" y="122" width="10" height="10" rx="2" fill="#3182ce"/>
+        <text x="557" y="131" fill="#2d3748" font-size="9" font-family="sans-serif">● 中繼站</text>
+
+        <line x1="96" y1="345" x2="96" y2="355" stroke="#718096" stroke-width="1" marker-end="url(#arr)"/>
+        <text x="96" y="358" fill="#4a5568" font-size="10" font-family="sans-serif" text-anchor="middle" dy="8">左側欄</text>
+        <text x="350" y="355" fill="#4a5568" font-size="10" font-family="sans-serif" text-anchor="middle">地圖主區</text>
+        <text x="610" y="260" fill="#4a5568" font-size="10" font-family="sans-serif" text-anchor="middle">圖層控制面板（含模式切換）</text>
+      </svg>
+      <div class="fig-cap">圖 2-1 &nbsp;系統介面三大區域示意圖</div>
+    </div>
+
+    <h3 id="ch2-map">地圖主區</h3>
+    <p>
+      地圖主區佔畫面右側大部分空間，以 CartoDB 淺色底圖呈現台灣地形，
+      並疊加測站點位與通訊連線。可使用滑鼠滾輪縮放，拖拽平移，
+      點擊站點開啟資訊彈窗。縮放控制按鈕位於右下角。
+    </p>
+
+    <h3 id="ch2-sidebar">左側欄</h3>
+    <p>
+      左側欄包含搜尋列與樹狀站點清單。點擊葉節點站名可在地圖上跳至並標示該站；
+      展開上層節點可聚焦該群組的所有站點。<strong>（註：當切換至「分類模式」時，為保持畫面專注，側邊欄會自動收合隱藏。）</strong>
+    </p>
+
+    <h3 id="ch2-panel">圖層控制面板</h3>
+    <p>
+      地圖右上角的折疊式面板提供所有圖層與站名標籤的開關控制。面板頂端包含<strong>「模式切換藥丸按鈕」</strong>與<strong>「匯出 SVG」</strong>功能。
+    </p>
+  </section>
+
+  <section class="chapter" id="ch3">
+    <h2><span class="num">3</span>測站圖例與模式</h2>
+    <p>為了滿足不同的觀測需求，本系統提供兩種截然不同的顯示模式：</p>
+
+    <h3 id="ch3-link">模式一：通訊關聯模式（預設）</h3>
+    <p>專為監控<strong>通訊拓撲</strong>設計，以圓點大小與紅綠連線呈現隸屬關係。</p>
+    <div class="legend-grid">
+      <div class="legend-item">
+        <svg width="22" height="22"><circle cx="11" cy="11" r="10" fill="#38a169" stroke="#f6e05e" stroke-width="2.5"/></svg>
+        <div>
+          <strong>區域中心</strong><br>
+          <span style="font-size:12px;color:#718096;">最頂層節點，綠底黃框，尺寸最大。<br>管轄多個中繼站。</span>
+        </div>
+      </div>
+      <div class="legend-item">
+        <svg width="22" height="22"><circle cx="11" cy="11" r="7" fill="#e53e3e" stroke="#fff" stroke-width="2"/></svg>
+        <div>
+          <strong>中繼站</strong><br>
+          <span style="font-size:12px;color:#718096;">中層節點，紅色圓點，中等尺寸。<br>管轄多個自動站。</span>
+        </div>
+      </div>
+      <div class="legend-item">
+        <svg width="22" height="22"><circle cx="11" cy="11" r="5" fill="#4299e1" stroke="#fff" stroke-width="1.5"/></svg>
+        <div>
+          <strong>自動站</strong><br>
+          <span style="font-size:12px;color:#718096;">底層節點，藍色圓點，尺寸最小。<br>隸屬於某個中繼站。</span>
+        </div>
+      </div>
+      <div class="legend-item">
+        <svg width="22" height="22" viewBox="0 0 22 22">
+          <circle cx="5" cy="5" r="4" fill="#e53e3e" />
+          <line x1="8" y1="8" x2="16" y2="16" stroke="#38a169" stroke-width="2" stroke-dasharray="3,2"/>
+          <circle cx="18" cy="18" r="4" fill="#38a169" />
+        </svg>
+        <div>
+          <strong>通訊連線</strong><br>
+          <span style="font-size:12px;color:#718096;">紅虛線：自動站 ➔ 中繼站<br>綠虛線：中繼站 ➔ 區域中心</span>
+        </div>
+      </div>
+    </div>
+
+    <h3 id="ch3-category">模式二：全站分類模式 <span class="tag tag-new" style="margin:0 0 0 8px;">NEW</span></h3>
+    <p>專為檢視<strong>各部會單位分佈</strong>設計，不顯示連線，並利用<strong>「形狀區分大類、顏色區分單位」</strong>的邏輯呈現全台所有站點。</p>
+    <div class="legend-grid">
+      <div class="legend-item">
+        <svg width="22" height="22"><circle cx="11" cy="11" r="8" fill="#805ad5" stroke="#fff" stroke-width="1.5"/></svg>
+        <div>
+          <strong>署屬站系列 (圓形 ●)</strong><br>
+          <span style="font-size:12px;color:#718096;">綠色=區域站，藍色=4G數據，<br>紫色=有人站。</span>
+        </div>
+      </div>
+      <div class="legend-item">
+        <svg width="22" height="22"><rect x="4" y="4" width="14" height="14" fill="#00b5d8" stroke="#fff" stroke-width="1.5" rx="2"/></svg>
+        <div>
+          <strong>外單位系列 (方形 ■)</strong><br>
+          <span style="font-size:12px;color:#718096;">依顏色細分：水利署、各水庫、<br>北市府、河川局、水保署等。</span>
+        </div>
+      </div>
+      <div class="legend-item">
+        <svg width="22" height="22"><polygon points="11,2 20,11 11,20 2,11" fill="#4a5568" stroke="#fff" stroke-width="1.5"/></svg>
+        <div>
+          <strong>國快道路 (菱形 ◆)</strong><br>
+          <span style="font-size:12px;color:#718096;">鐵灰=高公局，橘色=西濱快速道路。</span>
+        </div>
+      </div>
+      <div class="legend-item">
+        <svg width="22" height="22">
+          <polygon points="5,15 11,4 17,15" fill="#48bb78" stroke="#fff" stroke-width="1.5"/>
+          <polygon points="17,6 11,17 5,6" fill="#f56565" stroke="#fff" stroke-width="1.5" transform="translate(4,4) scale(0.6)"/>
+        </svg>
+        <div>
+          <strong>農業 / 合作站 (三角形)</strong><br>
+          <span style="font-size:12px;color:#718096;">正三角=農業站，倒三角=合作站。</span>
+        </div>
+      </div>
+      <div class="legend-item">
+        <svg width="22" height="22"><polygon points="8,4 14,4 14,8 18,8 18,14 14,14 14,18 8,18 8,14 4,14 4,8 8,8" fill="#9ae6b4" stroke="#4a5568" stroke-width="1"/></svg>
+        <div>
+          <strong>環境部 (十字 ✚)</strong><br>
+          <span style="font-size:12px;color:#718096;">黃綠色十字形圖標。</span>
+        </div>
+      </div>
+      <div class="legend-item">
+        <svg width="22" height="22"><polygon points="11,2 14,8 21,9 16,14 17,21 11,18 5,21 6,14 1,9 8,8" fill="#63b3ed" stroke="#fff" stroke-width="1"/></svg>
+        <div>
+          <strong>民航局 (星形 ★)</strong><br>
+          <span style="font-size:12px;color:#718096;">天空藍星形圖標。</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="chapter" id="ch4">
+    <h2><span class="num">4</span>視圖模式與圖層控制</h2>
+
+    <h3 id="ch4-toggle">雙模式切換</h3>
+    <p>在圖層控制面板最上方，點擊灰白藥丸按鈕即可無縫切換兩種模式。切換至「分類模式」時，為確保視野廣闊，<strong>地圖將自動縮放回全台視圖，並自動隱藏左側目錄。</strong></p>
+
+    <h3 id="ch4-tree">主、子分類連動過濾 (分類模式下)</h3>
+    <p>在分類模式中，控制面板會呈現如樹狀結構的核取方塊：</p>
+    <ol class="steps">
+      <li><strong>一鍵全選/取消</strong>：點擊大分類標題旁的主開關（例如：「外單位系列」），即可一鍵開啟或隱藏該群組下所有的子單位。</li>
+      <li><strong>獨立細項過濾</strong>：可單獨勾選或取消下方的小分類（例如：單獨關閉「石門水庫」）。此時，大分類的主開關會自動變成<strong>半選狀態（-）</strong>，邏輯極為清晰。</li>
+    </ol>
+
+    <h3 id="ch4-export">匯出 SVG 圖片</h3>
+    <p>無論在何種模式下，點擊圖層控制面板上方的 <strong>「📥 匯出目前視圖 (SVG)」</strong> 按鈕，系統會將您「當下所見」的地圖範圍、站點幾何形狀、顏色、站名與連線，完美轉譯為向量圖形（<code>Map_Export.svg</code>）並自動下載。向量圖形支援無限放大不失真，非常適合用於簡報或報告排版中。</p>
+  </section>
+
+  <section class="chapter" id="ch5">
+    <h2><span class="num">5</span>站名標籤顯示</h2>
+    <p>
+      站名標籤分為兩種控制模式：<strong>自動顯示（依 zoom 層級）</strong>與<strong>手動切換（「名」按鈕）</strong>，
+      兩者以三態邏輯協同運作。
+    </p>
+
+    <h3 id="ch5-auto">自動顯示邏輯</h3>
+    <table>
+      <tr><th>站型</th><th>自動顯示條件</th><th>備注</th></tr>
+      <tr><td>🟢 區域中心</td><td>zoom ≥ 7（含，看到全台層級）</td><td>幾乎始終顯示</td></tr>
+      <tr><td>🔴 中繼站</td><td>zoom ≥ 10（縣市層級以上）</td><td>放大至縣市才自動出現</td></tr>
+      <tr><td>🔵 自動站</td><td>永不自動顯示</td><td>須手動開啟，且 zoom > 10</td></tr>
+    </table>
+
+    <h3 id="ch5-btn">手動切換「名」按鈕與三態邏輯</h3>
+    <p>
+      在<strong>「關聯模式」</strong>中，每個站型旁的<strong>「名」按鈕</strong>支援三種狀態，點擊即在三態之間循環切換：
+    </p>
+    <table>
+      <tr><th>狀態</th><th>外觀</th><th>行為</th></tr>
+      <tr><td><strong>null（跟隨自動）</strong></td><td>灰底（預設）</td><td>完全依自動顯示規則決定標籤是否出現</td></tr>
+      <tr><td><strong>true（強制顯示）</strong></td><td>藍底 ✓</td><td>無論 zoom 多少，強制顯示此站型名稱</td></tr>
+      <tr><td><strong>false（強制隱藏）</strong></td><td>灰底（同預設）</td><td>即使 zoom 條件滿足，也強制隱藏名稱</td></tr>
+    </table>
+
+    <div class="callout warn">
+      <span class="ico">⚠️</span>
+      <p>自動站「名」按鈕在 zoom ≤ 10 時為<strong>停用（灰化）</strong>狀態，
+      需放大至縣市層級（zoom > 10）才能啟用，避免大量標籤造成渲染延遲。</p>
+    </div>
+  </section>
+
+  <section class="chapter" id="ch6">
+    <h2><span class="num">6</span>聚焦功能</h2>
+    <p>
+      聚焦功能讓使用者可以即時「框出」某個區域中心或中繼站的管轄範圍，
+      將非轄下的站點與連線淡化為幾乎透明的淺灰色，突顯該管轄區的拓撲結構。（支援所有視圖模式）
+    </p>
+
+    <h3 id="ch6-how">操作與解除方式</h3>
+    <ol class="steps">
+      <li>在地圖上找到想聚焦的<strong>區域中心</strong>或<strong>中繼站</strong>。</li>
+      <li><strong>點擊</strong>該站點圖示 → 聚焦啟動，其他非同群組的站點將變暗。</li>
+      <li>點擊<strong>不同</strong>的區域中心或中繼站 → 直接切換聚焦到新的站點。</li>
+      <li><strong>解除聚焦</strong>：您可以再次點擊「同一個站點」，或是直接<strong>點擊地圖空白處</strong>（海域或無站點區域），即可快速取消聚焦，恢復全台正常顯示。</li>
+    </ol>
+
+    <h3 id="ch6-scope">轄下範圍定義</h3>
+    <table>
+      <tr><th>點選的站</th><th>保持彩色（轄下）</th><th>淡化</th></tr>
+      <tr>
+        <td>區域中心</td>
+        <td>
+          ① 區域中心本身<br>
+          ② 該區域所有中繼站<br>
+          ③ 那些中繼站轄下的所有自動站
+        </td>
+        <td>其他所有站點與連線</td>
+      </tr>
+      <tr>
+        <td>中繼站</td>
+        <td>
+          ① 中繼站本身<br>
+          ② 指向此站的所有自動站<br>
+          ③ 該中繼站連往區域中心的連線
+        </td>
+        <td>其他所有站點與連線</td>
+      </tr>
+    </table>
+    
+    <div class="callout tip">
+      <span class="ico">📌</span>
+      <p>聚焦模式啟動後，<strong>轄下所有自動站的名稱會自動顯示</strong>，
+      無需手動開啟「名」按鈕，也不受縮放限制，讓您能快速核對管轄範圍內的站點清單。</p>
+    </div>
+  </section>
+
+  <section class="chapter" id="ch7">
+    <h2><span class="num">7</span>站點資訊彈窗</h2>
+    <p>
+      點擊地圖上任一站點圓點，會彈出資訊視窗顯示該站的詳細資訊。
+      （聚焦中繼站/區域中心時，彈窗會在重繪後自動重開。）
+    </p>
+
+    <div class="fig">
+      <svg viewBox="0 0 520 260" xmlns="http://www.w3.org/2000/svg">
+        <rect width="520" height="260" fill="#e8edf2"/>
+        <circle cx="140" cy="130" r="10" fill="#38a169" stroke="#f6e05e" stroke-width="2.5"/>
+        <line x1="150" y1="122" x2="180" y2="90" stroke="#9ca3af" stroke-width="1" stroke-dasharray="3,2"/>
+        <rect x="180" y="30" width="320" height="200" rx="10" fill="white" stroke="#e2e8f0" stroke-width="1.5" filter="drop-shadow(0 3px 8px rgba(0,0,0,0.12))"/>
+        <text x="200" y="60" fill="#2d3748" font-size="14" font-family="sans-serif" font-weight="800">北部區域氣象中心</text>
+        <line x1="188" y1="70" x2="492" y2="70" stroke="#e2e8f0" stroke-width="1"/>
+        <text x="200" y="92"  fill="#718096" font-size="11" font-family="sans-serif">區域站</text>
+        <text x="270" y="92"  fill="#2d3748" font-size="11" font-family="sans-serif">北部區</text>
+        <text x="200" y="112" fill="#718096" font-size="11" font-family="sans-serif">站碼</text>
+        <text x="270" y="112" fill="#2d3748" font-size="11" font-family="sans-serif">466920</text>
+        <text x="200" y="132" fill="#718096" font-size="11" font-family="sans-serif">座標</text>
+        <text x="270" y="132" fill="#2d3748" font-size="11" font-family="sans-serif">25.04521, 121.51430</text>
+        <text x="200" y="152" fill="#718096" font-size="11" font-family="sans-serif">地址</text>
+        <text x="270" y="152" fill="#2d3748" font-size="11" font-family="sans-serif">台北市信義區…</text>
+        <line x1="188" y1="163" x2="492" y2="163" stroke="#e2e8f0" stroke-width="1"/>
+        <text x="200" y="182" fill="#718096" font-size="11" font-family="sans-serif">管轄中繼站</text>
+        <text x="310" y="182" fill="#e53e3e" font-size="13" font-family="sans-serif" font-weight="800">8</text>
+        <text x="322" y="182" fill="#2d3748" font-size="11" font-family="sans-serif">站</text>
+        <text x="200" y="202" fill="#718096" font-size="11" font-family="sans-serif">管轄自動站</text>
+        <text x="310" y="202" fill="#4299e1" font-size="13" font-family="sans-serif" font-weight="800">47</text>
+        <text x="326" y="202" fill="#2d3748" font-size="11" font-family="sans-serif">站</text>
+        <rect x="430" y="172" width="55" height="22" rx="4" fill="#fff0f0" stroke="#e53e3e" stroke-width="1"/>
+        <text x="457" y="187" fill="#e53e3e" font-size="9.5" font-family="sans-serif" text-anchor="middle" font-weight="700">轄下統計</text>
+      </svg>
+      <div class="fig-cap">圖 7-1 &nbsp;區域中心站點資訊彈窗示意（含轄下中繼站與自動站統計）</div>
+    </div>
+
+    <table>
+      <tr><th>彈窗欄位</th><th>說明</th><th>顯示對象</th></tr>
+      <tr><td>區域站</td><td>所屬區域名稱 / 單位名稱</td><td>全部</td></tr>
+      <tr><td>站碼</td><td>CWA 站碼（cwbid）</td><td>全部</td></tr>
+      <tr><td>座標</td><td>緯度、經度（5位小數）</td><td>全部</td></tr>
+      <tr><td>地址</td><td>站址</td><td>全部</td></tr>
+      <tr><td>管轄中繼站</td><td>轄下中繼站數量</td><td>區域中心</td></tr>
+      <tr><td>管轄自動站</td><td>轄下自動站數量（經由各中繼站）</td><td>區域中心</td></tr>
+      <tr><td>管轄自動站</td><td>直接轄下的自動站數量</td><td>中繼站</td></tr>
+      <tr><td>連線至 <span class="tag tag-new">NEW</span></td><td>上層連線對象：有所屬中繼站者為該中繼站，否則為所屬區域中心</td><td>中繼站、自動站</td></tr>
+      <tr><td>連線距離 <span class="tag tag-new">NEW</span></td><td>與上層連線對象的直線距離（km）</td><td>中繼站、自動站</td></tr>
+      <tr><td>海拔差 <span class="tag tag-new">NEW</span></td><td>本站與上層站的海拔差（兩站皆有海拔資料時顯示）</td><td>中繼站、自動站</td></tr>
+    </table>
+
+    <p>彈窗下方另有功能按鈕 <span class="tag tag-new">NEW</span>：</p>
+    <table>
+      <tr><th>按鈕</th><th>功能</th><th>顯示對象</th></tr>
+      <tr><td>📈 地形剖面</td><td>開啟本站到上層站的地形剖面圖，詳見 <a href="#ch9-profile">9.2</a></td><td>中繼站、自動站</td></tr>
+      <tr><td>📥 匯出轄下測站</td><td>下載轄下所有測站清單（CSV），詳見 <a href="#ch9-export">9.4</a></td><td>區域中心、中繼站</td></tr>
+      <tr><td>🔗 複製連結</td><td>複製可直接開到本站的網址，詳見 <a href="#ch9-url">9.5</a></td><td>全部</td></tr>
+    </table>
+
+    <div class="callout tip">
+      <span class="ico">✅</span>
+      <p>彈窗開著時縮放地圖，或從搜尋／清單點選測站讓地圖飛過去，彈窗都會<strong>保持開啟</strong>。</p>
+    </div>
+  </section>
+
+  <section class="chapter" id="ch8">
+    <h2><span class="num">8</span>搜尋與瀏覽</h2>
+
+    <h3>關鍵字搜尋</h3>
+    <ol class="steps">
+      <li>在左側欄上方搜尋列輸入站名關鍵字（中文、英文或站碼均可）</li>
+      <li>符合結果即時列出於下方清單（最多列出 100 筆；超過時會提示總筆數，請輸入更精確的關鍵字）</li>
+      <li>點擊清單中的站名 → 地圖自動飛至該站並開啟資訊彈窗</li>
+      <li>點擊 <kbd>×</kbd> 清除搜尋，回到樹狀清單</li>
+    </ol>
+
+    <h3>樹狀清單瀏覽</h3>
+    <ol class="steps">
+      <li>展開<strong>大類別</strong>（署屬站 / 外單位 / 高公局…）</li>
+      <li>展開<strong>子類別</strong>（區域站 / 水利署 / 北部地區 …）</li>
+      <li>展開<strong>資料夾</strong>（各區域分組）</li>
+      <li>點擊<strong>葉節點站名</strong> → 跳至地圖並高亮該站</li>
+      <li>點擊<strong>分組標題</strong> → 地圖縮放至該群組所有站點的涵蓋範圍</li>
+    </ol>
+
+    <div class="callout note">
+      <span class="ico">💡</span>
+      <p>
+        點擊左側目錄的標題，地圖會自動縮放至涵蓋該群組全部站點的範圍，
+        並只顯示該群組的站點（過濾模式）。
+        在過濾模式下，區域中心無論是否在過濾範圍內都會<strong>保持顯示</strong>，以便辨識行政歸屬。
+      </p>
+    </div>
+
+  </section>
+
+  <section class="chapter" id="ch9">
+    <h2><span class="num">9</span>地形與分析工具 <span class="tag tag-new" style="margin:0 0 0 8px;">NEW</span></h2>
+    <p>無線電鏈路是否暢通與地形高度相關，本章的工具協助從地圖上直接判讀站點所在地形、連線距離與地形遮蔽。</p>
+
+    <h3 id="ch9-basemap">9.1 底圖與地形陰影</h3>
+    <p>在右上角「圖層設定」的<strong>底圖</strong>選單切換底圖，兩種模式皆可使用：</p>
+    <table>
+      <tr><th>底圖</th><th>適用情境</th></tr>
+      <tr><td>一般街道</td><td>預設底圖，畫面乾淨，適合一般瀏覽</td></tr>
+      <tr><td>地形暈渲（國土測繪中心）</td><td>臺灣高解析地形暈渲圖，最適合判讀中繼站所在山頭與山脈走向</td></tr>
+      <tr><td>地形圖（Esri）</td><td>帶有地形起伏的彩色地圖</td></tr>
+    </table>
+    <p>勾選 <strong>🌄 疊加地形陰影</strong> 可在任一底圖上疊加山脈陰影。底圖與陰影設定會被記住，下次開啟自動套用。</p>
+
+    <h3 id="ch9-profile">9.2 連線地形剖面</h3>
+    <ol class="steps">
+      <li>點擊任一<strong>中繼站</strong>或<strong>自動站</strong>，開啟資訊彈窗</li>
+      <li>點擊 <strong>📈 地形剖面</strong>，地圖下方出現剖面面板，地圖上同時以藍色粗線標出該連線</li>
+      <li>滑鼠移到剖面圖上，可看到該點的距離、地形高度、視線高度與餘裕，地圖上的藍點會同步移動到對應位置</li>
+      <li>調整<strong>起點天線</strong>、<strong>終點天線</strong>高度（預設各 10 m），剖面立即重新計算</li>
+      <li>點擊 <strong>📥 剖面 CSV</strong> 可下載剖面數據；點擊 <strong>✕ 關閉</strong> 結束</li>
+    </ol>
+    <table>
+      <tr><th>圖面元素</th><th>意義</th></tr>
+      <tr><td>棕色面積</td><td>地形高度，已加上地球曲率修正（4/3 等效地球半徑）</td></tr>
+      <tr><td>藍色直線</td><td>兩端天線頂點之間的直線視線</td></tr>
+      <tr><td>紅色區段 ⚠</td><td>地形高於視線之處（遮蔽）</td></tr>
+      <tr><td>標示點</td><td>整條連線中餘裕最小（或遮蔽最嚴重）的位置</td></tr>
+    </table>
+    <div class="callout warn">
+      <span class="ico">⚠️</span>
+      <p>
+        剖面圖為<strong>初步判讀參考</strong>：未計入 Fresnel 區，天線高度為假設值，
+        地形資料來自 AWS Terrain Tiles（約 30–40 m 解析度），與站點登錄海拔可能有差異（面板中會並列顯示兩者）。
+        使用時電腦需能連到 s3.amazonaws.com。
+      </p>
+    </div>
+
+    <h3 id="ch9-long">9.3 長距離連線標示</h3>
+    <p>
+      在關聯模式的「圖層設定」中勾選 <strong>標示長距離連線</strong>，並輸入距離門檻（預設 20 km），
+      超過門檻的連線會以<span style="color:#dd6b20; font-weight:700;">橘色粗線</span>標示，方便找出可能需要檢討的長距離鏈路。
+      匯出 SVG 時也會保留此標示。
+    </p>
+
+    <h3 id="ch9-export">9.4 匯出轄下測站</h3>
+    <p>
+      在<strong>區域中心</strong>或<strong>中繼站</strong>的資訊彈窗點擊 <strong>📥 匯出轄下測站</strong>，
+      會下載該站轄下所有測站的 CSV 清單（範圍與 第 6 章<a href="#ch6-scope">「轄下範圍定義」</a> 相同），
+      欄位包含類型、站名、站碼、無線電站碼、所屬中繼站、區域站、經緯度、海拔、連線對象、連線距離與地址。
+      適合中繼站故障時快速掌握影響範圍與派工。
+    </p>
+
+    <h3 id="ch9-url">9.5 分享聚焦連結</h3>
+    <p>
+      聚焦任一測站時，瀏覽器網址會自動加上 <kbd>?focus=站碼</kbd>。
+      將此網址分享給同事，或點擊資訊彈窗的 <strong>🔗 複製連結</strong>，對方開啟後會直接聚焦到同一站。
+      可用於維修紀錄或通報訊息中附上連結。
+    </p>
+  </section>
+
+</main>
+
+<script>
+// ── 捲動時更新 TOC active 狀態 ──
+(function(){
+  const chapters = document.querySelectorAll('.chapter, h3[id]');
+  const links = document.querySelectorAll('#toc .toc-a');
+
+  function getIds(el) {
+    return [...el.querySelectorAll('[id]')].map(e => e.id).concat(el.id ? [el.id] : []);
+  }
+  const sections = [...document.querySelectorAll('#main [id]')];
+
+  function onScroll() {
+    let active = null;
+    for (const sec of sections) {
+      const rect = sec.getBoundingClientRect();
+      if (rect.top <= 60) active = sec.id;
+    }
+    links.forEach(a => {
+      const href = a.getAttribute('href').slice(1);
+      a.classList.toggle('active', href === active);
+    });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+</script>
+</body>
+</html>
